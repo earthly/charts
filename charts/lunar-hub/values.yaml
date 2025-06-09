@@ -1,0 +1,9 @@
+# This is to override the chart name.
+nameOverride: ""
+fullnameOverride: ""
+
+service:
+  # This sets the service type. See: https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-type for more information.
+  type: ClusterIP
+  # This sets the ports. See https://kubernetes.io/docs/concepts/services-networking/service/#field-spec-ports for more information.
+  port: 80
