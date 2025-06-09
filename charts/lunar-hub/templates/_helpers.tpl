@@ -49,3 +49,14 @@ Selector labels
 app.kubernetes.io/name: {{ include "lunar-hub.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
+
+{{/*
+Create the name of the service account to use
+*/}}
+{{- define "lunar-hub.serviceAccountName" -}}
+{{- if .Values.serviceAccount.create }}
+{{- default (include "lunar-hub.fullname" .) .Values.serviceAccount.name }}
+{{- else }}
+{{- default "default" .Values.serviceAccount.name }}
+{{- end }}
+{{- end }}

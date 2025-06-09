@@ -2,6 +2,17 @@
 nameOverride: ""
 fullnameOverride: ""
 
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Automatically mount a ServiceAccount's API credentials?
+  automount: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
 service:
   # This sets the service type. See: https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-type for more information.
   type: ClusterIP
