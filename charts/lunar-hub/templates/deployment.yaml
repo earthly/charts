@@ -1,0 +1,146 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "lunar-hub.fullname" . }}
+  labels:
+    {{- include "lunar-hub.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "lunar-hub.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "lunar-hub.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "lunar-hub.serviceAccountName" . }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- with .Values.hub }}
+          env:
+            - name: HUB_ROOT_DIR
+              value: {{ .rootDir | quote }}
+            - name: HUB_DB_NAME
+              value: {{ .db.name | quote }}
+            - name: HUB_DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .secrets.dbUser.secretName }}
+                  key: {{ .secrets.dbUser.secretKey }}
+            - name: HUB_DB_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .secrets.dbPass.secretName }}
+                  key: {{ .secrets.dbPass.secretKey }}
+            - name: HUB_DB_HOST
+              value: {{ .db.host | quote }}
+            - name: HUB_DB_PORT
+              value: {{ .db.port | quote }}
+            - name: HUB_DB_WAIT_SECS
+              value: {{ .db.waitSecs | quote }}
+            - name: HUB_GITHUB_WEBHOOK_PORT
+              value: {{ .githubWebhookPort | quote }}
+            - name: HUB_GITHUB_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .secrets.githubWebhookSecret.secretName }}
+                  key: {{ .secrets.githubWebhookSecret.secretKey }}
+            - name: HUB_GITHUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .secrets.githubToken.secretName }}
+                  key: {{ .secrets.githubToken.secretKey }}
+            - name: HUB_GITHUB_SYNC_WINDOW
+              value: {{ .githubSyncWindow | quote }}
+            - name: HUB_GRPC_PORT
+              value: {{ .grpcPort | quote }}
+            - name: HUB_HEALTH_PORT
+              value: {{ .healthPort | quote }}
+            - name: HUB_CODE_RUNNER_CHECKOUT
+              value: {{ .codeRunnerCheckout | quote }}
+            - name: HUB_POLICY_QUEUE_POLL_INTERVAL
+              value: {{ .policyQueue.pollInterval | quote }}
+            - name: HUB_POLICY_QUEUE_NUM_WORKERS
+              value: {{ .policyQueue.numWorkers | quote }}
+            - name: HUB_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .secrets.authToken.secretName }}
+                  key: {{ .secrets.authToken.secretKey }}
+          {{- end }}
+          {{- with .Values.hub.extraEnv }}
+          env:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+                    {{- if .Values.livenessProbe.enabled }}
+          {{- with .Values.livenessProbe }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+              initialDelaySeconds: {{ .initialDelaySeconds }}
+              periodSeconds: {{ .periodSeconds }}
+              failureThreshold: {{ .failureThreshold }}
+          {{- end }}
+          {{- end }}
+          {{- if .Values.readinessProbe.enabled }}
+          {{- with .Values.readinessProbe }}
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+              initialDelaySeconds: {{ .initialDelaySeconds }}
+              periodSeconds: {{ .periodSeconds }}
+              failureThreshold: {{ .failureThreshold }}
+          {{- end }}
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.volumeMounts }}
+          volumeMounts:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- with .Values.volumes }}
+      volumes:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
