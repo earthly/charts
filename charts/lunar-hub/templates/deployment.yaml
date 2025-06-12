@@ -91,10 +91,13 @@ spec:
                 secretKeyRef:
                   name: {{ .secrets.authToken.secretName }}
                   key: {{ .secrets.authToken.secretKey }}
-          {{- end }}
-          {{- with .Values.hub.extraEnv }}
-          env:
-            {{- toYaml . | nindent 12 }}
+            - name: HUB_LOGS_AWS_BUCKET
+              value: {{ .s3.bucketName | quote }}
+            - name: HUB_LOGS_AWS_URL_TTL
+              value: {{ .s3.urlExpirationMinutes | quote }}
+            {{- with .extraEnv }}
+              {{- toYaml . | nindent 12 }}
+            {{- end }}
           {{- end }}
           {{- if .Values.livenessProbe.enabled }}
           {{- with .Values.livenessProbe }}
