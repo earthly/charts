@@ -60,6 +60,8 @@ spec:
               value: {{ .db.port | quote }}
             - name: HUB_DB_WAIT_SECS
               value: {{ .db.waitSecs | quote }}
+            - name: HUB_DB_MIGRATIONS_PATH
+              value: "/usr/share/migrations"
             - name: HUB_GITHUB_WEBHOOK_PORT
               value: {{ .githubWebhookPort | quote }}
             - name: HUB_GITHUB_WEBHOOK_SECRET
@@ -94,15 +96,15 @@ spec:
           env:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-                    {{- if .Values.livenessProbe.enabled }}
+          {{- if .Values.livenessProbe.enabled }}
           {{- with .Values.livenessProbe }}
           livenessProbe:
             httpGet:
               path: /health
-              port: http
-              initialDelaySeconds: {{ .initialDelaySeconds }}
-              periodSeconds: {{ .periodSeconds }}
-              failureThreshold: {{ .failureThreshold }}
+              port: {{ $.Values.hub.healthPort }}
+            initialDelaySeconds: {{ .initialDelaySeconds }}
+            periodSeconds: {{ .periodSeconds }}
+            failureThreshold: {{ .failureThreshold }}
           {{- end }}
           {{- end }}
           {{- if .Values.readinessProbe.enabled }}
@@ -110,10 +112,10 @@ spec:
           readinessProbe:
             httpGet:
               path: /health
-              port: http
-              initialDelaySeconds: {{ .initialDelaySeconds }}
-              periodSeconds: {{ .periodSeconds }}
-              failureThreshold: {{ .failureThreshold }}
+              port: {{ $.Values.hub.healthPort }}
+            initialDelaySeconds: {{ .initialDelaySeconds }}
+            periodSeconds: {{ .periodSeconds }}
+            failureThreshold: {{ .failureThreshold }}
           {{- end }}
           {{- end }}
           ports:
