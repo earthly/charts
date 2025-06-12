@@ -33,7 +33,27 @@ hub:
     bucketName: ""
     urlExpirationMinutes: 5m
   extraEnv: []
-  secrets: {}
+  secrets:
+    # Database credentials
+    dbUser:
+      secretName: "lunar-hub-db-user"  # Name of the secret in Kubernetes
+      secretKey: "username"            # Key in the secret containing the value
+    dbPass:
+      secretName: "lunar-hub-db-pass"
+      secretKey: "password"
+    
+    # GitHub related secrets
+    githubWebhookSecret:
+      secretName: "lunar-hub-github-webhook"
+      secretKey: "webhook-secret"
+    githubToken:
+      secretName: "lunar-hub-github-token"
+      secretKey: "token"
+    
+    # Authentication
+    authToken:
+      secretName: "lunar-hub-auth-token"
+      secretKey: "token"
 
 ingress:
   enabled: false
