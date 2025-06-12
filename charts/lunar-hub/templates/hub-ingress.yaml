@@ -1,21 +1,21 @@
-{{- if .Values.ingress.enabled -}}
+{{- if .Values.hub.ingress.enabled -}}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: {{ include "lunar-hub.fullname" . }}
   labels:
     {{- include "lunar-hub.labels" . | nindent 4 }}
-  {{- with .Values.ingress.annotations }}
+  {{- with .Values.hub.ingress.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
-  {{- with .Values.ingress.className }}
+  {{- with .Values.hub.ingress.className }}
   ingressClassName: {{ . }}
   {{- end }}
-  {{- if .Values.ingress.tls }}
+  {{- if .Values.hub.ingress.tls }}
   tls:
-    {{- range .Values.ingress.tls }}
+    {{- range .Values.hub.ingress.tls }}
     - hosts:
         {{- range .hosts }}
         - {{ . | quote }}
@@ -24,7 +24,7 @@ spec:
     {{- end }}
   {{- end }}
   rules:
-    {{- range .Values.ingress.hosts }}
+    {{- range .Values.hub.ingress.hosts }}
     - host: {{ .host | quote }}
       http:
         paths:
@@ -37,7 +37,7 @@ spec:
               service:
                 name: {{ include "lunar-hub.fullname" $ }}
                 port:
-                  number: {{ $.Values.service.port }}
+                  number: {{ $.Values.hub.service.port }}
           {{- end }}
     {{- end }}
 {{- end }}
