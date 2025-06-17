@@ -47,13 +47,13 @@ spec:
             - name: HUB_DB_USER
               valueFrom:
                 secretKeyRef:
-                  name: {{ .secrets.dbUser.secretName }}
-                  key: {{ .secrets.dbUser.secretKey }}
+                  name: {{ .db.user.secretName }}
+                  key: {{ .db.user.secretKey }}
             - name: HUB_DB_PASS
               valueFrom:
                 secretKeyRef:
-                  name: {{ .secrets.dbPass.secretName }}
-                  key: {{ .secrets.dbPass.secretKey }}
+                  name: {{ .db.pass.secretName }}
+                  key: {{ .db.pass.secretKey }}
             - name: HUB_DB_HOST
               value: {{ .db.host | quote }}
             - name: HUB_DB_PORT
@@ -63,23 +63,23 @@ spec:
             - name: HUB_DB_MIGRATIONS_PATH
               value: "/usr/share/migrations"
             - name: HUB_GITHUB_WEBHOOK_PORT
-              value: {{ .githubWebhookPort | quote }}
+              value: {{ .ports.webhook | quote }}
             - name: HUB_GITHUB_WEBHOOK_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: {{ .secrets.githubWebhookSecret.secretName }}
-                  key: {{ .secrets.githubWebhookSecret.secretKey }}
+                  name: {{ .github.webhookSecret.secretName }}
+                  key: {{ .github.webhookSecret.secretKey }}
             - name: HUB_GITHUB_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: {{ .secrets.githubToken.secretName }}
-                  key: {{ .secrets.githubToken.secretKey }}
+                  name: {{ .github.token.secretName }}
+                  key: {{ .github.token.secretKey }}
             - name: HUB_GITHUB_SYNC_WINDOW
-              value: {{ .githubSyncWindow | quote }}
+              value: {{ .github.syncWindow | quote }}
             - name: HUB_GRPC_PORT
-              value: {{ .grpcPort | quote }}
+              value: {{ .ports.server | quote }}
             - name: HUB_HEALTH_PORT
-              value: {{ .healthPort | quote }}
+              value: {{ .ports.health | quote }}
             - name: HUB_POLICY_QUEUE_POLL_INTERVAL
               value: {{ .policyQueue.pollInterval | quote }}
             - name: HUB_POLICY_QUEUE_NUM_WORKERS
@@ -87,12 +87,23 @@ spec:
             - name: HUB_AUTH_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: {{ .secrets.authToken.secretName }}
-                  key: {{ .secrets.authToken.secretKey }}
+                  name: {{ .auth.secretName }}
+                  key: {{ .auth.secretKey }}
             - name: HUB_LOGS_AWS_BUCKET
               value: {{ .s3.bucketName | quote }}
             - name: HUB_LOGS_AWS_URL_TTL
               value: {{ .s3.urlExpirationMinutes | quote }}
+            {{- if $.Values.badges.enabled }}
+            - name: HUB_BADGES_PORT
+              value: {{ $.Values.badges.port | quote }}
+            - name: HUB_BADGES_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.badges.secret.name }}
+                  key: {{ $.Values.badges.secret.key }}
+            - name: HUB_BADGES_HOST
+              value: badges.{{ include "lunar-hub.fullname" $ }}.svc.cluster.local
+            {{- end }}
             {{- with .extraEnv }}
               {{- toYaml . | nindent 12 }}
             {{- end }}

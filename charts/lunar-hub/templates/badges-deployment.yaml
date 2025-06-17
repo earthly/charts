@@ -37,7 +37,7 @@ spec:
           securityContext:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          image: "{{ .Values.badges.image.repository }}:{{ .Values.badges.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.badges.image.pullPolicy }}
           {{- with .Values.badges }}
           env:
@@ -46,8 +46,8 @@ spec:
             - name: BADGES_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: {{ .secretName }}
-                  key: {{ .secretKey }}
+                  name: {{ .secret.name }}
+                  key: {{ .secret.key }}
           {{- end }}
           ports:
             - name: http

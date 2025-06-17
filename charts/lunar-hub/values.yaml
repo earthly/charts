@@ -49,9 +49,9 @@ hub:
   extraEnv: []
 
   image:
-    repository: ""
+    repository: "earthly/lunar-hub"
     pullPolicy: IfNotPresent
-    tag: ""
+    tag: "main"
 
   service:
     type: ClusterIP
@@ -104,9 +104,9 @@ badges:
     key: ""
 
   image:
-    repository: ""
+    repository: "earthly/badges"
     pullPolicy: IfNotPresent
-    tag: ""
+    tag: "main"
 
   service:
     type: ClusterIP
