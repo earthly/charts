@@ -144,9 +144,9 @@ grafana:
   extraEnv: []
 
   image:
-    repository: ""
+    repository: "earthly/lunar-grafana"
     pullPolicy: IfNotPresent
-    tag: ""
+    tag: "main"
 
   service:
     type: ClusterIP
