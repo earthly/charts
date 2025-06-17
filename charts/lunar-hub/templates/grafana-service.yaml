@@ -1,0 +1,17 @@
+{{- if .Values.grafana.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "lunar-hub.fullname" . }}-grafana
+  labels:
+    {{- include "lunar-hub.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.grafana.service.type }}
+  ports:
+    - port: {{ .Values.grafana.service.port }}
+      targetPort: {{ .Values.grafana.port }}
+      protocol: TCP
+      name: grafana-ui
+  selector:
+    {{- include "lunar-hub.selectorLabels" . | nindent 4 }}
+{{- end }}
