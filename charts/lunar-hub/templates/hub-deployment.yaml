@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "lunar-hub.fullname" . }}
+  name: {{ include "lunar-hub.fullname" . }}-hub
   labels:
     {{- include "lunar-hub.labels" . | nindent 4 }}
 spec:
@@ -11,13 +11,13 @@ spec:
       {{- include "lunar-hub.selectorLabels" . | nindent 6 }}
   template:
     metadata:
-      {{- with .Values.podAnnotations }}
+      {{- with .Values.hub.podAnnotations }}
       annotations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
         {{- include "lunar-hub.labels" . | nindent 8 }}
-        {{- with .Values.podLabels }}
+        {{- with .Values.hub.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
@@ -26,18 +26,18 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       serviceAccountName: {{ include "lunar-hub.serviceAccountName" . }}
-      {{- with .Values.podSecurityContext }}
+      {{- with .Values.hub.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       containers:
         - name: {{ .Chart.Name }}
-          {{- with .Values.securityContext }}
+          {{- with .Values.hub.securityContext }}
           securityContext:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          image: "{{ .Values.hub.image.repository }}:{{ .Values.hub.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.hub.image.pullPolicy }}
           {{- with .Values.hub }}
           env:
             - name: HUB_ROOT_DIR
@@ -80,8 +80,6 @@ spec:
               value: {{ .grpcPort | quote }}
             - name: HUB_HEALTH_PORT
               value: {{ .healthPort | quote }}
-            - name: HUB_CODE_RUNNER_CHECKOUT
-              value: {{ .codeRunnerCheckout | quote }}
             - name: HUB_POLICY_QUEUE_POLL_INTERVAL
               value: {{ .policyQueue.pollInterval | quote }}
             - name: HUB_POLICY_QUEUE_NUM_WORKERS
@@ -99,53 +97,56 @@ spec:
               {{- toYaml . | nindent 12 }}
             {{- end }}
           {{- end }}
-          {{- if .Values.livenessProbe.enabled }}
-          {{- with .Values.livenessProbe }}
+          {{- if .Values.hub.livenessProbe.enabled }}
+          {{- with .Values.hub.livenessProbe }}
           livenessProbe:
             httpGet:
               path: /health
-              port: {{ $.Values.hub.healthPort }}
+              port: {{ $.Values.hub.ports.health }}
             initialDelaySeconds: {{ .initialDelaySeconds }}
             periodSeconds: {{ .periodSeconds }}
             failureThreshold: {{ .failureThreshold }}
           {{- end }}
           {{- end }}
-          {{- if .Values.readinessProbe.enabled }}
-          {{- with .Values.readinessProbe }}
+          {{- if .Values.hub.readinessProbe.enabled }}
+          {{- with .Values.hub.readinessProbe }}
           readinessProbe:
             httpGet:
               path: /health
-              port: {{ $.Values.hub.healthPort }}
+              port: {{ $.Values.hub.ports.health }}
             initialDelaySeconds: {{ .initialDelaySeconds }}
             periodSeconds: {{ .periodSeconds }}
             failureThreshold: {{ .failureThreshold }}
           {{- end }}
           {{- end }}
           ports:
-            - name: http
-              containerPort: {{ .Values.hub.service.port }}
+            - name: hub-grpc
+              containerPort: {{ .Values.hub.service.ports.server }}
               protocol: TCP
-          {{- with .Values.resources }}
+            - name: hub-webhook
+              containerPort: {{ .Values.hub.service.ports.webhook }}
+              protocol: TCP
+          {{- with .Values.hub.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          {{- with .Values.volumeMounts }}
+          {{- with .Values.hub.volumeMounts }}
           volumeMounts:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-      {{- with .Values.volumes }}
+      {{- with .Values.hub.volumes }}
       volumes:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.nodeSelector }}
+      {{- with .Values.hub.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.affinity }}
+      {{- with .Values.hub.affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.tolerations }}
+      {{- with .Values.hub.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}

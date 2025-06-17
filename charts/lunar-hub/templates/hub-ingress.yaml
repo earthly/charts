@@ -2,7 +2,7 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ include "lunar-hub.fullname" . }}
+  name: {{ include "lunar-hub.fullname" . }}-hub
   labels:
     {{- include "lunar-hub.labels" . | nindent 4 }}
   {{- with .Values.hub.ingress.annotations }}
@@ -28,16 +28,19 @@ spec:
     - host: {{ .host | quote }}
       http:
         paths:
-          {{- range .paths }}
-          - path: {{ .path }}
-            {{- with .pathType }}
-            pathType: {{ . }}
-            {{- end }}
+          - path: /
+            pathType: Prefix
             backend:
               service:
-                name: {{ include "lunar-hub.fullname" $ }}
+                name: {{ include "lunar-hub.fullname" $ }}-hub
                 port:
-                  number: {{ $.Values.hub.service.port }}
-          {{- end }}
+                  number: {{ $.Values.hub.service.ports.server }}
+          - path: /webhook
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "lunar-hub.fullname" $ }}-hub
+                port:
+                  number: {{ $.Values.hub.service.ports.webhook }}
     {{- end }}
 {{- end }}

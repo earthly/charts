@@ -1,0 +1,17 @@
+{{- if .Values.badges.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "lunar-hub.fullname" . }}-badges
+  labels:
+    {{- include "lunar-hub.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.badges.service.type }}
+  ports:
+    - port: {{ .Values.badges.service.port }}
+      targetPort: {{ .Values.badges.port }}
+      protocol: TCP
+      name: badges-rest
+  selector:
+    {{- include "lunar-hub.selectorLabels" . | nindent 4 }}
+{{- end }}
