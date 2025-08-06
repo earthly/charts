@@ -1,0 +1,177 @@
+# This is to override the chart name.
+nameOverride: ""
+fullnameOverride: ""
+
+imagePullSecrets: []
+
+serviceAccount:
+  create: true
+  automount: true
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+hub:
+  rootDir: /hub/
+  ports:
+    server: 8000
+    health: 8002
+    webhook: 8080
+  db:
+    user:
+      secretName: "lunar-hub-db-user"
+      secretKey: "username"
+    pass:
+      secretName: "lunar-hub-db-pass"
+      secretKey: "password"
+    name: ""
+    host: ""
+    port: 5432
+    waitSecs: 45
+  github:
+    webhookSecret:
+      secretName: "lunar-hub-github-webhook"
+      secretKey: "webhook-secret"
+    token:
+      secretName: "lunar-hub-github-token"
+      secretKey: "token"
+    syncWindow: 2160h
+  policyQueue:
+    pollInterval: 1s
+    numWorkers: 5
+  s3:
+    bucketName: ""
+    urlExpirationMinutes: 5m
+  auth:
+    secretName: "lunar-hub-auth-token"
+    secretKey: "token"
+  extraEnv: []
+
+  image:
+    repository: "earthly/lunar-hub"
+    pullPolicy: IfNotPresent
+    tag: "main"
+
+  service:
+    type: ClusterIP
+    ports:
+      server: 8000
+      webhook: 8080
+
+  ingress:
+    enabled: false
+    className: ""
+    annotations: {}
+    hosts:
+      - host: chart-example.local
+        paths:
+          - path: /
+            pathType: ImplementationSpecific
+    tls: []
+
+  readinessProbe:
+    enabled: true
+    initialDelaySeconds: 0
+    periodSeconds: 5
+    failureThreshold: 3
+
+  livenessProbe:
+    enabled: true
+    initialDelaySeconds: 0
+    periodSeconds: 5
+    failureThreshold: 3
+
+  labels: {}
+  annotations: {}
+  podAnnotations: {}
+  podLabels: {}
+  podSecurityContext: {}
+  securityContext: {}
+  resources: {}
+  volumeMounts: {}
+  volumes: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+badges:
+  enabled: false
+
+  port: 8080
+  secret:
+    name: ""
+    key: ""
+
+  image:
+    repository: "earthly/badges"
+    pullPolicy: IfNotPresent
+    tag: "main"
+
+  service:
+    type: ClusterIP
+    port: 80
+
+  ingress:
+    enabled: false
+    className: ""
+    annotations: {}
+    hosts:
+      - host: chart-example.local
+        paths:
+          - path: /
+            pathType: ImplementationSpecific
+    tls: []
+
+  labels: {}
+  annotations: {}
+  podAnnotations: {}
+  podLabels: {}
+  podSecurityContext: {}
+  securityContext: {}
+  resources: {}
+  volumeMounts: {}
+  volumes: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+grafana:
+  enabled: false
+
+  port: 8080
+
+  extraEnv: []
+
+  image:
+    repository: "earthly/lunar-grafana"
+    pullPolicy: IfNotPresent
+    tag: "main"
+
+  service:
+    type: ClusterIP
+    port: 80
+
+  ingress:
+    enabled: false
+    className: ""
+    annotations: {}
+    hosts:
+      - host: chart-example.local
+        paths:
+          - path: /
+            pathType: ImplementationSpecific
+    tls: []
+
+  labels: {}
+  annotations: {}
+  podAnnotations: {}
+  podLabels: {}
+  podSecurityContext: {}
+  securityContext: {}
+  resources: {}
+  volumeMounts: {}
+  volumes: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}

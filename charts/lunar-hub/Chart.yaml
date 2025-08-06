@@ -1,0 +1,5 @@
+apiVersion: v2
+name: lunar-hub
+description: A Helm chart for Lunar Hub
+type: application
+version: 0.1.0

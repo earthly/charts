@@ -1,0 +1,163 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "lunar-hub.fullname" . }}-hub
+  labels:
+    {{- include "lunar-hub.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "lunar-hub.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.hub.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "lunar-hub.labels" . | nindent 8 }}
+        {{- with .Values.hub.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "lunar-hub.serviceAccountName" . }}
+      {{- with .Values.hub.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          {{- with .Values.hub.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          image: "{{ .Values.hub.image.repository }}:{{ .Values.hub.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.hub.image.pullPolicy }}
+          {{- with .Values.hub }}
+          env:
+            - name: HUB_ROOT_DIR
+              value: {{ .rootDir | quote }}
+            - name: HUB_DB_NAME
+              value: {{ .db.name | quote }}
+            - name: HUB_DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .db.user.secretName }}
+                  key: {{ .db.user.secretKey }}
+            - name: HUB_DB_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .db.pass.secretName }}
+                  key: {{ .db.pass.secretKey }}
+            - name: HUB_DB_HOST
+              value: {{ .db.host | quote }}
+            - name: HUB_DB_PORT
+              value: {{ .db.port | quote }}
+            - name: HUB_DB_WAIT_SECS
+              value: {{ .db.waitSecs | quote }}
+            - name: HUB_DB_MIGRATIONS_PATH
+              value: "/usr/share/migrations"
+            - name: HUB_GITHUB_WEBHOOK_PORT
+              value: {{ .ports.webhook | quote }}
+            - name: HUB_GITHUB_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .github.webhookSecret.secretName }}
+                  key: {{ .github.webhookSecret.secretKey }}
+            - name: HUB_GITHUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .github.token.secretName }}
+                  key: {{ .github.token.secretKey }}
+            - name: HUB_GITHUB_SYNC_WINDOW
+              value: {{ .github.syncWindow | quote }}
+            - name: HUB_GRPC_PORT
+              value: {{ .ports.server | quote }}
+            - name: HUB_HEALTH_PORT
+              value: {{ .ports.health | quote }}
+            - name: HUB_POLICY_QUEUE_POLL_INTERVAL
+              value: {{ .policyQueue.pollInterval | quote }}
+            - name: HUB_POLICY_QUEUE_NUM_WORKERS
+              value: {{ .policyQueue.numWorkers | quote }}
+            - name: HUB_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .auth.secretName }}
+                  key: {{ .auth.secretKey }}
+            - name: HUB_LOGS_AWS_BUCKET
+              value: {{ .s3.bucketName | quote }}
+            - name: HUB_LOGS_AWS_URL_TTL
+              value: {{ .s3.urlExpirationMinutes | quote }}
+            {{- if $.Values.badges.enabled }}
+            - name: HUB_BADGES_PORT
+              value: {{ $.Values.badges.port | quote }}
+            - name: HUB_BADGES_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.badges.secret.name }}
+                  key: {{ $.Values.badges.secret.key }}
+            - name: HUB_BADGES_HOST
+              value: badges.{{ include "lunar-hub.fullname" $ }}.svc.cluster.local
+            {{- end }}
+            {{- with .extraEnv }}
+              {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- end }}
+          {{- if .Values.hub.livenessProbe.enabled }}
+          {{- with .Values.hub.livenessProbe }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: {{ $.Values.hub.ports.health }}
+            initialDelaySeconds: {{ .initialDelaySeconds }}
+            periodSeconds: {{ .periodSeconds }}
+            failureThreshold: {{ .failureThreshold }}
+          {{- end }}
+          {{- end }}
+          {{- if .Values.hub.readinessProbe.enabled }}
+          {{- with .Values.hub.readinessProbe }}
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: {{ $.Values.hub.ports.health }}
+            initialDelaySeconds: {{ .initialDelaySeconds }}
+            periodSeconds: {{ .periodSeconds }}
+            failureThreshold: {{ .failureThreshold }}
+          {{- end }}
+          {{- end }}
+          ports:
+            - name: hub-grpc
+              containerPort: {{ .Values.hub.service.ports.server }}
+              protocol: TCP
+            - name: hub-webhook
+              containerPort: {{ .Values.hub.service.ports.webhook }}
+              protocol: TCP
+          {{- with .Values.hub.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.hub.volumeMounts }}
+          volumeMounts:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- with .Values.hub.volumes }}
+      volumes:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.hub.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.hub.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.hub.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

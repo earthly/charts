@@ -1,0 +1,80 @@
+{{- if .Values.badges.enabled -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "lunar-hub.fullname" . }}-badges
+  labels:
+    {{- include "lunar-hub.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "lunar-hub.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.badges.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "lunar-hub.labels" . | nindent 8 }}
+        {{- with .Values.badges.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "lunar-hub.serviceAccountName" . }}
+      {{- with .Values.badges.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          {{- with .Values.badges.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          image: "{{ .Values.badges.image.repository }}:{{ .Values.badges.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.badges.image.pullPolicy }}
+          {{- with .Values.badges }}
+          env:
+            - name: BADGES_PORT
+              value: {{ .port | quote }}
+            - name: BADGES_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .secret.name }}
+                  key: {{ .secret.key }}
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.badges.port }}
+              protocol: TCP
+          {{- with .Values.badges.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.badges.volumeMounts }}
+          volumeMounts:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- with .Values.badges.volumes }}
+      volumes:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.badges.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.badges.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.badges.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}
