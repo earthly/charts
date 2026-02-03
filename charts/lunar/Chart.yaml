@@ -1,0 +1,5 @@
+apiVersion: v2
+name: lunar
+description: A Helm chart for Earthly Lunar 🌙
+type: application
+version: 0.1.0

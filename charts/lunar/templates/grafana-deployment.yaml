@@ -2,14 +2,14 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "lunar-hub.fullname" . }}-grafana
+  name: {{ include "lunar.fullname" . }}-grafana
   labels:
-    {{- include "lunar-hub.labels" . | nindent 4 }}
+    {{- include "lunar.labels" . | nindent 4 }}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      {{- include "lunar-hub.selectorLabels" . | nindent 6 }}
+      {{- include "lunar.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       {{- with .Values.grafana.podAnnotations }}
@@ -17,7 +17,7 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
-        {{- include "lunar-hub.labels" . | nindent 8 }}
+        {{- include "lunar.labels" . | nindent 8 }}
         {{- with .Values.grafana.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -26,7 +26,7 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "lunar-hub.serviceAccountName" . }}
+      serviceAccountName: {{ include "lunar.serviceAccountName" . }}
       {{- with .Values.grafana.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}

@@ -20,10 +20,10 @@ hub:
     webhook: 8080
   db:
     user:
-      secretName: "lunar-hub-db-user"
+      secretName: "lunar-db-user"
       secretKey: "username"
     pass:
-      secretName: "lunar-hub-db-pass"
+      secretName: "lunar-db-pass"
       secretKey: "password"
     name: ""
     host: ""
@@ -31,10 +31,10 @@ hub:
     waitSecs: 45
   github:
     webhookSecret:
-      secretName: "lunar-hub-github-webhook"
+      secretName: "lunar-github-webhook"
       secretKey: "webhook-secret"
     token:
-      secretName: "lunar-hub-github-token"
+      secretName: "lunar-github-token"
       secretKey: "token"
     syncWindow: 2160h
   policyQueue:
@@ -44,7 +44,7 @@ hub:
     bucketName: ""
     urlExpirationMinutes: 5m
   auth:
-    secretName: "lunar-hub-auth-token"
+    secretName: "lunar-auth-token"
     secretKey: "token"
   extraEnv: []
 
@@ -98,7 +98,8 @@ hub:
 badges:
   enabled: false
 
-  port: 8080
+  extraEnv: []
+
   secret:
     name: ""
     key: ""

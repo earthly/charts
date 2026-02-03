@@ -1,14 +1,14 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "lunar-hub.fullname" . }}-hub
+  name: {{ include "lunar.fullname" . }}-hub
   labels:
-    {{- include "lunar-hub.labels" . | nindent 4 }}
+    {{- include "lunar.labels" . | nindent 4 }}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      {{- include "lunar-hub.selectorLabels" . | nindent 6 }}
+      {{- include "lunar.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       {{- with .Values.hub.podAnnotations }}
@@ -16,7 +16,7 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
-        {{- include "lunar-hub.labels" . | nindent 8 }}
+        {{- include "lunar.labels" . | nindent 8 }}
         {{- with .Values.hub.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -25,7 +25,7 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "lunar-hub.serviceAccountName" . }}
+      serviceAccountName: {{ include "lunar.serviceAccountName" . }}
       {{- with .Values.hub.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
@@ -95,14 +95,14 @@ spec:
               value: {{ .s3.urlExpirationMinutes | quote }}
             {{- if $.Values.badges.enabled }}
             - name: HUB_BADGES_PORT
-              value: {{ $.Values.badges.port | quote }}
+              value: {{ $.Values.badges.service.port | quote }}
             - name: HUB_BADGES_SECRET
               valueFrom:
                 secretKeyRef:
                   name: {{ $.Values.badges.secret.name }}
                   key: {{ $.Values.badges.secret.key }}
             - name: HUB_BADGES_HOST
-              value: badges.{{ include "lunar-hub.fullname" $ }}.svc.cluster.local
+              value: {{ include "lunar.fullname" $ }}-badges
             {{- end }}
             {{- with .extraEnv }}
               {{- toYaml . | nindent 12 }}
