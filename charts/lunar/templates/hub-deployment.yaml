@@ -62,8 +62,6 @@ spec:
               value: {{ .db.waitSecs | quote }}
             - name: HUB_DB_MIGRATIONS_PATH
               value: "/usr/share/migrations"
-            - name: HUB_GITHUB_WEBHOOK_PORT
-              value: {{ .ports.webhook | quote }}
             - name: HUB_GITHUB_WEBHOOK_SECRET
               valueFrom:
                 secretKeyRef:
@@ -84,10 +82,6 @@ spec:
               value: {{ .github.app.id | quote }}
             - name: HUB_GITHUB_APP_INSTALL_ID
               value: {{ .github.app.installId | quote }}
-            - name: HUB_GRPC_PORT
-              value: {{ .ports.server | quote }}
-            - name: HUB_HEALTH_PORT
-              value: {{ .ports.health | quote }}
             - name: HUB_POLICY_QUEUE_POLL_INTERVAL
               value: {{ .policyQueue.pollInterval | quote }}
             - name: HUB_POLICY_QUEUE_NUM_WORKERS
@@ -155,7 +149,7 @@ spec:
           livenessProbe:
             httpGet:
               path: /health
-              port: {{ $.Values.hub.ports.health }}
+              port: hub-health
             initialDelaySeconds: {{ .initialDelaySeconds }}
             periodSeconds: {{ .periodSeconds }}
             failureThreshold: {{ .failureThreshold }}
@@ -166,7 +160,7 @@ spec:
           readinessProbe:
             httpGet:
               path: /health
-              port: {{ $.Values.hub.ports.health }}
+              port: hub-health
             initialDelaySeconds: {{ .initialDelaySeconds }}
             periodSeconds: {{ .periodSeconds }}
             failureThreshold: {{ .failureThreshold }}
@@ -174,10 +168,13 @@ spec:
           {{- end }}
           ports:
             - name: hub-grpc
-              containerPort: {{ .Values.hub.service.ports.server }}
+              containerPort: 8000
               protocol: TCP
             - name: hub-webhook
-              containerPort: {{ .Values.hub.service.ports.webhook }}
+              containerPort: 8080
+              protocol: TCP
+            - name: hub-health
+              containerPort: 8002
               protocol: TCP
           {{- with .Values.hub.resources }}
           resources:

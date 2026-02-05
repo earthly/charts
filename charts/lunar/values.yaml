@@ -14,10 +14,6 @@ serviceAccount:
 
 hub:
   rootDir: /hub/
-  ports:
-    server: 8000
-    health: 8002
-    webhook: 8080
   db:
     user:
       secretName: "lunar-db-user"
@@ -165,8 +161,6 @@ badges:
 
 grafana:
   enabled: false
-
-  port: 8080
 
   extraEnv: []
 

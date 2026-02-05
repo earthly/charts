@@ -8,11 +8,11 @@ spec:
   type: {{ .Values.hub.service.type }}
   ports:
     - port: {{ .Values.hub.service.ports.server }}
-      targetPort: {{ .Values.hub.ports.server }}
+      targetPort: hub-grpc
       protocol: TCP
       name: hub-grpc
     - port: {{ .Values.hub.service.ports.webhook }}
-      targetPort: {{ .Values.hub.ports.webhook }}
+      targetPort: hub-webhook
       protocol: TCP
       name: hub-webhook
   selector:

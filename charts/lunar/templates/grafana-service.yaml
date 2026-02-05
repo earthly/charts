@@ -9,7 +9,7 @@ spec:
   type: {{ .Values.grafana.service.type }}
   ports:
     - port: {{ .Values.grafana.service.port }}
-      targetPort: {{ .Values.grafana.port }}
+      targetPort: http
       protocol: TCP
       name: grafana-ui
   selector:

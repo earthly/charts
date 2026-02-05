@@ -65,7 +65,7 @@ spec:
           {{- end }}
           ports:
             - name: http
-              containerPort: {{ .Values.grafana.port }}
+              containerPort: 3000
               protocol: TCP
           {{- with .Values.grafana.resources }}
           resources:
