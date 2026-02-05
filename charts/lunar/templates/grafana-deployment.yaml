@@ -57,6 +57,13 @@ spec:
                   key: {{ $.Values.hub.db.pass.secretKey }}
             - name: POSTGRES_DB
               value: {{ $.Values.hub.db.name | quote }}
+            - name: LUNAR_HUB_HOST
+              value: {{ include "lunar.fullname" $ }}-hub
+            - name: LUNAR_HUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.hub.auth.secretName }}
+                  key: {{ $.Values.hub.auth.secretKey }}
             - name: GF_INSTALL_PLUGINS
               value: "yesoreyeram-infinity-datasource"
             {{- with .extraEnv }}
