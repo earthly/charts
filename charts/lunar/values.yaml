@@ -30,6 +30,11 @@ hub:
     port: 5432
     waitSecs: 45
   github:
+    baseUrl: ""
+    app:
+      privateKey: ""
+      id: 0
+      installId: 0
     webhookSecret:
       secretName: "lunar-github-webhook"
       secretKey: "webhook-secret"
@@ -46,6 +51,27 @@ hub:
   auth:
     secretName: "lunar-auth-token"
     secretKey: "token"
+  secrets:
+    collector:
+      secretName: "lunar-collector-secrets"
+      secretKey: "secrets"
+    cataloger:
+      secretName: "lunar-cataloger-secrets"
+      secretKey: "secrets"
+    policy:
+      secretName: "lunar-policy-secrets"
+      secretKey: "secrets"
+  logging:
+    tenantId: "localdev"
+    level: "info"
+    format: "json"
+    elastic:
+      url: "" 
+      apiKeySecret:
+        name: "lunar-elastic-api-key"
+        key: "api-key"
+      bufferSize: 100
+      flushInterval: "5s"
   extraEnv: []
 
   image:

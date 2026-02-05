@@ -76,6 +76,14 @@ spec:
                   key: {{ .github.token.secretKey }}
             - name: HUB_GITHUB_SYNC_WINDOW
               value: {{ .github.syncWindow | quote }}
+            - name: HUB_GITHUB_BASE_URL
+              value: {{ .github.baseUrl | quote }}
+            - name: HUB_GITHUB_APP_PRIVATE_KEY
+              value: {{ .github.app.privateKey | quote }}
+            - name: HUB_GITHUB_APP_ID
+              value: {{ .github.app.id | quote }}
+            - name: HUB_GITHUB_APP_INSTALL_ID
+              value: {{ .github.app.installId | quote }}
             - name: HUB_GRPC_PORT
               value: {{ .ports.server | quote }}
             - name: HUB_HEALTH_PORT
@@ -89,6 +97,40 @@ spec:
                 secretKeyRef:
                   name: {{ .auth.secretName }}
                   key: {{ .auth.secretKey }}
+            - name: HUB_COLLECTOR_SECRETS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .secrets.collector.secretName }}
+                  key: {{ .secrets.collector.secretKey }}
+            - name: HUB_CATALOGER_SECRETS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .secrets.cataloger.secretName }}
+                  key: {{ .secrets.cataloger.secretKey }}
+            - name: HUB_POLICY_SECRETS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .secrets.policy.secretName }}
+                  key: {{ .secrets.policy.secretKey }}
+            - name: HUB_TENANT_ID
+              value: {{ .logging.tenantId | quote }}
+            - name: HUB_LOG_LEVEL
+              value: {{ .logging.level | quote }}
+            - name: HUB_LOG_FORMAT
+              value: {{ .logging.format | quote }}
+            {{- if .logging.elastic.url }}
+            - name: HUB_ELASTIC_URL
+              value: {{ .logging.elastic.url | quote }}
+            - name: HUB_ELASTIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .logging.elastic.apiKeySecret.name }}
+                  key: {{ .logging.elastic.apiKeySecret.key }}
+            - name: HUB_ELASTIC_BUFFER_SIZE
+              value: {{ .logging.elastic.bufferSize | quote }}
+            - name: HUB_ELASTIC_FLUSH_INTERVAL
+              value: {{ .logging.elastic.flushInterval | quote }}
+            {{- end }}
             - name: HUB_LOGS_AWS_BUCKET
               value: {{ .s3.bucketName | quote }}
             - name: HUB_LOGS_AWS_URL_TTL
