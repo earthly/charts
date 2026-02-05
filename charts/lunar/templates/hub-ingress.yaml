@@ -41,6 +41,6 @@ spec:
               service:
                 name: {{ include "lunar.fullname" $ }}
                 port:
-                  number: {{ $.Values.hub.service.ports.webhook }}
+                  number: {{ $.Values.hub.service.ports.http }}
     {{- end }}
 {{- end }}

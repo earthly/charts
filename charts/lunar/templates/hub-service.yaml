@@ -11,9 +11,9 @@ spec:
       targetPort: hub-grpc
       protocol: TCP
       name: hub-grpc
-    - port: {{ .Values.hub.service.ports.webhook }}
-      targetPort: hub-webhook
+    - port: {{ .Values.hub.service.ports.http }}
+      targetPort: hub-http
       protocol: TCP
-      name: hub-webhook
+      name: hub-http
   selector:
     {{- include "lunar.selectorLabels" . | nindent 4 }}

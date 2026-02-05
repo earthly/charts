@@ -79,7 +79,7 @@ hub:
     type: ClusterIP
     ports:
       server: 8000
-      webhook: 8080
+      http: 8001
 
   ingress:
     enabled: false
@@ -161,6 +161,14 @@ badges:
 
 grafana:
   enabled: false
+
+  admin:
+    user:
+      secretName: "lunar-grafana-admin"
+      secretKey: "username"
+    password:
+      secretName: "lunar-grafana-admin"
+      secretKey: "password"
 
   extraEnv: []
 
