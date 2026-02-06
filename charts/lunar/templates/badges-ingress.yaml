@@ -1,11 +1,11 @@
-{{- if .Values.hub.ingress.enabled -}}
+{{- if .Values.badges.ingress.enabled -}}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: {{ include "lunar.fullname" . }}-badges
   labels:
     {{- include "lunar.labels" . | nindent 4 }}
-  {{- with .Values.hub.ingress.annotations }}
+  {{- with .Values.badges.ingress.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}

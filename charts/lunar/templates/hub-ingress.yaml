@@ -32,14 +32,14 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: {{ include "lunar.fullname" $ }}
+                name: {{ include "lunar.fullname" $ }}-hub
                 port:
                   number: {{ $.Values.hub.service.ports.server }}
           - path: /webhook
             pathType: Prefix
             backend:
               service:
-                name: {{ include "lunar.fullname" $ }}
+                name: {{ include "lunar.fullname" $ }}-hub
                 port:
                   number: {{ $.Values.hub.service.ports.http }}
     {{- end }}

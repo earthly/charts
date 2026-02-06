@@ -77,7 +77,10 @@ spec:
             - name: HUB_GITHUB_BASE_URL
               value: {{ .github.baseUrl | quote }}
             - name: HUB_GITHUB_APP_PRIVATE_KEY
-              value: {{ .github.app.privateKey | quote }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .github.app.privateKey.secretName }}
+                  key: {{ .github.app.privateKey.secretKey }}
             - name: HUB_GITHUB_APP_ID
               value: {{ .github.app.id | quote }}
             - name: HUB_GITHUB_APP_INSTALL_ID

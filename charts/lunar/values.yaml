@@ -28,7 +28,9 @@ hub:
   github:
     baseUrl: ""
     app:
-      privateKey: ""
+      privateKey:
+        secretName: "lunar-github-app"
+        secretKey: "private-key"
       id: 0
       installId: 0
     webhookSecret:
