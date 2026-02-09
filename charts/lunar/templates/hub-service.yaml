@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "lunar.fullname" . }}-hub
+  labels:
+    {{- include "lunar.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.hub.service.type }}
+  ports:
+    - port: {{ .Values.hub.service.ports.server }}
+      targetPort: hub-grpc
+      protocol: TCP
+      name: hub-grpc
+    - port: {{ .Values.hub.service.ports.http }}
+      targetPort: hub-http
+      protocol: TCP
+      name: hub-http
+  selector:
+    {{- include "lunar.selectorLabels" . | nindent 4 }}

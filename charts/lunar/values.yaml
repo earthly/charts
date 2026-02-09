@@ -14,27 +14,30 @@ serviceAccount:
 
 hub:
   rootDir: /hub/
-  ports:
-    server: 8000
-    health: 8002
-    webhook: 8080
   db:
     user:
-      secretName: "lunar-hub-db-user"
+      secretName: "lunar-db"
       secretKey: "username"
     pass:
-      secretName: "lunar-hub-db-pass"
+      secretName: "lunar-db"
       secretKey: "password"
     name: ""
     host: ""
     port: 5432
     waitSecs: 45
   github:
+    baseUrl: ""
+    app:
+      privateKey:
+        secretName: "lunar-github-app"
+        secretKey: "private-key"
+      id: 0
+      installId: 0
     webhookSecret:
-      secretName: "lunar-hub-github-webhook"
+      secretName: "lunar-github-webhook"
       secretKey: "webhook-secret"
     token:
-      secretName: "lunar-hub-github-token"
+      secretName: "lunar-github-token"
       secretKey: "token"
     syncWindow: 2160h
   policyQueue:
@@ -44,8 +47,29 @@ hub:
     bucketName: ""
     urlExpirationMinutes: 5m
   auth:
-    secretName: "lunar-hub-auth-token"
+    secretName: "lunar-auth-token"
     secretKey: "token"
+  secrets:
+    collector:
+      secretName: "lunar-collector-secrets"
+      secretKey: "secrets"
+    cataloger:
+      secretName: "lunar-cataloger-secrets"
+      secretKey: "secrets"
+    policy:
+      secretName: "lunar-policy-secrets"
+      secretKey: "secrets"
+  logging:
+    tenantId: "localdev"
+    level: "info"
+    format: "json"
+    elastic:
+      url: "" 
+      apiKeySecret:
+        secretName: "lunar-elastic-api-key"
+        secretKey: "api-key"
+      bufferSize: 100
+      flushInterval: "5s"
   extraEnv: []
 
   image:
@@ -57,7 +81,7 @@ hub:
     type: ClusterIP
     ports:
       server: 8000
-      webhook: 8080
+      http: 8001
 
   ingress:
     enabled: false
@@ -98,7 +122,8 @@ hub:
 badges:
   enabled: false
 
-  port: 8080
+  extraEnv: []
+
   secret:
     name: ""
     key: ""
@@ -139,7 +164,13 @@ badges:
 grafana:
   enabled: false
 
-  port: 8080
+  admin:
+    user:
+      secretName: "lunar-grafana-admin"
+      secretKey: "username"
+    password:
+      secretName: "lunar-grafana-admin"
+      secretKey: "password"
 
   extraEnv: []
 

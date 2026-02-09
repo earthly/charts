@@ -2,14 +2,14 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "lunar-hub.fullname" . }}-grafana
+  name: {{ include "lunar.fullname" . }}-grafana
   labels:
-    {{- include "lunar-hub.labels" . | nindent 4 }}
+    {{- include "lunar.labels" . | nindent 4 }}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      {{- include "lunar-hub.selectorLabels" . | nindent 6 }}
+      {{- include "lunar.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       {{- with .Values.grafana.podAnnotations }}
@@ -17,7 +17,7 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
-        {{- include "lunar-hub.labels" . | nindent 8 }}
+        {{- include "lunar.labels" . | nindent 8 }}
         {{- with .Values.grafana.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -26,7 +26,7 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "lunar-hub.serviceAccountName" . }}
+      serviceAccountName: {{ include "lunar.serviceAccountName" . }}
       {{- with .Values.grafana.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
@@ -57,15 +57,42 @@ spec:
                   key: {{ $.Values.hub.db.pass.secretKey }}
             - name: POSTGRES_DB
               value: {{ $.Values.hub.db.name | quote }}
+            - name: LUNAR_HUB_HOST
+              value: {{ include "lunar.fullname" $ }}-hub
+            - name: LUNAR_HUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.hub.auth.secretName }}
+                  key: {{ $.Values.hub.auth.secretKey }}
+            - name: GF_SECURITY_ADMIN_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .admin.user.secretName }}
+                  key: {{ .admin.user.secretKey }}
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .admin.password.secretName }}
+                  key: {{ .admin.password.secretKey }}
             - name: GF_INSTALL_PLUGINS
-              value: "yesoreyeram-infinity-datasource"
+              value: "yesoreyeram-infinity-datasource,marcusolsson-dynamictext-panel,volkovlabs-echarts-panel"
+            - name: GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS
+              value: "earthly-json-tree-panel"
+            - name: GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH
+              value: "/etc/grafana/provisioning/dashboards/home.json"
+            - name: GF_USERS_ALLOW_SIGN_UP
+              value: "false"
+            - name: GF_USERS_DEFAULT_THEME
+              value: "tron"
+            - name: GF_FEATURE_TOGGLES_ENABLE
+              value: "grafanaconThemes"
             {{- with .extraEnv }}
               {{- toYaml . | nindent 12 }}
             {{- end }}
           {{- end }}
           ports:
             - name: http
-              containerPort: {{ .Values.grafana.port }}
+              containerPort: 3000
               protocol: TCP
           {{- with .Values.grafana.resources }}
           resources:
