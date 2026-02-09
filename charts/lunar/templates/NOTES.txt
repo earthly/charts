@@ -1,0 +1,36 @@
+🌙 Lunar has been installed!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The following Kubernetes secrets must exist in the target namespace
+before pods will start. Create them manually, or use an external
+secret manager (e.g. External Secrets Operator, Sealed Secrets, Vault).
+
+Secret names and keys are configurable in values.yaml.
+
+Hub (required):
+  {{ printf "%-30s" .Values.hub.db.user.secretName }}  keys: {{ .Values.hub.db.user.secretKey }}, {{ .Values.hub.db.pass.secretKey }}
+  {{ printf "%-30s" .Values.hub.auth.secretName }}  key: {{ .Values.hub.auth.secretKey }}
+  {{ printf "%-30s" .Values.hub.github.app.privateKey.secretName }}  key: {{ .Values.hub.github.app.privateKey.secretKey }}
+  {{ printf "%-30s" .Values.hub.github.token.secretName }}  key: {{ .Values.hub.github.token.secretKey }}
+  {{ printf "%-30s" .Values.hub.github.webhookSecret.secretName }}  key: {{ .Values.hub.github.webhookSecret.secretKey }}
+  {{ printf "%-30s" .Values.hub.secrets.collector.secretName }}  key: {{ .Values.hub.secrets.collector.secretKey }}
+  {{ printf "%-30s" .Values.hub.secrets.cataloger.secretName }}  key: {{ .Values.hub.secrets.cataloger.secretKey }}
+  {{ printf "%-30s" .Values.hub.secrets.policy.secretName }}  key: {{ .Values.hub.secrets.policy.secretKey }}
+{{- if .Values.hub.logging.elastic.url }}
+
+Elastic (when hub.logging.elastic.url is set):
+  {{ printf "%-30s" .Values.hub.logging.elastic.apiKeySecret.name }}  key: {{ .Values.hub.logging.elastic.apiKeySecret.key }}
+{{- end }}
+{{- if .Values.badges.enabled }}
+
+Badges (when badges.enabled is true):
+  {{ printf "%-30s" .Values.badges.secret.name }}  key: {{ .Values.badges.secret.key }}
+{{- end }}
+{{- if .Values.grafana.enabled }}
+
+Grafana (when grafana.enabled is true):
+  {{ printf "%-30s" .Values.grafana.admin.user.secretName }}  keys: {{ .Values.grafana.admin.user.secretKey }}, {{ .Values.grafana.admin.password.secretKey }}
+{{- end }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
