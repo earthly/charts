@@ -16,10 +16,10 @@ hub:
   rootDir: /hub/
   db:
     user:
-      secretName: "lunar-db-user"
+      secretName: "lunar-db"
       secretKey: "username"
     pass:
-      secretName: "lunar-db-pass"
+      secretName: "lunar-db"
       secretKey: "password"
     name: ""
     host: ""
