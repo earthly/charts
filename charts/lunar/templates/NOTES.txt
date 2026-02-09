@@ -9,7 +9,8 @@ secret manager (e.g. External Secrets Operator, Sealed Secrets, Vault).
 Secret names and keys are configurable in values.yaml.
 
 Hub (required):
-  {{ printf "%-30s" .Values.hub.db.user.secretName }}  keys: {{ .Values.hub.db.user.secretKey }}, {{ .Values.hub.db.pass.secretKey }}
+  {{ printf "%-30s" .Values.hub.db.user.secretName }}  key: {{ .Values.hub.db.user.secretKey }}
+  {{ printf "%-30s" .Values.hub.db.pass.secretName }}  key: {{ .Values.hub.db.pass.secretKey }}
   {{ printf "%-30s" .Values.hub.auth.secretName }}  key: {{ .Values.hub.auth.secretKey }}
   {{ printf "%-30s" .Values.hub.github.app.privateKey.secretName }}  key: {{ .Values.hub.github.app.privateKey.secretKey }}
   {{ printf "%-30s" .Values.hub.github.token.secretName }}  key: {{ .Values.hub.github.token.secretKey }}
@@ -20,7 +21,7 @@ Hub (required):
 {{- if .Values.hub.logging.elastic.url }}
 
 Elastic (when hub.logging.elastic.url is set):
-  {{ printf "%-30s" .Values.hub.logging.elastic.apiKeySecret.name }}  key: {{ .Values.hub.logging.elastic.apiKeySecret.key }}
+  {{ printf "%-30s" .Values.hub.logging.elastic.apiKeySecret.secretName }}  key: {{ .Values.hub.logging.elastic.apiKeySecret.secretKey }}
 {{- end }}
 {{- if .Values.badges.enabled }}
 
@@ -30,7 +31,8 @@ Badges (when badges.enabled is true):
 {{- if .Values.grafana.enabled }}
 
 Grafana (when grafana.enabled is true):
-  {{ printf "%-30s" .Values.grafana.admin.user.secretName }}  keys: {{ .Values.grafana.admin.user.secretKey }}, {{ .Values.grafana.admin.password.secretKey }}
+  {{ printf "%-30s" .Values.grafana.admin.user.secretName }}  key: {{ .Values.grafana.admin.user.secretKey }}
+  {{ printf "%-30s" .Values.grafana.admin.password.secretName }}  key: {{ .Values.grafana.admin.password.secretKey }}
 {{- end }}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

@@ -121,8 +121,8 @@ spec:
             - name: HUB_ELASTIC_API_KEY
               valueFrom:
                 secretKeyRef:
-                  name: {{ .logging.elastic.apiKeySecret.name }}
-                  key: {{ .logging.elastic.apiKeySecret.key }}
+                  name: {{ .logging.elastic.apiKeySecret.secretName }}
+                  key: {{ .logging.elastic.apiKeySecret.secretKey }}
             - name: HUB_ELASTIC_BUFFER_SIZE
               value: {{ .logging.elastic.bufferSize | quote }}
             - name: HUB_ELASTIC_FLUSH_INTERVAL

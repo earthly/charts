@@ -66,8 +66,8 @@ hub:
     elastic:
       url: "" 
       apiKeySecret:
-        name: "lunar-elastic-api-key"
-        key: "api-key"
+        secretName: "lunar-elastic-api-key"
+        secretKey: "api-key"
       bufferSize: 100
       flushInterval: "5s"
   extraEnv: []
