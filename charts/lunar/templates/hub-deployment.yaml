@@ -9,6 +9,7 @@ spec:
   selector:
     matchLabels:
       {{- include "lunar.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: hub
   template:
     metadata:
       {{- with .Values.hub.podAnnotations }}
@@ -17,6 +18,7 @@ spec:
       {{- end }}
       labels:
         {{- include "lunar.labels" . | nindent 8 }}
+        app.kubernetes.io/component: hub
         {{- with .Values.hub.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}

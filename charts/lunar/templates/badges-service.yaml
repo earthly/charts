@@ -14,4 +14,5 @@ spec:
       name: badges-rest
   selector:
     {{- include "lunar.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: badges
 {{- end }}
