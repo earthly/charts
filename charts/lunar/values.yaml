@@ -14,6 +14,7 @@ serviceAccount:
 
 hub:
   rootDir: /hub/
+
   db:
     user:
       secretName: "lunar-db"
@@ -70,6 +71,14 @@ hub:
         secretKey: "api-key"
       bufferSize: 100
       flushInterval: "5s"
+
+  persistence:
+    enabled: false
+    storageClass: ""
+    size: 10Gi
+    accessModes:
+      - ReadWriteOnce
+
   extraEnv: []
 
   image:
@@ -113,8 +122,44 @@ hub:
   podSecurityContext: {}
   securityContext: {}
   resources: {}
-  volumeMounts: {}
-  volumes: {}
+  volumeMounts: []
+  volumes: []
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+operator:
+  image:
+    repository: "earthly/lunar-snippet-operator"
+    pullPolicy: IfNotPresent
+    tag: "main"
+
+  initImage:
+    repository: "earthly/lunar-snippet-init"
+    pullPolicy: IfNotPresent
+    tag: "main"
+
+  sidecarImage:
+    repository: "earthly/lunar-snippet-sidecar"
+    pullPolicy: IfNotPresent
+    tag: "main"
+
+  # Namespace where snippet pods are created. Defaults to the release namespace.
+  # Set to a different namespace to isolate snippet workloads from infrastructure.
+  snippetNamespace: ""
+  maxConcurrent: 10
+  healthPort: 8081
+
+  logging:
+    level: "info"
+    format: "json"
+
+  extraEnv: []
+  resources: {}
+  podAnnotations: {}
+  podLabels: {}
+  podSecurityContext: {}
+  securityContext: {}
   nodeSelector: {}
   tolerations: []
   affinity: {}
@@ -155,8 +200,8 @@ badges:
   podSecurityContext: {}
   securityContext: {}
   resources: {}
-  volumeMounts: {}
-  volumes: {}
+  volumeMounts: []
+  volumes: []
   nodeSelector: {}
   tolerations: []
   affinity: {}
@@ -201,8 +246,8 @@ grafana:
   podSecurityContext: {}
   securityContext: {}
   resources: {}
-  volumeMounts: {}
-  volumes: {}
+  volumeMounts: []
+  volumes: []
   nodeSelector: {}
   tolerations: []
   affinity: {}

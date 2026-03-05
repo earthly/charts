@@ -28,6 +28,9 @@ Elastic (when hub.logging.elastic.url is set):
 Badges (when badges.enabled is true):
   {{ printf "%-30s" .Values.badges.secret.name }}  key: {{ .Values.badges.secret.key }}
 {{- end }}
+
+Operator:
+  Uses the same DB and auth secrets as the Hub (listed above).
 {{- if .Values.grafana.enabled }}
 
 Grafana (when grafana.enabled is true):

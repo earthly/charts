@@ -1,0 +1,118 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "lunar.fullname" . }}-operator
+  labels:
+    {{- include "lunar.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "lunar.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: operator
+  template:
+    metadata:
+      {{- with .Values.operator.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "lunar.labels" . | nindent 8 }}
+        app.kubernetes.io/component: operator
+        {{- with .Values.operator.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "lunar.fullname" . }}-operator
+      {{- with .Values.operator.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: operator
+          {{- with .Values.operator.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          image: "{{ .Values.operator.image.repository }}:{{ .Values.operator.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.operator.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.operator.healthPort }}
+              name: health
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+            initialDelaySeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: health
+            initialDelaySeconds: 5
+          env:
+            - name: OPERATOR_DB_NAME
+              value: {{ .Values.hub.db.name | quote }}
+            - name: OPERATOR_DB_HOST
+              value: {{ .Values.hub.db.host | quote }}
+            - name: OPERATOR_DB_PORT
+              value: {{ .Values.hub.db.port | quote }}
+            - name: OPERATOR_DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.hub.db.user.secretName }}
+                  key: {{ .Values.hub.db.user.secretKey }}
+            - name: OPERATOR_DB_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.hub.db.pass.secretName }}
+                  key: {{ .Values.hub.db.pass.secretKey }}
+            - name: OPERATOR_NAMESPACE
+              value: {{ include "lunar.snippetNamespace" . | quote }}
+            - name: OPERATOR_MAX_CONCURRENT
+              value: {{ .Values.operator.maxConcurrent | quote }}
+            - name: OPERATOR_HEALTH_PORT
+              value: {{ .Values.operator.healthPort | quote }}
+            - name: OPERATOR_LOG_LEVEL
+              value: {{ .Values.operator.logging.level | quote }}
+            - name: OPERATOR_LOG_FORMAT
+              value: {{ .Values.operator.logging.format | quote }}
+            - name: OPERATOR_INIT_IMAGE
+              value: "{{ .Values.operator.initImage.repository }}:{{ .Values.operator.initImage.tag | default .Chart.AppVersion }}"
+            - name: OPERATOR_SIDECAR_IMAGE
+              value: "{{ .Values.operator.sidecarImage.repository }}:{{ .Values.operator.sidecarImage.tag | default .Chart.AppVersion }}"
+            - name: OPERATOR_HUB_HOST
+              value: {{ include "lunar.fullname" . }}-hub
+            - name: OPERATOR_HUB_GRPC_PORT
+              value: {{ .Values.hub.service.ports.server | quote }}
+            - name: OPERATOR_HUB_HTTP_PORT
+              value: {{ .Values.hub.service.ports.http | quote }}
+            - name: OPERATOR_HUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.hub.auth.secretName }}
+                  key: {{ .Values.hub.auth.secretKey }}
+            - name: OPERATOR_POD_SERVICE_ACCOUNT
+              value: {{ include "lunar.fullname" . }}-snippet-pod
+            {{- with .Values.operator.extraEnv }}
+              {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- with .Values.operator.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- with .Values.operator.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.operator.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.operator.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
