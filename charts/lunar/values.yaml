@@ -75,6 +75,7 @@ hub:
 
   persistence:
     enabled: false
+    # Leave empty to use the cluster default StorageClass.
     storageClass: ""
     size: 10Gi
     accessModes:
