@@ -1,0 +1,18 @@
+{{- if .Values.hub.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "lunar.fullname" . }}-hub-data
+  labels:
+    {{- include "lunar.labels" . | nindent 4 }}
+    app.kubernetes.io/component: hub
+spec:
+  accessModes:
+    {{- toYaml .Values.hub.persistence.accessModes | nindent 4 }}
+  {{- if .Values.hub.persistence.storageClass }}
+  storageClassName: {{ .Values.hub.persistence.storageClass | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.hub.persistence.size }}
+{{- end }}

@@ -60,3 +60,10 @@ Create the name of the service account to use
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}
+
+{{/*
+Namespace where snippet pods run. Defaults to the release namespace.
+*/}}
+{{- define "lunar.snippetNamespace" -}}
+{{- .Values.operator.snippetNamespace | default .Release.Namespace }}
+{{- end }}
