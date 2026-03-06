@@ -97,6 +97,10 @@ spec:
                   key: {{ .Values.hub.auth.secretKey }}
             - name: OPERATOR_POD_SERVICE_ACCOUNT
               value: {{ include "lunar.fullname" . }}-snippet-pod
+            {{- if .Values.imagePullSecrets }}
+            - name: OPERATOR_IMAGE_PULL_SECRETS
+              value: {{ range $i, $s := .Values.imagePullSecrets }}{{ if $i }},{{ end }}{{ $s.name }}{{ end }}
+            {{- end }}
             {{- with .Values.operator.extraEnv }}
               {{- toYaml . | nindent 12 }}
             {{- end }}
