@@ -45,7 +45,8 @@ hub:
     pollInterval: 1s
     numWorkers: 5
   s3:
-    bucketName: ""
+    logsBucket: ""
+    resourcesBucket: ""
     urlExpirationMinutes: 5m
   auth:
     secretName: "lunar-auth-token"

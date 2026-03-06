@@ -131,7 +131,9 @@ spec:
               value: {{ .logging.elastic.flushInterval | quote }}
             {{- end }}
             - name: HUB_LOGS_AWS_BUCKET
-              value: {{ .s3.bucketName | quote }}
+              value: {{ .s3.logsBucket | quote }}
+            - name: HUB_RESOURCES_AWS_BUCKET
+              value: {{ .s3.resourcesBucket | quote }}
             - name: HUB_LOGS_AWS_URL_TTL
               value: {{ .s3.urlExpirationMinutes | quote }}
             - name: HUB_K8S_EXECUTION_ENABLED
