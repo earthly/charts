@@ -146,7 +146,7 @@ operator:
     tag: "main"
 
   # Namespace where snippet pods are created. Defaults to the release namespace.
-  # Set to a different namespace to isolate snippet workloads from infrastructure.
+  # If set, the namespace must already exist — the chart will not create it.
   snippetNamespace: ""
   maxConcurrent: 10
   healthPort: 8081
