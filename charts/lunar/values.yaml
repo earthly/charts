@@ -156,6 +156,19 @@ operator:
     level: "info"
     format: "json"
 
+  # Base container spec for snippet pods. The operator overlays required fields
+  # (name, image, command, workingDir, volume mounts) on top — you control
+  # everything else: resources, env, envFrom, securityContext, etc.
+  # Example:
+  #   snippetContainerSpec:
+  #     resources:
+  #       requests:
+  #         cpu: "500m"
+  #         memory: "1Gi"
+  #     securityContext:
+  #       runAsNonRoot: true
+  snippetContainerSpec: {}
+
   extraEnv: []
   resources: {}
   podAnnotations: {}

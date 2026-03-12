@@ -101,6 +101,10 @@ spec:
             - name: OPERATOR_IMAGE_PULL_SECRETS
               value: {{ range $i, $s := .Values.imagePullSecrets }}{{ if $i }},{{ end }}{{ $s.name }}{{ end }}
             {{- end }}
+            {{- if .Values.operator.snippetContainerSpec }}
+            - name: OPERATOR_SNIPPET_CONTAINER_SPEC
+              value: {{ .Values.operator.snippetContainerSpec | toJson | quote }}
+            {{- end }}
             {{- with .Values.operator.extraEnv }}
               {{- toYaml . | nindent 12 }}
             {{- end }}
