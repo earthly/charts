@@ -169,6 +169,17 @@ operator:
   #       runAsNonRoot: true
   snippetContainerSpec: {}
 
+  # Pod-level scheduling for snippet pods. Applied to every pod the operator creates.
+  # Example:
+  #   snippetPodNodeSelector:
+  #     tenant: cronos
+  #   snippetPodTolerations:
+  #     - key: tenant
+  #       value: cronos
+  #       effect: NoSchedule
+  snippetPodNodeSelector: {}
+  snippetPodTolerations: []
+
   extraEnv: []
   resources: {}
   podAnnotations: {}
