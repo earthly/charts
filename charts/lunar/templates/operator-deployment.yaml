@@ -105,6 +105,14 @@ spec:
             - name: OPERATOR_SNIPPET_CONTAINER_SPEC
               value: {{ .Values.operator.snippetContainerSpec | toJson | quote }}
             {{- end }}
+            {{- if not (eq (toJson .Values.operator.snippetPodNodeSelector) "{}") }}
+            - name: OPERATOR_SNIPPET_POD_NODE_SELECTOR
+              value: {{ .Values.operator.snippetPodNodeSelector | toJson | quote }}
+            {{- end }}
+            {{- if .Values.operator.snippetPodTolerations }}
+            - name: OPERATOR_SNIPPET_POD_TOLERATIONS
+              value: {{ .Values.operator.snippetPodTolerations | toJson | quote }}
+            {{- end }}
             {{- with .Values.operator.extraEnv }}
               {{- toYaml . | nindent 12 }}
             {{- end }}
