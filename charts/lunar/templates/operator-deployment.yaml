@@ -95,6 +95,8 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.hub.auth.secretName }}
                   key: {{ .Values.hub.auth.secretKey }}
+            - name: OPERATOR_HUB_INSECURE
+              value: "true"
             - name: OPERATOR_POD_SERVICE_ACCOUNT
               value: {{ include "lunar.fullname" . }}-snippet-pod
             {{- if .Values.imagePullSecrets }}
