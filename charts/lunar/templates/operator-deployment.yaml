@@ -76,10 +76,25 @@ spec:
               value: {{ .Values.operator.maxConcurrent | quote }}
             - name: OPERATOR_HEALTH_PORT
               value: {{ .Values.operator.healthPort | quote }}
-            - name: OPERATOR_LOG_LEVEL
+            - name: LUNAR_TENANT_ID
+              value: {{ .Values.operator.logging.tenantId | quote }}
+            - name: LUNAR_LOG_LEVEL
               value: {{ .Values.operator.logging.level | quote }}
-            - name: OPERATOR_LOG_FORMAT
+            - name: LUNAR_LOG_FORMAT
               value: {{ .Values.operator.logging.format | quote }}
+            {{- if .Values.operator.logging.elastic.url }}
+            - name: LUNAR_ELASTIC_URL
+              value: {{ .Values.operator.logging.elastic.url | quote }}
+            - name: LUNAR_ELASTIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.operator.logging.elastic.apiKeySecret.secretName }}
+                  key: {{ .Values.operator.logging.elastic.apiKeySecret.secretKey }}
+            - name: LUNAR_ELASTIC_BUFFER_SIZE
+              value: {{ .Values.operator.logging.elastic.bufferSize | quote }}
+            - name: LUNAR_ELASTIC_FLUSH_INTERVAL
+              value: {{ .Values.operator.logging.elastic.flushInterval | quote }}
+            {{- end }}
             - name: OPERATOR_INIT_IMAGE
               value: "{{ .Values.operator.initImage.repository }}:{{ .Values.operator.initImage.tag | default .Chart.AppVersion }}"
             - name: OPERATOR_SIDECAR_IMAGE
