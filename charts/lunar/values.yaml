@@ -153,8 +153,16 @@ operator:
   healthPort: 8081
 
   logging:
+    tenantId: "localdev"
     level: "info"
     format: "json"
+    elastic:
+      url: ""
+      apiKeySecret:
+        secretName: "lunar-elastic-api-key"
+        secretKey: "api-key"
+      bufferSize: 100
+      flushInterval: "5s"
 
   # Base container spec for snippet pods. The operator overlays required fields
   # (name, image, command, workingDir, volume mounts) on top — you control
