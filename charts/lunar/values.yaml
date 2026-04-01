@@ -74,7 +74,7 @@ hub:
       flushInterval: "5s"
 
   persistence:
-    enabled: false
+    enabled: true
     # Leave empty to use the cluster default StorageClass.
     storageClass: ""
     size: 10Gi

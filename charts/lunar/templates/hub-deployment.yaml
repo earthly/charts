@@ -6,6 +6,10 @@ metadata:
     {{- include "lunar.labels" . | nindent 4 }}
 spec:
   replicas: 1
+  {{- if .Values.hub.persistence.enabled }}
+  strategy:
+    type: Recreate
+  {{- end }}
   selector:
     matchLabels:
       {{- include "lunar.selectorLabels" . | nindent 6 }}
