@@ -141,6 +141,8 @@ spec:
             {{- if $.Values.badges.enabled }}
             - name: HUB_BADGES_PORT
               value: {{ $.Values.badges.service.port | quote }}
+            - name: HUB_BADGES_SECURE
+              value: {{ $.Values.badges.secure | quote }}
             - name: HUB_BADGES_SECRET
               valueFrom:
                 secretKeyRef:

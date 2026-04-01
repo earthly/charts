@@ -200,6 +200,9 @@ operator:
 
 badges:
   enabled: false
+  # The in-cluster badges sidecar listens on plain HTTP. Set to true only
+  # if the hub should reach the badges service over HTTPS.
+  secure: false
 
   extraEnv: []
 
