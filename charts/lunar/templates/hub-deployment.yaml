@@ -140,6 +140,10 @@ spec:
               value: {{ .s3.resourcesBucket | quote }}
             - name: HUB_LOGS_AWS_URL_TTL
               value: {{ .s3.urlExpirationMinutes | quote }}
+            {{- if .publicBaseURL }}
+            - name: HUB_PUBLIC_BASE_URL
+              value: {{ .publicBaseURL | quote }}
+            {{- end }}
             - name: HUB_K8S_EXECUTION_ENABLED
               value: "true"
             {{- if $.Values.badges.enabled }}

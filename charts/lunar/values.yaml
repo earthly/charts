@@ -13,6 +13,10 @@ serviceAccount:
   name: ""
 
 hub:
+  # External URL where the hub is reachable (e.g. https://cronos.demo.earthly.dev).
+  # Used by the hub for webhook callbacks and by Grafana for dashboard log links.
+  publicBaseURL: ""
+
   rootDir: /hub/
 
   db:

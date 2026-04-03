@@ -61,6 +61,12 @@ spec:
               value: {{ $.Values.hub.db.name | quote }}
             - name: LUNAR_HUB_HOST
               value: {{ include "lunar.fullname" $ }}-hub
+            - name: LUNAR_HUB_BASE_URL
+              value: {{ ($.Values.hub.publicBaseURL | default (printf "http://%s-hub:%v" (include "lunar.fullname" $) $.Values.hub.service.ports.http)) | quote }}
+            {{- if $.Values.hub.publicBaseURL }}
+            - name: GF_SERVER_ROOT_URL
+              value: {{ $.Values.hub.publicBaseURL | quote }}
+            {{- end }}
             - name: LUNAR_HUB_TOKEN
               valueFrom:
                 secretKeyRef:
