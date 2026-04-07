@@ -110,10 +110,22 @@ spec:
           volumeMounts:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-      {{- with .Values.grafana.volumes }}
+        - name: kiosk
+          image: nginx:1-alpine
+          ports:
+            - name: kiosk
+              containerPort: 8080
+              protocol: TCP
+          volumeMounts:
+            - name: kiosk-config
+              mountPath: /etc/nginx/conf.d
       volumes:
+        - name: kiosk-config
+          configMap:
+            name: {{ include "lunar.fullname" . }}-grafana-kiosk
+        {{- with .Values.grafana.volumes }}
         {{- toYaml . | nindent 8 }}
-      {{- end }}
+        {{- end }}
       {{- with .Values.grafana.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
