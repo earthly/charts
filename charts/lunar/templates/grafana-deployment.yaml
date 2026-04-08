@@ -119,6 +119,11 @@ spec:
           volumeMounts:
             - name: kiosk-config
               mountPath: /etc/nginx/conf.d
+      {{- range .Values.grafana.volumes }}
+      {{- if eq .name "kiosk-config" }}
+      {{- fail "Values.grafana.volumes contains reserved name 'kiosk-config'" }}
+      {{- end }}
+      {{- end }}
       volumes:
         - name: kiosk-config
           configMap:
