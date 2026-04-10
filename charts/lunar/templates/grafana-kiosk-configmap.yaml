@@ -1,0 +1,56 @@
+{{- if .Values.grafana.enabled -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "lunar.fullname" . }}-grafana-kiosk
+  labels:
+    {{- include "lunar.labels" . | nindent 4 }}
+data:
+  default.conf: |
+    # Inject ?kiosk into Grafana dashboard URLs to hide the default menu.
+    # Replicates the Caddy rewrite rules from the docker-compose setup.
+
+    map $args $has_kiosk {
+        "~(^|&)kiosk(=|&|$)"  1;
+        default                0;
+    }
+
+    map $is_args $kiosk_suffix {
+        "?"     "&kiosk";
+        default "?kiosk";
+    }
+
+    server {
+        listen 8080;
+
+        location = / {
+            if ($has_kiosk = 0) {
+                return 302 /$is_args$args$kiosk_suffix;
+            }
+            proxy_pass http://localhost:3000;
+            proxy_http_version 1.1;
+            proxy_set_header Host $host;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+        }
+
+        location ~ ^/(d|dashboard)/ {
+            if ($has_kiosk = 0) {
+                return 302 $uri$is_args$args$kiosk_suffix;
+            }
+            proxy_pass http://localhost:3000;
+            proxy_http_version 1.1;
+            proxy_set_header Host $host;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+        }
+
+        location / {
+            proxy_pass http://localhost:3000;
+            proxy_http_version 1.1;
+            proxy_set_header Host $host;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+        }
+    }
+{{- end }}
