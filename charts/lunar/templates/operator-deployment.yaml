@@ -118,9 +118,29 @@ spec:
             - name: OPERATOR_IMAGE_PULL_SECRETS
               value: {{ range $i, $s := .Values.imagePullSecrets }}{{ if $i }},{{ end }}{{ $s.name }}{{ end }}
             {{- end }}
-            {{- if not (eq (toJson .Values.operator.snippetContainerSpec) "{}") }}
-            - name: OPERATOR_SNIPPET_CONTAINER_SPEC
-              value: {{ .Values.operator.snippetContainerSpec | toJson | quote }}
+            {{- if not (eq (toJson .Values.operator.snippetContainerSpecPolicy) "{}") }}
+            - name: OPERATOR_SNIPPET_CONTAINER_SPEC_POLICY
+              value: {{ .Values.operator.snippetContainerSpecPolicy | toJson | quote }}
+            {{- end }}
+            {{- if not (eq (toJson .Values.operator.snippetContainerSpecCollector) "{}") }}
+            - name: OPERATOR_SNIPPET_CONTAINER_SPEC_COLLECTOR
+              value: {{ .Values.operator.snippetContainerSpecCollector | toJson | quote }}
+            {{- end }}
+            {{- if not (eq (toJson .Values.operator.snippetContainerSpecCataloger) "{}") }}
+            - name: OPERATOR_SNIPPET_CONTAINER_SPEC_CATALOGER
+              value: {{ .Values.operator.snippetContainerSpecCataloger | toJson | quote }}
+            {{- end }}
+            {{- if gt (int .Values.operator.batchMaxCountPolicy) 0 }}
+            - name: OPERATOR_BATCH_MAX_COUNT_POLICY
+              value: {{ .Values.operator.batchMaxCountPolicy | quote }}
+            {{- end }}
+            {{- if gt (int .Values.operator.batchMaxCountCollector) 0 }}
+            - name: OPERATOR_BATCH_MAX_COUNT_COLLECTOR
+              value: {{ .Values.operator.batchMaxCountCollector | quote }}
+            {{- end }}
+            {{- if gt (int .Values.operator.batchMaxCountCataloger) 0 }}
+            - name: OPERATOR_BATCH_MAX_COUNT_CATALOGER
+              value: {{ .Values.operator.batchMaxCountCataloger | quote }}
             {{- end }}
             {{- if not (eq (toJson .Values.operator.snippetPodNodeSelector) "{}") }}
             - name: OPERATOR_SNIPPET_POD_NODE_SELECTOR

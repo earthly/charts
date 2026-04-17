@@ -168,18 +168,40 @@ operator:
       bufferSize: 100
       flushInterval: "5s"
 
-  # Base container spec for snippet pods. The operator overlays required fields
-  # (name, image, command, workingDir, volume mounts) on top — you control
-  # everything else: resources, env, envFrom, securityContext, etc.
+  # Per-snippet-type base container spec. The operator overlays required
+  # fields (name, image, command, workingDir, volume mounts) on top — you
+  # control everything else: resources, env, envFrom, securityContext, etc.
+  #
+  # Types with no override use the operator's built-in default. Override per
+  # type to match each workload's profile:
+  #   - policy:    runs tiny Python scripts against JSON; request small
+  #                resources for dense packing.
+  #   - collector: may clone repos and call external APIs; give it headroom.
+  #   - cataloger: similar to collector but typically lighter.
+  #
   # Example:
-  #   snippetContainerSpec:
+  #   snippetContainerSpecPolicy:
   #     resources:
   #       requests:
+  #         cpu: "50m"
+  #         memory: "128Mi"
+  #       limits:
   #         cpu: "500m"
-  #         memory: "1Gi"
-  #     securityContext:
-  #       runAsNonRoot: true
-  snippetContainerSpec: {}
+  #         memory: "256Mi"
+  snippetContainerSpecPolicy: {}
+  snippetContainerSpecCollector: {}
+  snippetContainerSpecCataloger: {}
+
+  # Per-snippet-type batch size: how many jobs the operator groups into a
+  # single pod. Zero = use the operator's built-in default. Policies are cheap
+  # and uniform — pack more per pod to amortize init+sidecar overhead.
+  # Collectors have higher runtime variance, so smaller batches limit blast
+  # radius of slow jobs.
+  # Example:
+  #   batchMaxCountPolicy: 50
+  batchMaxCountPolicy: 0
+  batchMaxCountCollector: 0
+  batchMaxCountCataloger: 0
 
   # Pod-level scheduling for snippet pods. Applied to every pod the operator creates.
   # Example:
