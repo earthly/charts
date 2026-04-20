@@ -41,8 +41,10 @@ hub:
     webhookSecret:
       secretName: "lunar-github-webhook"
       secretKey: "webhook-secret"
+    # Optional legacy PAT auth. Leave secretName empty when using the GitHub App —
+    # the env var will not be injected. If set, the PAT takes precedence over the App.
     token:
-      secretName: "lunar-github-token"
+      secretName: ""
       secretKey: "token"
     syncWindow: 2160h
   policyQueue:
@@ -51,7 +53,14 @@ hub:
   s3:
     logsBucket: ""
     resourcesBucket: ""
-    urlExpirationMinutes: 5m
+    # TTL for pre-signed URLs, as Go duration strings
+    # (see https://pkg.go.dev/time#ParseDuration), e.g. "5m", "1h".
+    # - logsUrlTtl: PUT URLs for snippet log uploads during execution.
+    # - resourcesUrlTtl: GET URLs for snippet resource archives fetched
+    #   by init containers before execution; leave generous to absorb
+    #   pod scheduling / image pull / cluster backpressure.
+    logsUrlTtl: 5m
+    resourcesUrlTtl: 1h
   auth:
     secretName: "lunar-auth-token"
     secretKey: "token"

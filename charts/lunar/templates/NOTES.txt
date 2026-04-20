@@ -13,11 +13,15 @@ Hub (required):
   {{ printf "%-30s" .Values.hub.db.pass.secretName }}  key: {{ .Values.hub.db.pass.secretKey }}
   {{ printf "%-30s" .Values.hub.auth.secretName }}  key: {{ .Values.hub.auth.secretKey }}
   {{ printf "%-30s" .Values.hub.github.app.privateKey.secretName }}  key: {{ .Values.hub.github.app.privateKey.secretKey }}
-  {{ printf "%-30s" .Values.hub.github.token.secretName }}  key: {{ .Values.hub.github.token.secretKey }}
   {{ printf "%-30s" .Values.hub.github.webhookSecret.secretName }}  key: {{ .Values.hub.github.webhookSecret.secretKey }}
   {{ printf "%-30s" .Values.hub.secrets.collector.secretName }}  key: {{ .Values.hub.secrets.collector.secretKey }}
   {{ printf "%-30s" .Values.hub.secrets.cataloger.secretName }}  key: {{ .Values.hub.secrets.cataloger.secretKey }}
   {{ printf "%-30s" .Values.hub.secrets.policy.secretName }}  key: {{ .Values.hub.secrets.policy.secretKey }}
+{{- if .Values.hub.github.token.secretName }}
+
+GitHub PAT (legacy; when hub.github.token.secretName is set):
+  {{ printf "%-30s" .Values.hub.github.token.secretName }}  key: {{ .Values.hub.github.token.secretKey }}
+{{- end }}
 {{- if .Values.hub.logging.elastic.url }}
 
 Elastic (when hub.logging.elastic.url is set):

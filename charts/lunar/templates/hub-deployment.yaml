@@ -74,11 +74,13 @@ spec:
                 secretKeyRef:
                   name: {{ .github.webhookSecret.secretName }}
                   key: {{ .github.webhookSecret.secretKey }}
+            {{- if .github.token.secretName }}
             - name: HUB_GITHUB_TOKEN
               valueFrom:
                 secretKeyRef:
                   name: {{ .github.token.secretName }}
                   key: {{ .github.token.secretKey }}
+            {{- end }}
             - name: HUB_GITHUB_SYNC_WINDOW
               value: {{ .github.syncWindow | quote }}
             - name: HUB_GITHUB_BASE_URL
@@ -140,7 +142,9 @@ spec:
             - name: HUB_RESOURCES_AWS_BUCKET
               value: {{ .s3.resourcesBucket | quote }}
             - name: HUB_LOGS_AWS_URL_TTL
-              value: {{ .s3.urlExpirationMinutes | quote }}
+              value: {{ .s3.logsUrlTtl | quote }}
+            - name: HUB_RESOURCES_AWS_URL_TTL
+              value: {{ .s3.resourcesUrlTtl | quote }}
             {{- if .publicBaseURL }}
             - name: HUB_PUBLIC_BASE_URL
               value: {{ .publicBaseURL | quote }}
