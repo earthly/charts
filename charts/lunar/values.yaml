@@ -50,7 +50,14 @@ hub:
   policyQueue:
     pollInterval: 1s
     numWorkers: 5
+  # S3-compatible object storage for snippet logs and resource archives.
+  # The buckets must exist and be writable by the hub's AWS credentials.
+  # AWS credentials themselves are intentionally out of scope for this
+  # chart — see README "Object storage & AWS credentials" for options
+  # (IRSA on EKS, explicit AWS_* via hub.extraEnv, etc.).
   s3:
+    # Bucket names are effectively required — empty values make every log
+    # upload and every snippet resource fetch fail at runtime.
     logsBucket: ""
     resourcesBucket: ""
     # TTL for pre-signed URLs, as Go duration strings
@@ -64,15 +71,19 @@ hub:
   auth:
     secretName: "lunar-auth-token"
     secretKey: "token"
+  # Optional per-scope runtime secrets, exposed to snippets via the hub's
+  # "lunar secret set" workflow. Leave secretName empty to skip injection —
+  # snippets can alternatively read secrets from envFrom / volumes declared
+  # on the per-type operator.snippetContainerSpec* you control.
   secrets:
     collector:
-      secretName: "lunar-collector-secrets"
+      secretName: ""
       secretKey: "secrets"
     cataloger:
-      secretName: "lunar-cataloger-secrets"
+      secretName: ""
       secretKey: "secrets"
     policy:
-      secretName: "lunar-policy-secrets"
+      secretName: ""
       secretKey: "secrets"
   logging:
     tenantId: "localdev"

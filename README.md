@@ -37,21 +37,13 @@ kubectl -n lunar create secret generic lunar-db \
 kubectl -n lunar create secret generic lunar-auth-token \
   --from-literal=token='<generate-a-random-string>'
 
-# GitHub App private key (base64-encoded PEM)
+# GitHub App private key (PEM) — required when using App auth
 kubectl -n lunar create secret generic lunar-github-app \
   --from-file=private-key=path/to/private-key.pem
 
 # GitHub webhook secret
 kubectl -n lunar create secret generic lunar-github-webhook \
   --from-literal=webhook-secret='<your-webhook-secret>'
-
-# Snippet secrets (can be empty if not needed yet)
-kubectl -n lunar create secret generic lunar-collector-secrets \
-  --from-literal=secrets='{}'
-kubectl -n lunar create secret generic lunar-cataloger-secrets \
-  --from-literal=secrets='{}'
-kubectl -n lunar create secret generic lunar-policy-secrets \
-  --from-literal=secrets='{}'
 ```
 
 ### Required values
@@ -78,15 +70,66 @@ hub:
 
 `hub.publicBaseURL` should resolve to the Hub from the public internet — it's used for automatic GitHub webhook registration (see [Webhooks](#webhooks) below).
 
+### GitHub authentication
+
+Configure **exactly one** of GitHub App or Personal Access Token. The chart validates this at install time with `helm.sh/fail`:
+
+- **App (recommended):** set `hub.github.app.id` + `hub.github.app.installId` + create the `lunar-github-app` secret.
+- **PAT (legacy):** set `hub.github.token.secretName` and leave `hub.github.app.id` / `installId` at `0`. The App private-key secret is not needed.
+
+Both configured = install fails. Neither configured = install fails.
+
+### Object storage & AWS credentials
+
+Lunar uses two S3-compatible buckets — one for streaming snippet logs, one for snippet resource archives fetched by init containers. Both must exist and be writable before pods start doing real work.
+
+**AWS credentials are intentionally out of scope for this chart.** The hub uses the standard AWS SDK credential chain, so you can use whichever mechanism fits your cluster:
+
+- **IRSA (recommended on EKS)** — annotate the chart's service account with the role ARN. The role needs `s3:GetObject`, `s3:PutObject`, and `s3:DeleteObject` on both buckets.
+
+  ```yaml
+  serviceAccount:
+    annotations:
+      eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/lunar-hub-s3
+  hub:
+    extraEnv:
+      - name: AWS_REGION
+        value: us-east-1
+  ```
+
+- **Explicit env vars** — inject credentials via `hub.extraEnv`, sourced from an existing secret:
+
+  ```yaml
+  hub:
+    extraEnv:
+      - name: AWS_REGION
+        value: us-east-1
+      - name: AWS_ACCESS_KEY_ID
+        valueFrom:
+          secretKeyRef: { name: lunar-aws, key: access-key-id }
+      - name: AWS_SECRET_ACCESS_KEY
+        valueFrom:
+          secretKeyRef: { name: lunar-aws, key: secret-access-key }
+  ```
+
+Other providers (GKE Workload Identity, pod identity, IMDS, etc.) all work the same way — set whatever `AWS_*` or service-account plumbing you'd normally use for any AWS-SDK workload. The chart does not create the buckets for you.
+
 ## Optional secrets
 
 Only create these if you need the features they enable.
 
 ```bash
-# GitHub PAT (legacy; only when hub.github.token.secretName is set.
-# Takes precedence over the GitHub App when present.)
+# GitHub PAT (legacy; only when hub.github.token.secretName is set)
 kubectl -n lunar create secret generic lunar-github-token \
   --from-literal=token='<your-github-token>'
+
+# Per-scope runtime secrets (only when the matching hub.secrets.*.secretName is set).
+# Values are JSON-encoded map[string]string, made available to snippets by the hub.
+# Most installs don't need these — prefer per-type snippet container spec envFrom /
+# volumes (see operator.snippetContainerSpec*) for fine-grained control.
+kubectl -n lunar create secret generic lunar-collector-secrets --from-literal=secrets='{}'
+kubectl -n lunar create secret generic lunar-cataloger-secrets --from-literal=secrets='{}'
+kubectl -n lunar create secret generic lunar-policy-secrets    --from-literal=secrets='{}'
 
 # Elastic API key (when hub.logging.elastic.url is set)
 kubectl -n lunar create secret generic lunar-elastic-api-key \
@@ -145,6 +188,15 @@ helm upgrade lunar earthly/lunar \
   --namespace lunar \
   -f values.yaml
 ```
+
+### Upgrading from 0.4.x to 0.5.x
+
+0.5.0 tightens defaults to match what the hub actually requires. Review these before bumping:
+
+- **`hub.s3.urlExpirationMinutes` is removed.** Set `hub.s3.logsUrlTtl` (default `5m`) and `hub.s3.resourcesUrlTtl` (default `1h`) instead.
+- **GitHub PAT is now optional.** If you've been using the GitHub App, you can delete the `lunar-github-token` placeholder secret — the chart no longer injects `HUB_GITHUB_TOKEN` unless `hub.github.token.secretName` is set. The chart also now fails at install if both App and PAT are configured, or if neither is.
+- **Runtime snippet secrets are now optional.** `hub.secrets.{collector,cataloger,policy}.secretName` default to `""` (previously `lunar-collector-secrets` etc.). If you actually use runtime secrets, set each `secretName` explicitly in your values — otherwise delete the three placeholder secrets.
+- **`hub.publicBaseURL` is now documented as required** for automatic GitHub webhook registration. Nothing changed in the template, but if you never set it, webhooks were silently failing. Set it.
 
 ## Uninstalling
 
@@ -208,15 +260,17 @@ The central gRPC/HTTP server. Stores metadata, evaluates policies, and serves th
 
 **GitHub**
 
+Configure **exactly one** of App auth or PAT auth — the chart fails at install time otherwise. See [GitHub authentication](#github-authentication).
+
 | Key | Description | Default |
 |-----|-------------|---------|
-| `hub.github.app.id` | GitHub App ID | `0` **(required)** |
-| `hub.github.app.installId` | GitHub App Installation ID | `0` **(required)** |
-| `hub.github.app.privateKey.secretName` | Secret containing the App private key | `lunar-github-app` |
+| `hub.github.app.id` | GitHub App ID (required for App auth) | `0` |
+| `hub.github.app.installId` | GitHub App Installation ID (required for App auth) | `0` |
+| `hub.github.app.privateKey.secretName` | Secret containing the App private key (required for App auth) | `lunar-github-app` |
 | `hub.github.app.privateKey.secretKey` | Key within the secret | `private-key` |
 | `hub.github.webhookSecret.secretName` | Secret containing the webhook secret | `lunar-github-webhook` |
 | `hub.github.webhookSecret.secretKey` | Key within the secret | `webhook-secret` |
-| `hub.github.token.secretName` | Legacy PAT secret; empty disables PAT auth (App is used instead) | `""` |
+| `hub.github.token.secretName` | Legacy PAT secret; set this (and leave `app.id` / `installId` at `0`) to use PAT auth | `""` |
 | `hub.github.token.secretKey` | Key within the secret | `token` |
 | `hub.github.baseUrl` | GitHub API base URL (for GitHub Enterprise Server) | `""` |
 | `hub.github.syncWindow` | How far back to sync GitHub data on first pull | `2160h` (90 days) |
@@ -237,17 +291,17 @@ The central gRPC/HTTP server. Stores metadata, evaluates policies, and serves th
 | `hub.auth.secretName` | Secret containing the Hub auth token | `lunar-auth-token` |
 | `hub.auth.secretKey` | Key within the secret | `token` |
 
-**Snippet secrets**
+**Snippet secrets (optional)**
 
-Secrets passed through to collector, cataloger, and policy snippet execution as environment variables. Each references a Kubernetes secret containing a JSON-encoded `map[string]string`.
+Per-scope secrets the hub forwards to snippet execution as JSON-encoded `map[string]string` env vars. Most installs don't need these — per-type container spec `envFrom` / `volumes` on `operator.snippetContainerSpec*` is usually a cleaner path. Leave `secretName` empty to skip injection entirely.
 
 | Key | Description | Default |
 |-----|-------------|---------|
-| `hub.secrets.collector.secretName` | Collector secrets | `lunar-collector-secrets` |
+| `hub.secrets.collector.secretName` | Collector secrets; empty disables | `""` |
 | `hub.secrets.collector.secretKey` | Key within the secret | `secrets` |
-| `hub.secrets.cataloger.secretName` | Cataloger secrets | `lunar-cataloger-secrets` |
+| `hub.secrets.cataloger.secretName` | Cataloger secrets; empty disables | `""` |
 | `hub.secrets.cataloger.secretKey` | Key within the secret | `secrets` |
-| `hub.secrets.policy.secretName` | Policy secrets | `lunar-policy-secrets` |
+| `hub.secrets.policy.secretName` | Policy secrets; empty disables | `""` |
 | `hub.secrets.policy.secretKey` | Key within the secret | `secrets` |
 
 **Logging**

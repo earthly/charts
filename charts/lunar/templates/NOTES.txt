@@ -12,15 +12,29 @@ Hub (required):
   {{ printf "%-30s" .Values.hub.db.user.secretName }}  key: {{ .Values.hub.db.user.secretKey }}
   {{ printf "%-30s" .Values.hub.db.pass.secretName }}  key: {{ .Values.hub.db.pass.secretKey }}
   {{ printf "%-30s" .Values.hub.auth.secretName }}  key: {{ .Values.hub.auth.secretKey }}
-  {{ printf "%-30s" .Values.hub.github.app.privateKey.secretName }}  key: {{ .Values.hub.github.app.privateKey.secretKey }}
   {{ printf "%-30s" .Values.hub.github.webhookSecret.secretName }}  key: {{ .Values.hub.github.webhookSecret.secretKey }}
-  {{ printf "%-30s" .Values.hub.secrets.collector.secretName }}  key: {{ .Values.hub.secrets.collector.secretKey }}
-  {{ printf "%-30s" .Values.hub.secrets.cataloger.secretName }}  key: {{ .Values.hub.secrets.cataloger.secretKey }}
-  {{ printf "%-30s" .Values.hub.secrets.policy.secretName }}  key: {{ .Values.hub.secrets.policy.secretKey }}
+{{- if include "lunar.hasGitHubApp" . }}
+
+GitHub App (required when app.id and app.installId are set):
+  {{ printf "%-30s" .Values.hub.github.app.privateKey.secretName }}  key: {{ .Values.hub.github.app.privateKey.secretKey }}
+{{- end }}
 {{- if .Values.hub.github.token.secretName }}
 
 GitHub PAT (legacy; when hub.github.token.secretName is set):
   {{ printf "%-30s" .Values.hub.github.token.secretName }}  key: {{ .Values.hub.github.token.secretKey }}
+{{- end }}
+{{- if or .Values.hub.secrets.collector.secretName .Values.hub.secrets.cataloger.secretName .Values.hub.secrets.policy.secretName }}
+
+Runtime secrets (optional; only when the corresponding secretName is set):
+{{- if .Values.hub.secrets.collector.secretName }}
+  {{ printf "%-30s" .Values.hub.secrets.collector.secretName }}  key: {{ .Values.hub.secrets.collector.secretKey }}
+{{- end }}
+{{- if .Values.hub.secrets.cataloger.secretName }}
+  {{ printf "%-30s" .Values.hub.secrets.cataloger.secretName }}  key: {{ .Values.hub.secrets.cataloger.secretKey }}
+{{- end }}
+{{- if .Values.hub.secrets.policy.secretName }}
+  {{ printf "%-30s" .Values.hub.secrets.policy.secretName }}  key: {{ .Values.hub.secrets.policy.secretKey }}
+{{- end }}
 {{- end }}
 {{- if .Values.hub.logging.elastic.url }}
 
