@@ -37,9 +37,12 @@ kubectl -n lunar create secret generic lunar-db \
 kubectl -n lunar create secret generic lunar-auth-token \
   --from-literal=token='<generate-a-random-string>'
 
-# GitHub App private key (PEM) — required when using App auth
+# GitHub App private key — required when using App auth.
+# The hub base64-decodes this value internally, so the secret must contain the
+# base64-encoded PEM (not the raw PEM). The one-liner below works on both
+# GNU and BSD/macOS base64.
 kubectl -n lunar create secret generic lunar-github-app \
-  --from-file=private-key=path/to/private-key.pem
+  --from-literal=private-key="$(base64 < path/to/private-key.pem | tr -d '\n')"
 
 # GitHub webhook secret
 kubectl -n lunar create secret generic lunar-github-webhook \
