@@ -88,7 +88,7 @@ Lunar uses two S3-compatible buckets — one for streaming snippet logs, one for
 
 **AWS credentials are intentionally out of scope for this chart.** The hub uses the standard AWS SDK credential chain, so you can use whichever mechanism fits your cluster:
 
-- **IRSA (recommended on EKS)** — annotate the chart's service account with the role ARN. The role needs `s3:GetObject`, `s3:PutObject`, and `s3:DeleteObject` on both buckets.
+- **IRSA (recommended on EKS)** — annotate the chart's service account with the role ARN. The role needs `s3:GetObject` and `s3:PutObject` on both buckets.
 
   ```yaml
   serviceAccount:
