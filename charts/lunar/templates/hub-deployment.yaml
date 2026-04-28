@@ -75,18 +75,10 @@ spec:
                 secretKeyRef:
                   name: {{ .github.webhookSecret.secretName }}
                   key: {{ .github.webhookSecret.secretKey }}
-            {{- if .github.token.secretName }}
-            - name: HUB_GITHUB_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .github.token.secretName }}
-                  key: {{ .github.token.secretKey }}
-            {{- end }}
             - name: HUB_GITHUB_SYNC_WINDOW
               value: {{ .github.syncWindow | quote }}
             - name: HUB_GITHUB_BASE_URL
               value: {{ .github.baseUrl | quote }}
-            {{- if include "lunar.hasGitHubApp" $ }}
             - name: HUB_GITHUB_APP_PRIVATE_KEY
               valueFrom:
                 secretKeyRef:
@@ -96,7 +88,6 @@ spec:
               value: {{ .github.app.id | quote }}
             - name: HUB_GITHUB_APP_INSTALL_ID
               value: {{ .github.app.installId | quote }}
-            {{- end }}
             - name: HUB_POLICY_QUEUE_POLL_INTERVAL
               value: {{ .policyQueue.pollInterval | quote }}
             - name: HUB_POLICY_QUEUE_NUM_WORKERS
@@ -160,19 +151,6 @@ spec:
             {{- end }}
             - name: HUB_K8S_EXECUTION_ENABLED
               value: "true"
-            {{- if $.Values.badges.enabled }}
-            - name: HUB_BADGES_PORT
-              value: {{ $.Values.badges.service.port | quote }}
-            - name: HUB_BADGES_SECURE
-              value: {{ $.Values.badges.secure | quote }}
-            - name: HUB_BADGES_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: {{ $.Values.badges.secret.name }}
-                  key: {{ $.Values.badges.secret.key }}
-            - name: HUB_BADGES_HOST
-              value: {{ include "lunar.fullname" $ }}-badges
-            {{- end }}
             {{- with .extraEnv }}
               {{- toYaml . | nindent 12 }}
             {{- end }}

@@ -41,11 +41,6 @@ hub:
     webhookSecret:
       secretName: "lunar-github-webhook"
       secretKey: "webhook-secret"
-    # Optional legacy PAT auth. Leave secretName empty when using the GitHub App —
-    # the env var will not be injected. If set, the PAT takes precedence over the App.
-    token:
-      secretName: ""
-      secretKey: "token"
     syncWindow: 2160h
   policyQueue:
     pollInterval: 1s
@@ -240,51 +235,6 @@ operator:
   podLabels: {}
   podSecurityContext: {}
   securityContext: {}
-  nodeSelector: {}
-  tolerations: []
-  affinity: {}
-
-badges:
-  enabled: false
-  # The in-cluster badges sidecar listens on plain HTTP. Set to true only
-  # if the hub should reach the badges service over HTTPS.
-  secure: false
-
-  extraEnv: []
-
-  secret:
-    name: ""
-    key: ""
-
-  image:
-    repository: "earthly/badges"
-    pullPolicy: IfNotPresent
-    tag: "main"
-
-  service:
-    type: ClusterIP
-    port: 80
-
-  ingress:
-    enabled: false
-    className: ""
-    annotations: {}
-    hosts:
-      - host: chart-example.local
-        paths:
-          - path: /
-            pathType: ImplementationSpecific
-    tls: []
-
-  labels: {}
-  annotations: {}
-  podAnnotations: {}
-  podLabels: {}
-  podSecurityContext: {}
-  securityContext: {}
-  resources: {}
-  volumeMounts: []
-  volumes: []
   nodeSelector: {}
   tolerations: []
   affinity: {}

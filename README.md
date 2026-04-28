@@ -75,12 +75,7 @@ hub:
 
 ### GitHub authentication
 
-Configure **exactly one** of GitHub App or Personal Access Token. The chart validates this at install time with `helm.sh/fail`:
-
-- **App (recommended):** set `hub.github.app.id` + `hub.github.app.installId` + create the `lunar-github-app` secret.
-- **PAT (legacy):** set `hub.github.token.secretName` and leave `hub.github.app.id` / `installId` at `0`. The App private-key secret is not needed.
-
-Both configured = install fails. Neither configured = install fails.
+The chart only supports GitHub App auth. Set `hub.github.app.id` + `hub.github.app.installId` and create the `lunar-github-app` secret with the App's private key. The chart fails fast at install if any of these are missing.
 
 ### Object storage & AWS credentials
 
@@ -122,10 +117,6 @@ Other providers (GKE Workload Identity, pod identity, IMDS, etc.) all work the s
 Only create these if you need the features they enable.
 
 ```bash
-# GitHub PAT (legacy; only when hub.github.token.secretName is set)
-kubectl -n lunar create secret generic lunar-github-token \
-  --from-literal=token='<your-github-token>'
-
 # Per-scope runtime secrets (only when the matching hub.secrets.*.secretName is set).
 # Values are JSON-encoded map[string]string, made available to snippets by the hub.
 # Most installs don't need these — prefer per-type snippet container spec envFrom /
@@ -192,15 +183,6 @@ helm upgrade lunar earthly/lunar \
   -f values.yaml
 ```
 
-### Upgrading from 0.4.x to 0.5.x
-
-0.5.0 tightens defaults to match what the hub actually requires. Review these before bumping:
-
-- **`hub.s3.urlExpirationMinutes` is removed.** Set `hub.s3.logsUrlTtl` (default `5m`) and `hub.s3.resourcesUrlTtl` (default `1h`) instead.
-- **GitHub PAT is now optional.** If you've been using the GitHub App, you can delete the `lunar-github-token` placeholder secret — the chart no longer injects `HUB_GITHUB_TOKEN` unless `hub.github.token.secretName` is set. The chart also now fails at install if both App and PAT are configured, or if neither is.
-- **Runtime snippet secrets are now optional.** `hub.secrets.{collector,cataloger,policy}.secretName` default to `""` (previously `lunar-collector-secrets` etc.). If you actually use runtime secrets, set each `secretName` explicitly in your values — otherwise delete the three placeholder secrets.
-- **`hub.publicBaseURL` is now documented as required** for automatic GitHub webhook registration. Nothing changed in the template, but if you never set it, webhooks were silently failing. Set it.
-
 ## Uninstalling
 
 ```bash
@@ -263,18 +245,16 @@ The central gRPC/HTTP server. Stores metadata, evaluates policies, and serves th
 
 **GitHub**
 
-Configure **exactly one** of App auth or PAT auth — the chart fails at install time otherwise. See [GitHub authentication](#github-authentication).
+App auth is required — the chart fails at install time if any of `app.id`, `app.installId`, or `app.privateKey.secretName` are missing. See [GitHub authentication](#github-authentication).
 
 | Key | Description | Default |
 |-----|-------------|---------|
-| `hub.github.app.id` | GitHub App ID (required for App auth) | `0` |
-| `hub.github.app.installId` | GitHub App Installation ID (required for App auth) | `0` |
-| `hub.github.app.privateKey.secretName` | Secret containing the App private key (required for App auth) | `lunar-github-app` |
+| `hub.github.app.id` | GitHub App ID (required) | `0` |
+| `hub.github.app.installId` | GitHub App Installation ID (required) | `0` |
+| `hub.github.app.privateKey.secretName` | Secret containing the App private key (required) | `lunar-github-app` |
 | `hub.github.app.privateKey.secretKey` | Key within the secret | `private-key` |
 | `hub.github.webhookSecret.secretName` | Secret containing the webhook secret | `lunar-github-webhook` |
 | `hub.github.webhookSecret.secretKey` | Key within the secret | `webhook-secret` |
-| `hub.github.token.secretName` | Legacy PAT secret; set this (and leave `app.id` / `installId` at `0`) to use PAT auth | `""` |
-| `hub.github.token.secretKey` | Key within the secret | `token` |
 | `hub.github.baseUrl` | GitHub API base URL (for GitHub Enterprise Server) | `""` |
 | `hub.github.syncWindow` | How far back to sync GitHub data on first pull | `2160h` (90 days) |
 
@@ -443,30 +423,6 @@ Watches for snippet execution jobs and creates Kubernetes pods to run them.
 | `operator.podAnnotations` | Additional pod annotations | `{}` |
 | `operator.podSecurityContext` | Pod security context | `{}` |
 | `operator.securityContext` | Container security context | `{}` |
-
-</details>
-
-<details>
-<summary><strong>Badges</strong></summary>
-
-Optional service that generates embeddable SVG status badges for components.
-
-| Key | Description | Default |
-|-----|-------------|---------|
-| `badges.enabled` | Deploy the badge service | `false` |
-| `badges.secure` | Hub connects to badges over HTTPS | `false` |
-| `badges.image.repository` | Badges image | `earthly/badges` |
-| `badges.image.tag` | Image tag | `main` |
-| `badges.secret.name` | Secret containing the badges auth token | `""` |
-| `badges.secret.key` | Key within the secret | `""` |
-| `badges.service.type` | Service type | `ClusterIP` |
-| `badges.service.port` | Service port | `80` |
-| `badges.ingress.*` | Same structure as `hub.ingress.*` | disabled |
-| `badges.extraEnv` | Additional environment variables | `[]` |
-| `badges.resources` | CPU/memory requests and limits | `{}` |
-| `badges.nodeSelector` | Node selector | `{}` |
-| `badges.tolerations` | Tolerations | `[]` |
-| `badges.affinity` | Affinity rules | `{}` |
 
 </details>
 

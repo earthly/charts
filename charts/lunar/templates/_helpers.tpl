@@ -69,40 +69,16 @@ Namespace where snippet pods run. Defaults to the release namespace.
 {{- end }}
 
 {{/*
-Does the install look like it's configured for GitHub App auth?
-True when both the numeric app.id and app.installId are non-zero.
-*/}}
-{{- define "lunar.hasGitHubApp" -}}
-{{- if and (gt (int .Values.hub.github.app.id) 0) (gt (int .Values.hub.github.app.installId) 0) -}}
-true
-{{- end -}}
-{{- end }}
-
-{{/*
-Does the install look like it's configured for GitHub PAT auth?
-True when hub.github.token.secretName is set.
-*/}}
-{{- define "lunar.hasGitHubPAT" -}}
-{{- if .Values.hub.github.token.secretName -}}
-true
-{{- end -}}
-{{- end }}
-
-{{/*
-Fail fast when GitHub auth is misconfigured. Exactly one of App or PAT
-must be configured — both is almost always a mistake, neither leaves
-the hub unable to talk to GitHub.
+Fail fast when GitHub App auth is misconfigured.
 */}}
 {{- define "lunar.githubAuthCheck" -}}
-{{- $hasApp := include "lunar.hasGitHubApp" . -}}
-{{- $hasPAT := include "lunar.hasGitHubPAT" . -}}
-{{- if and $hasApp $hasPAT -}}
-{{- fail "hub.github: configure either GitHub App auth (app.id + app.installId + app.privateKey) OR a PAT (token.secretName), not both." -}}
+{{- if not (gt (int .Values.hub.github.app.id) 0) -}}
+{{- fail "hub.github.app.id is required (numeric, non-zero). Run scripts/create-github-app.sh in the lunar repo to create one if you don't have it yet." -}}
 {{- end -}}
-{{- if and (not $hasApp) (not $hasPAT) -}}
-{{- fail "hub.github: no auth configured. Set GitHub App values (app.id + app.installId + app.privateKey.secretName) or a PAT (token.secretName)." -}}
+{{- if not (gt (int .Values.hub.github.app.installId) 0) -}}
+{{- fail "hub.github.app.installId is required (numeric, non-zero). It's the installation ID for the App on your org or repo." -}}
 {{- end -}}
-{{- if and $hasApp (not .Values.hub.github.app.privateKey.secretName) -}}
-{{- fail "hub.github.app: privateKey.secretName is required when app.id and app.installId are set." -}}
+{{- if not .Values.hub.github.app.privateKey.secretName -}}
+{{- fail "hub.github.app.privateKey.secretName is required. Create a Kubernetes secret holding the App's private-key PEM." -}}
 {{- end -}}
 {{- end }}
