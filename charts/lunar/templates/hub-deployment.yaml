@@ -160,19 +160,6 @@ spec:
             {{- end }}
             - name: HUB_K8S_EXECUTION_ENABLED
               value: "true"
-            {{- if $.Values.badges.enabled }}
-            - name: HUB_BADGES_PORT
-              value: {{ $.Values.badges.service.port | quote }}
-            - name: HUB_BADGES_SECURE
-              value: {{ $.Values.badges.secure | quote }}
-            - name: HUB_BADGES_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: {{ $.Values.badges.secret.name }}
-                  key: {{ $.Values.badges.secret.key }}
-            - name: HUB_BADGES_HOST
-              value: {{ include "lunar.fullname" $ }}-badges
-            {{- end }}
             {{- with .extraEnv }}
               {{- toYaml . | nindent 12 }}
             {{- end }}
