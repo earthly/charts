@@ -41,11 +41,6 @@ hub:
     webhookSecret:
       secretName: "lunar-github-webhook"
       secretKey: "webhook-secret"
-    # Optional legacy PAT auth. Leave secretName empty when using the GitHub App —
-    # the env var will not be injected. If set, the PAT takes precedence over the App.
-    token:
-      secretName: ""
-      secretKey: "token"
     syncWindow: 2160h
   policyQueue:
     pollInterval: 1s
