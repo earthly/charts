@@ -1,46 +1,84 @@
+{{/*
+Hub ingress is split into two Ingress resources because hub serves
+gRPC (port 8000, used by CLI / CI agents / operator) and HTTP (port 8001,
+GitHub webhooks + log redirects) on separate ports, and most ingress
+controllers (NGINX especially) apply backend-protocol annotations
+per-Ingress, not per-path. Same shape as Argo CD's chart.
+
+Both ingresses share host + className + TLS; per-protocol annotations
+are merged on top of the common annotations.
+*/}}
 {{- if .Values.hub.ingress.enabled -}}
+{{- $hub := .Values.hub -}}
+{{- if not $hub.ingress.host -}}
+{{- fail "hub.ingress.host is required when hub.ingress.enabled is true." -}}
+{{- end -}}
+{{- $grpcAnnotations := merge (deepCopy $hub.ingress.grpcAnnotations) $hub.ingress.annotations -}}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ include "lunar.fullname" . }}-hub
+  name: {{ include "lunar.fullname" . }}-hub-grpc
   labels:
     {{- include "lunar.labels" . | nindent 4 }}
-  {{- with .Values.hub.ingress.annotations }}
+  {{- with $grpcAnnotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
-  {{- with .Values.hub.ingress.className }}
+  {{- with $hub.ingress.className }}
   ingressClassName: {{ . }}
   {{- end }}
-  {{- if .Values.hub.ingress.tls }}
+  {{- with $hub.ingress.tls }}
   tls:
-    {{- range .Values.hub.ingress.tls }}
-    - hosts:
-        {{- range .hosts }}
-        - {{ . | quote }}
-        {{- end }}
-      secretName: {{ .secretName }}
-    {{- end }}
+    {{- toYaml . | nindent 4 }}
   {{- end }}
   rules:
-    {{- range .Values.hub.ingress.hosts }}
-    - host: {{ .host | quote }}
+    - host: {{ $hub.ingress.host | quote }}
       http:
         paths:
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: {{ include "lunar.fullname" $ }}-hub
+                name: {{ include "lunar.fullname" . }}-hub
                 port:
-                  number: {{ $.Values.hub.service.ports.server }}
-          - path: /webhook
+                  name: hub-grpc
+---
+{{- $httpAnnotations := merge (deepCopy $hub.ingress.httpAnnotations) $hub.ingress.annotations }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "lunar.fullname" . }}-hub-http
+  labels:
+    {{- include "lunar.labels" . | nindent 4 }}
+  {{- with $httpAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with $hub.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- with $hub.ingress.tls }}
+  tls:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rules:
+    - host: {{ $hub.ingress.host | quote }}
+      http:
+        paths:
+          - path: /webhooks
             pathType: Prefix
             backend:
               service:
-                name: {{ include "lunar.fullname" $ }}-hub
+                name: {{ include "lunar.fullname" . }}-hub
                 port:
-                  number: {{ $.Values.hub.service.ports.http }}
-    {{- end }}
+                  name: hub-http
+          - path: /logs
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "lunar.fullname" . }}-hub
+                port:
+                  name: hub-http
 {{- end }}

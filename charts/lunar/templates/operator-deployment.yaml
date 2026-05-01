@@ -77,7 +77,7 @@ spec:
             - name: OPERATOR_HEALTH_PORT
               value: {{ .Values.operator.healthPort | quote }}
             - name: LUNAR_TENANT_ID
-              value: {{ .Values.operator.logging.tenantId | quote }}
+              value: {{ .Values.tenantId | quote }}
             - name: LUNAR_LOG_LEVEL
               value: {{ .Values.operator.logging.level | quote }}
             - name: LUNAR_LOG_FORMAT
@@ -108,7 +108,7 @@ spec:
             - name: OPERATOR_HUB_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.hub.auth.secretName }}
+                  name: {{ include "lunar.hubAuthSecretName" . }}
                   key: {{ .Values.hub.auth.secretKey }}
             - name: OPERATOR_HUB_INSECURE
               value: "true"

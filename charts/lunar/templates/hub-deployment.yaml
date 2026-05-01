@@ -1,4 +1,5 @@
 {{- include "lunar.githubAuthCheck" . }}
+{{- include "lunar.tenantIdCheck" . }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -73,7 +74,7 @@ spec:
             - name: HUB_GITHUB_WEBHOOK_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: {{ .github.webhookSecret.secretName }}
+                  name: {{ include "lunar.hubWebhookSecretName" $ }}
                   key: {{ .github.webhookSecret.secretKey }}
             - name: HUB_GITHUB_SYNC_WINDOW
               value: {{ .github.syncWindow | quote }}
@@ -95,7 +96,7 @@ spec:
             - name: HUB_AUTH_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: {{ .auth.secretName }}
+                  name: {{ include "lunar.hubAuthSecretName" $ }}
                   key: {{ .auth.secretKey }}
             {{- if .secrets.collector.secretName }}
             - name: HUB_COLLECTOR_SECRETS
@@ -119,7 +120,7 @@ spec:
                   key: {{ .secrets.policy.secretKey }}
             {{- end }}
             - name: HUB_TENANT_ID
-              value: {{ .logging.tenantId | quote }}
+              value: {{ $.Values.tenantId | quote }}
             - name: HUB_LOG_LEVEL
               value: {{ .logging.level | quote }}
             - name: HUB_LOG_FORMAT

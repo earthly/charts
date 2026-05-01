@@ -1,47 +1,58 @@
-🌙 Lunar has been installed!
+🌙 Lunar has been installed (tenant: {{ .Values.tenantId }})
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-The following Kubernetes secrets must exist in the target namespace
-before pods will start. Create them manually, or use an external
-secret manager (e.g. External Secrets Operator, Sealed Secrets, Vault).
+Secrets in this namespace:
 
-Secret names and keys are configurable in values.yaml.
-
-Hub (required):
-  {{ printf "%-30s" .Values.hub.db.user.secretName }}  key: {{ .Values.hub.db.user.secretKey }}
-  {{ printf "%-30s" .Values.hub.db.pass.secretName }}  key: {{ .Values.hub.db.pass.secretKey }}
-  {{ printf "%-30s" .Values.hub.auth.secretName }}  key: {{ .Values.hub.auth.secretKey }}
-  {{ printf "%-30s" .Values.hub.github.webhookSecret.secretName }}  key: {{ .Values.hub.github.webhookSecret.secretKey }}
-
-GitHub App (required):
-  {{ printf "%-30s" .Values.hub.github.app.privateKey.secretName }}  key: {{ .Values.hub.github.app.privateKey.secretKey }}
+User-managed (you must create these before pods start):
+  {{ printf "%-40s" .Values.hub.db.user.secretName }}  key: {{ .Values.hub.db.user.secretKey }}
+  {{ printf "%-40s" .Values.hub.db.pass.secretName }}  key: {{ .Values.hub.db.pass.secretKey }}
+  {{ printf "%-40s" .Values.hub.github.app.privateKey.secretName }}  key: {{ .Values.hub.github.app.privateKey.secretKey }}
+{{- if .Values.hub.auth.secretName }}
+  {{ printf "%-40s" .Values.hub.auth.secretName }}  key: {{ .Values.hub.auth.secretKey }}
+{{- end }}
+{{- if .Values.hub.github.webhookSecret.secretName }}
+  {{ printf "%-40s" .Values.hub.github.webhookSecret.secretName }}  key: {{ .Values.hub.github.webhookSecret.secretKey }}
+{{- end }}
+{{- if and .Values.grafana.enabled .Values.grafana.admin.secretName }}
+  {{ printf "%-40s" .Values.grafana.admin.secretName }}  keys: {{ .Values.grafana.admin.userKey }}, {{ .Values.grafana.admin.passwordKey }}
+{{- end }}
 {{- if or .Values.hub.secrets.collector.secretName .Values.hub.secrets.cataloger.secretName .Values.hub.secrets.policy.secretName }}
 
 Runtime secrets (optional; only when the corresponding secretName is set):
 {{- if .Values.hub.secrets.collector.secretName }}
-  {{ printf "%-30s" .Values.hub.secrets.collector.secretName }}  key: {{ .Values.hub.secrets.collector.secretKey }}
+  {{ printf "%-40s" .Values.hub.secrets.collector.secretName }}  key: {{ .Values.hub.secrets.collector.secretKey }}
 {{- end }}
 {{- if .Values.hub.secrets.cataloger.secretName }}
-  {{ printf "%-30s" .Values.hub.secrets.cataloger.secretName }}  key: {{ .Values.hub.secrets.cataloger.secretKey }}
+  {{ printf "%-40s" .Values.hub.secrets.cataloger.secretName }}  key: {{ .Values.hub.secrets.cataloger.secretKey }}
 {{- end }}
 {{- if .Values.hub.secrets.policy.secretName }}
-  {{ printf "%-30s" .Values.hub.secrets.policy.secretName }}  key: {{ .Values.hub.secrets.policy.secretKey }}
+  {{ printf "%-40s" .Values.hub.secrets.policy.secretName }}  key: {{ .Values.hub.secrets.policy.secretKey }}
 {{- end }}
 {{- end }}
 {{- if .Values.hub.logging.elastic.url }}
-
-Elastic (when hub.logging.elastic.url is set):
-  {{ printf "%-30s" .Values.hub.logging.elastic.apiKeySecret.secretName }}  key: {{ .Values.hub.logging.elastic.apiKeySecret.secretKey }}
+  {{ printf "%-40s" .Values.hub.logging.elastic.apiKeySecret.secretName }}  key: {{ .Values.hub.logging.elastic.apiKeySecret.secretKey }}
 {{- end }}
 
-Operator:
-  Uses the same DB and auth secrets as the Hub (listed above).
-{{- if .Values.grafana.enabled }}
+{{- $chartManaged := list -}}
+{{- if not .Values.hub.auth.secretName -}}
+{{- $chartManaged = append $chartManaged (printf "%s (Hub auth token)" (include "lunar.hubAuthSecretName" .)) -}}
+{{- end -}}
+{{- if not .Values.hub.github.webhookSecret.secretName -}}
+{{- $chartManaged = append $chartManaged (printf "%s (GitHub webhook)" (include "lunar.hubWebhookSecretName" .)) -}}
+{{- end -}}
+{{- if and .Values.grafana.enabled (not .Values.grafana.admin.secretName) -}}
+{{- $chartManaged = append $chartManaged (printf "%s (Grafana admin)" (include "lunar.grafanaAdminSecretName" .)) -}}
+{{- end -}}
+{{- if $chartManaged }}
 
-Grafana (when grafana.enabled is true):
-  {{ printf "%-30s" .Values.grafana.admin.user.secretName }}  key: {{ .Values.grafana.admin.user.secretKey }}
-  {{ printf "%-30s" .Values.grafana.admin.password.secretName }}  key: {{ .Values.grafana.admin.password.secretKey }}
+Chart-managed (auto-generated; persist across upgrade and uninstall):
+{{- range $chartManaged }}
+  {{ . }}
+{{- end }}
+
+Retrieve any of them with:
+  kubectl -n {{ .Release.Namespace }} get secret <name> -o jsonpath='{.data.<key>}' | base64 -d
 {{- end }}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

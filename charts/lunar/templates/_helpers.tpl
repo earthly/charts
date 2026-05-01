@@ -82,3 +82,36 @@ Fail fast when GitHub App auth is misconfigured.
 {{- fail "hub.github.app.privateKey.secretName is required. Create a Kubernetes secret holding the App's private-key PEM." -}}
 {{- end -}}
 {{- end }}
+
+{{/*
+Fail fast when tenantId is unset. tenantId is required — it's used for
+telemetry routing (Elastic indices, Grafana dashboard scoping) and as
+this Hub's instance ID for GitHub webhook registration. Earthly assigns it.
+*/}}
+{{- define "lunar.tenantIdCheck" -}}
+{{- if not .Values.tenantId -}}
+{{- fail "tenantId is required. Earthly assigns this value — ask your contact if you don't know it." -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Resolved name for the chart-managed Hub auth-token secret.
+Honors hub.auth.secretName when set; otherwise derives from the release.
+*/}}
+{{- define "lunar.hubAuthSecretName" -}}
+{{- .Values.hub.auth.secretName | default (printf "%s-hub-auth-token" (include "lunar.fullname" .)) -}}
+{{- end }}
+
+{{/*
+Resolved name for the chart-managed GitHub webhook secret.
+*/}}
+{{- define "lunar.hubWebhookSecretName" -}}
+{{- .Values.hub.github.webhookSecret.secretName | default (printf "%s-hub-github-webhook" (include "lunar.fullname" .)) -}}
+{{- end }}
+
+{{/*
+Resolved name for the chart-managed Grafana admin secret.
+*/}}
+{{- define "lunar.grafanaAdminSecretName" -}}
+{{- .Values.grafana.admin.secretName | default (printf "%s-grafana-admin" (include "lunar.fullname" .)) -}}
+{{- end }}

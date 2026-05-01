@@ -70,18 +70,18 @@ spec:
             - name: LUNAR_HUB_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: {{ $.Values.hub.auth.secretName }}
+                  name: {{ include "lunar.hubAuthSecretName" $ }}
                   key: {{ $.Values.hub.auth.secretKey }}
             - name: GF_SECURITY_ADMIN_USER
               valueFrom:
                 secretKeyRef:
-                  name: {{ .admin.user.secretName }}
-                  key: {{ .admin.user.secretKey }}
+                  name: {{ include "lunar.grafanaAdminSecretName" $ }}
+                  key: {{ .admin.userKey }}
             - name: GF_SECURITY_ADMIN_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ .admin.password.secretName }}
-                  key: {{ .admin.password.secretKey }}
+                  name: {{ include "lunar.grafanaAdminSecretName" $ }}
+                  key: {{ .admin.passwordKey }}
             - name: GF_INSTALL_PLUGINS
               value: "yesoreyeram-infinity-datasource,marcusolsson-dynamictext-panel,volkovlabs-echarts-panel"
             - name: GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS
