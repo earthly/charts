@@ -447,30 +447,6 @@ Watches for snippet execution jobs and creates Kubernetes pods to run them.
 </details>
 
 <details>
-<summary><strong>Badges</strong></summary>
-
-Optional service that generates embeddable SVG status badges for components.
-
-| Key | Description | Default |
-|-----|-------------|---------|
-| `badges.enabled` | Deploy the badge service | `false` |
-| `badges.secure` | Hub connects to badges over HTTPS | `false` |
-| `badges.image.repository` | Badges image | `earthly/badges` |
-| `badges.image.tag` | Image tag | `main` |
-| `badges.secret.name` | Secret containing the badges auth token | `""` |
-| `badges.secret.key` | Key within the secret | `""` |
-| `badges.service.type` | Service type | `ClusterIP` |
-| `badges.service.port` | Service port | `80` |
-| `badges.ingress.*` | Same structure as `hub.ingress.*` | disabled |
-| `badges.extraEnv` | Additional environment variables | `[]` |
-| `badges.resources` | CPU/memory requests and limits | `{}` |
-| `badges.nodeSelector` | Node selector | `{}` |
-| `badges.tolerations` | Tolerations | `[]` |
-| `badges.affinity` | Affinity rules | `{}` |
-
-</details>
-
-<details>
 <summary><strong>Grafana</strong></summary>
 
 Optional pre-built Grafana instance with dashboards for policy results, component health, and collection activity.
