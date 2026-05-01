@@ -75,12 +75,7 @@ hub:
 
 ### GitHub authentication
 
-Configure **exactly one** of GitHub App or Personal Access Token. The chart validates this at install time with `helm.sh/fail`:
-
-- **App (recommended):** set `hub.github.app.id` + `hub.github.app.installId` + create the `lunar-github-app` secret.
-- **PAT (legacy):** set `hub.github.token.secretName` and leave `hub.github.app.id` / `installId` at `0`. The App private-key secret is not needed.
-
-Both configured = install fails. Neither configured = install fails.
+Hub authenticates to GitHub as a GitHub App. Set `hub.github.app.id` + `hub.github.app.installId` and create the `lunar-github-app` secret holding the App's private-key PEM. The chart validates these at install time with `helm.sh/fail`.
 
 ### Object storage & AWS credentials
 
@@ -122,10 +117,6 @@ Other providers (GKE Workload Identity, pod identity, IMDS, etc.) all work the s
 Only create these if you need the features they enable.
 
 ```bash
-# GitHub PAT (legacy; only when hub.github.token.secretName is set)
-kubectl -n lunar create secret generic lunar-github-token \
-  --from-literal=token='<your-github-token>'
-
 # Per-scope runtime secrets (only when the matching hub.secrets.*.secretName is set).
 # Values are JSON-encoded map[string]string, made available to snippets by the hub.
 # Most installs don't need these — prefer per-type snippet container spec envFrom /
@@ -197,7 +188,7 @@ helm upgrade lunar earthly/lunar \
 0.5.0 tightens defaults to match what the hub actually requires. Review these before bumping:
 
 - **`hub.s3.urlExpirationMinutes` is removed.** Set `hub.s3.logsUrlTtl` (default `5m`) and `hub.s3.resourcesUrlTtl` (default `1h`) instead.
-- **GitHub PAT is now optional.** If you've been using the GitHub App, you can delete the `lunar-github-token` placeholder secret — the chart no longer injects `HUB_GITHUB_TOKEN` unless `hub.github.token.secretName` is set. The chart also now fails at install if both App and PAT are configured, or if neither is.
+- **GitHub PAT auth is removed.** Hub now authenticates as a GitHub App only. Set `hub.github.app.id` + `hub.github.app.installId` and create the App private-key secret. The `hub.github.token.*` values are gone; the `lunar-github-token` placeholder secret can be deleted.
 - **Runtime snippet secrets are now optional.** `hub.secrets.{collector,cataloger,policy}.secretName` default to `""` (previously `lunar-collector-secrets` etc.). If you actually use runtime secrets, set each `secretName` explicitly in your values — otherwise delete the three placeholder secrets.
 - **`hub.publicBaseURL` is now documented as required** for automatic GitHub webhook registration. Nothing changed in the template, but if you never set it, webhooks were silently failing. Set it.
 
@@ -263,18 +254,16 @@ The central gRPC/HTTP server. Stores metadata, evaluates policies, and serves th
 
 **GitHub**
 
-Configure **exactly one** of App auth or PAT auth — the chart fails at install time otherwise. See [GitHub authentication](#github-authentication).
+Hub authenticates as a GitHub App. App ID, install ID, and the App's private-key secret are all required — the chart fails at install time otherwise. See [GitHub authentication](#github-authentication).
 
 | Key | Description | Default |
 |-----|-------------|---------|
-| `hub.github.app.id` | GitHub App ID (required for App auth) | `0` |
-| `hub.github.app.installId` | GitHub App Installation ID (required for App auth) | `0` |
-| `hub.github.app.privateKey.secretName` | Secret containing the App private key (required for App auth) | `lunar-github-app` |
+| `hub.github.app.id` | GitHub App ID | `0` **(required)** |
+| `hub.github.app.installId` | GitHub App Installation ID | `0` **(required)** |
+| `hub.github.app.privateKey.secretName` | Secret containing the App private-key PEM | `lunar-github-app` |
 | `hub.github.app.privateKey.secretKey` | Key within the secret | `private-key` |
 | `hub.github.webhookSecret.secretName` | Secret containing the webhook secret | `lunar-github-webhook` |
 | `hub.github.webhookSecret.secretKey` | Key within the secret | `webhook-secret` |
-| `hub.github.token.secretName` | Legacy PAT secret; set this (and leave `app.id` / `installId` at `0`) to use PAT auth | `""` |
-| `hub.github.token.secretKey` | Key within the secret | `token` |
 | `hub.github.baseUrl` | GitHub API base URL (for GitHub Enterprise Server) | `""` |
 | `hub.github.syncWindow` | How far back to sync GitHub data on first pull | `2160h` (90 days) |
 
