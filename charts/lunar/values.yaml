@@ -10,6 +10,25 @@ imagePullSecrets: []
 # know it. The chart fails install if unset.
 tenantId: ""
 
+# Global logger config applied to both Hub and Operator.
+# Controls local process logging (stdout/stderr).
+logging:
+  level: "info"
+  format: "json"
+
+# Global telemetry shipping config applied to both Hub and Operator.
+# When enabled and elastic.url is set, Elastic env vars are injected for both
+# components together.
+telemetry:
+  enabled: true
+  elastic:
+    url: ""
+    apiKeySecret:
+      secretName: "lunar-elastic-api-key"
+      secretKey: "api-key"
+    bufferSize: 100
+    flushInterval: "5s"
+
 serviceAccount:
   create: true
   automount: true
@@ -104,16 +123,6 @@ hub:
     policy:
       secretName: ""
       secretKey: "secrets"
-  logging:
-    level: "info"
-    format: "json"
-    elastic:
-      url: ""
-      apiKeySecret:
-        secretName: "lunar-elastic-api-key"
-        secretKey: "api-key"
-      bufferSize: 100
-      flushInterval: "5s"
 
   persistence:
     enabled: true
@@ -202,17 +211,6 @@ operator:
   snippetNamespace: ""
   maxConcurrent: 10
   healthPort: 8081
-
-  logging:
-    level: "info"
-    format: "json"
-    elastic:
-      url: ""
-      apiKeySecret:
-        secretName: "lunar-elastic-api-key"
-        secretKey: "api-key"
-      bufferSize: 100
-      flushInterval: "5s"
 
   # Per-snippet-type base container spec. The operator overlays required
   # fields (name, image, command, workingDir, volume mounts) on top — you

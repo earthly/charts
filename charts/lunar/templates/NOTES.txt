@@ -30,8 +30,8 @@ Runtime secrets (optional; only when the corresponding secretName is set):
   {{ printf "%-40s" .Values.hub.secrets.policy.secretName }}  key: {{ .Values.hub.secrets.policy.secretKey }}
 {{- end }}
 {{- end }}
-{{- if .Values.hub.logging.elastic.url }}
-  {{ printf "%-40s" .Values.hub.logging.elastic.apiKeySecret.secretName }}  key: {{ .Values.hub.logging.elastic.apiKeySecret.secretKey }}
+{{- if and .Values.telemetry.enabled .Values.telemetry.elastic.url }}
+  {{ printf "%-40s" .Values.telemetry.elastic.apiKeySecret.secretName }}  key: {{ .Values.telemetry.elastic.apiKeySecret.secretKey }}
 {{- end }}
 
 {{- $chartManaged := list -}}

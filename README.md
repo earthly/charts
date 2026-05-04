@@ -153,7 +153,7 @@ kubectl -n lunar create secret generic lunar-collector-secrets --from-literal=se
 kubectl -n lunar create secret generic lunar-cataloger-secrets --from-literal=secrets='{}'
 kubectl -n lunar create secret generic lunar-policy-secrets    --from-literal=secrets='{}'
 
-# Elastic API key (when hub.logging.elastic.url is set)
+# Elastic API key (when telemetry.enabled=true and telemetry.elastic.url is set)
 kubectl -n lunar create secret generic lunar-elastic-api-key \
   --from-literal=api-key='<your-elastic-api-key>'
 
@@ -219,6 +219,7 @@ helm upgrade lunar earthly/lunar \
 0.6.0 cuts install-time secret bookkeeping and reshapes a few values. There are no in-place data migrations — review these before upgrading:
 
 - **`tenantId` is now required at the top level.** Previously read from `hub.logging.tenantId` and `operator.logging.tenantId` (both removed). Move your value to the top-level `tenantId`. The chart fails install if unset.
+- **Logging and telemetry are now split at the top level for both Hub and Operator.** `hub.logging.*` and `operator.logging.*` are removed. Use `logging.{level,format}` for local process logs and `telemetry.enabled` to enable/disable outbound telemetry shipping for both components together (Elastic settings live at `telemetry.elastic.*`).
 - **Hub auth token, GitHub webhook secret, and Grafana admin credentials are now chart-managed by default.** `hub.auth.secretName`, `hub.github.webhookSecret.secretName`, and `grafana.admin.secretName` default to `""`, in which case the chart generates random values and stores them in `<release>-hub-auth-token`, `<release>-hub-github-webhook`, and `<release>-grafana-admin` (all marked `helm.sh/resource-policy: keep`).
 
   If you have existing user-managed secrets (`lunar-auth-token`, `lunar-github-webhook`, `lunar-grafana-admin`) and want to keep them, set each `secretName` to the existing name in your values — the chart will reference them and skip auto-generation.
@@ -254,6 +255,14 @@ Run `helm show values earthly/lunar` for the full, authoritative list. Defaults 
 | `nameOverride` | Override the chart name | `""` |
 | `fullnameOverride` | Override the full release name | `""` |
 | `tenantId` | Tenant identifier (required) — telemetry routing + webhook registration | `""` |
+| `logging.level` | Log level (`debug`, `info`, `warn`, `error`) applied to both Hub and Operator | `info` |
+| `logging.format` | Log format (`json` or `text`) applied to both Hub and Operator | `json` |
+| `telemetry.enabled` | Enable outbound telemetry shipping to Elastic for both Hub and Operator | `true` |
+| `telemetry.elastic.url` | Elasticsearch URL used by both Hub and Operator (shipping only when `telemetry.enabled=true`) | `""` |
+| `telemetry.elastic.apiKeySecret.secretName` | Elastic API key secret name (shared) | `lunar-elastic-api-key` |
+| `telemetry.elastic.apiKeySecret.secretKey` | Key within the Elastic API key secret | `api-key` |
+| `telemetry.elastic.bufferSize` | Log buffer size before flushing (shared) | `100` |
+| `telemetry.elastic.flushInterval` | How often to flush buffered logs (shared) | `5s` |
 | `imagePullSecrets` | Image pull secrets for all pods | `[]` |
 | `serviceAccount.create` | Create a service account | `true` |
 | `serviceAccount.automount` | Automount the service account token | `true` |
@@ -341,15 +350,7 @@ Per-scope secrets the hub forwards to snippet execution as JSON-encoded `map[str
 
 **Logging**
 
-| Key | Description | Default |
-|-----|-------------|---------|
-| `hub.logging.level` | Log level (`debug`, `info`, `warn`, `error`) | `info` |
-| `hub.logging.format` | Log format (`json` or `text`) | `json` |
-| `hub.logging.elastic.url` | Elasticsearch URL (enables log shipping when set) | `""` |
-| `hub.logging.elastic.apiKeySecret.secretName` | Elastic API key secret | `lunar-elastic-api-key` |
-| `hub.logging.elastic.apiKeySecret.secretKey` | Key within the secret | `api-key` |
-| `hub.logging.elastic.bufferSize` | Log buffer size before flushing | `100` |
-| `hub.logging.elastic.flushInterval` | How often to flush the log buffer | `5s` |
+Hub logging uses the top-level global `logging.*` values. Telemetry shipping env vars are injected only when `telemetry.enabled=true` and `telemetry.elastic.url` is set.
 
 **Policy queue**
 
@@ -457,11 +458,7 @@ Watches for snippet execution jobs and creates Kubernetes pods to run them.
 
 **Logging**
 
-| Key | Description | Default |
-|-----|-------------|---------|
-| `operator.logging.level` | Log level | `info` |
-| `operator.logging.format` | Log format | `json` |
-| `operator.logging.elastic.*` | Same structure as `hub.logging.elastic.*` | — |
+Operator logging uses the top-level global `logging.*` values. Telemetry shipping env vars are injected only when `telemetry.enabled=true` and `telemetry.elastic.url` is set.
 
 **Scheduling & pod spec**
 
