@@ -45,15 +45,15 @@ After install, retrieve any chart-managed secret with:
 
 ```bash
 # Hub auth token (pass to CLI / CI agents as LUNAR_HUB_TOKEN)
-kubectl -n lunar get secret lunar-hub-auth-token \
+kubectl -n lunar get secret lunar-auth-token \
   -o jsonpath='{.data.token}' | base64 -d
 
 # GitHub webhook secret (register with your GitHub App)
-kubectl -n lunar get secret lunar-hub-github-webhook \
+kubectl -n lunar get secret lunar-github-webhook \
   -o jsonpath='{.data.webhook-secret}' | base64 -d
 ```
 
-(Adjust `lunar-hub-...` for your release name; the actual names are `<release>-hub-auth-token`, `<release>-hub-github-webhook`, `<release>-grafana-admin`.)
+(Adjust `lunar-...` for your release name; the actual names are `<release>-auth-token`, `<release>-github-webhook`, `<release>-grafana-admin`.)
 
 #### GitOps note
 
@@ -214,13 +214,31 @@ helm upgrade lunar earthly/lunar \
   -f values.yaml
 ```
 
+### Upgrading to 0.6.1
+
+0.6.1 renames the chart-managed auto-generated secrets to drop a redundant `-hub-` segment: `<release>-hub-auth-token` → `<release>-auth-token`, `<release>-hub-github-webhook` → `<release>-github-webhook`. Grafana's admin secret is unchanged. If you installed 0.6.0 and let the chart generate these, pick one before upgrading:
+
+- **Keep the old names** — pin `hub.auth.secretName: <release>-hub-auth-token` and `hub.github.webhookSecret.secretName: <release>-hub-github-webhook` in your values. No rename, no rotation.
+- **Migrate to the new names** — copy the existing secret to the new name, then upgrade. Example (from release namespace):
+
+  ```bash
+  kubectl get secret <release>-hub-auth-token -o yaml \
+    | sed 's/<release>-hub-auth-token/<release>-auth-token/' \
+    | kubectl apply -f -
+  kubectl get secret <release>-hub-github-webhook -o yaml \
+    | sed 's/<release>-hub-github-webhook/<release>-github-webhook/' \
+    | kubectl apply -f -
+  ```
+
+  The chart's `lookup` will find the copy and reuse the same token/secret — no agents or webhooks need re-registering. Delete the old secrets once the upgrade is green.
+
 ### Upgrading to 0.6.x
 
 0.6.0 cuts install-time secret bookkeeping and reshapes a few values. There are no in-place data migrations — review these before upgrading:
 
 - **`tenantId` is now required at the top level.** Previously read from `hub.logging.tenantId` and `operator.logging.tenantId` (both removed). Move your value to the top-level `tenantId`. The chart fails install if unset.
 - **Logging and telemetry are now split at the top level for both Hub and Operator.** `hub.logging.*` and `operator.logging.*` are removed. Use `logging.{level,format}` for local process logs and `telemetry.enabled` to enable/disable outbound telemetry shipping for both components together (Elastic settings live at `telemetry.elastic.*`).
-- **Hub auth token, GitHub webhook secret, and Grafana admin credentials are now chart-managed by default.** `hub.auth.secretName`, `hub.github.webhookSecret.secretName`, and `grafana.admin.secretName` default to `""`, in which case the chart generates random values and stores them in `<release>-hub-auth-token`, `<release>-hub-github-webhook`, and `<release>-grafana-admin` (all marked `helm.sh/resource-policy: keep`).
+- **Hub auth token, GitHub webhook secret, and Grafana admin credentials are now chart-managed by default.** `hub.auth.secretName`, `hub.github.webhookSecret.secretName`, and `grafana.admin.secretName` default to `""`, in which case the chart generates random values and stores them in `<release>-auth-token`, `<release>-github-webhook`, and `<release>-grafana-admin` (all marked `helm.sh/resource-policy: keep`).
 
   If you have existing user-managed secrets (`lunar-auth-token`, `lunar-github-webhook`, `lunar-grafana-admin`) and want to keep them, set each `secretName` to the existing name in your values — the chart will reference them and skip auto-generation.
 
