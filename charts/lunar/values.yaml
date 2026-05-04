@@ -4,6 +4,31 @@ fullnameOverride: ""
 
 imagePullSecrets: []
 
+# Required. Tenant identifier used for telemetry routing (Elastic indices,
+# Grafana dashboard scoping) and as this Hub's instance ID when registering
+# GitHub webhooks. Earthly assigns this value — ask your contact if you don't
+# know it. The chart fails install if unset.
+tenantId: ""
+
+# Global logger config applied to both Hub and Operator.
+# Controls local process logging (stdout/stderr).
+logging:
+  level: "info"
+  format: "json"
+
+# Global telemetry shipping config applied to both Hub and Operator.
+# When enabled and elastic.url is set, Elastic env vars are injected for both
+# components together.
+telemetry:
+  enabled: true
+  elastic:
+    url: ""
+    apiKeySecret:
+      secretName: "lunar-elastic-api-key"
+      secretKey: "api-key"
+    bufferSize: 100
+    flushInterval: "5s"
+
 serviceAccount:
   create: true
   automount: true
@@ -38,8 +63,18 @@ hub:
         secretKey: "private-key"
       id: 0
       installId: 0
+    # Webhook secret. Leave secretName empty to have the chart generate one
+    # (recommended for fresh installs). The chart-managed secret persists
+    # across upgrade and uninstall (helm.sh/resource-policy: keep). Retrieve:
+    #   kubectl get secret <release>-hub-github-webhook \
+    #     -o jsonpath='{.data.webhook-secret}' | base64 -d
+    # and register it with your GitHub App.
+    #
+    # GitOps users (ArgoCD/Flux): see README "GitOps note" — either set
+    # secretName to a pre-managed secret, or add ignoreDifferences for
+    # /data/webhook-secret in your Application spec.
     webhookSecret:
-      secretName: "lunar-github-webhook"
+      secretName: ""
       secretKey: "webhook-secret"
     syncWindow: 2160h
   policyQueue:
@@ -63,8 +98,16 @@ hub:
     #   pod scheduling / image pull / cluster backpressure.
     logsUrlTtl: 5m
     resourcesUrlTtl: 1h
+  # Hub auth token. Leave secretName empty to have the chart generate one
+  # (recommended for fresh installs). The chart-managed secret persists
+  # across upgrade and uninstall (helm.sh/resource-policy: keep). Retrieve:
+  #   kubectl get secret <release>-hub-auth-token \
+  #     -o jsonpath='{.data.token}' | base64 -d
+  # and pass to CLI / CI agent installs as LUNAR_HUB_TOKEN.
+  #
+  # GitOps users (ArgoCD/Flux): see README "GitOps note".
   auth:
-    secretName: "lunar-auth-token"
+    secretName: ""
     secretKey: "token"
   # Optional per-scope runtime secrets, exposed to snippets via the hub's
   # "lunar secret set" workflow. Leave secretName empty to skip injection —
@@ -80,17 +123,6 @@ hub:
     policy:
       secretName: ""
       secretKey: "secrets"
-  logging:
-    tenantId: "localdev"
-    level: "info"
-    format: "json"
-    elastic:
-      url: "" 
-      apiKeySecret:
-        secretName: "lunar-elastic-api-key"
-        secretKey: "api-key"
-      bufferSize: 100
-      flushInterval: "5s"
 
   persistence:
     enabled: true
@@ -113,16 +145,25 @@ hub:
       server: 8000
       http: 8001
 
+  # The hub serves gRPC (port 8000, used by CLI / CI agents / operator) and
+  # HTTP (port 8001, GitHub webhooks + log redirects) on separate ports.
+  # Most ingress controllers apply backend-protocol annotations per-Ingress,
+  # not per-path, so when enabled the chart renders two Ingress resources
+  # sharing the same host and TLS config (same pattern as Argo CD's chart).
+  # Disable entirely if you front the hub with a LoadBalancer Service, a
+  # service mesh, or some other ingress mechanism.
   ingress:
     enabled: false
+    host: ""
     className: ""
-    annotations: {}
-    hosts:
-      - host: chart-example.local
-        paths:
-          - path: /
-            pathType: ImplementationSpecific
     tls: []
+    # Annotations applied to both ingresses.
+    annotations: {}
+    # Annotations applied only to the gRPC ingress. Required for most NGINX
+    # setups: nginx.ingress.kubernetes.io/backend-protocol: "GRPC".
+    grpcAnnotations: {}
+    # Annotations applied only to the HTTP ingress.
+    httpAnnotations: {}
 
   readinessProbe:
     enabled: true
@@ -170,18 +211,6 @@ operator:
   snippetNamespace: ""
   maxConcurrent: 10
   healthPort: 8081
-
-  logging:
-    tenantId: "localdev"
-    level: "info"
-    format: "json"
-    elastic:
-      url: ""
-      apiKeySecret:
-        secretName: "lunar-elastic-api-key"
-        secretKey: "api-key"
-      bufferSize: 100
-      flushInterval: "5s"
 
   # Per-snippet-type base container spec. The operator overlays required
   # fields (name, image, command, workingDir, volume mounts) on top — you
@@ -242,13 +271,18 @@ operator:
 grafana:
   enabled: false
 
+  # Admin credentials. Leave secretName empty to have the chart generate them
+  # (recommended for fresh installs): username defaults to "admin", password
+  # is a 32-char alphanumeric. The chart-managed secret persists across
+  # upgrade and uninstall (helm.sh/resource-policy: keep). Retrieve:
+  #   kubectl get secret <release>-grafana-admin \
+  #     -o jsonpath='{.data.password}' | base64 -d
+  #
+  # GitOps users (ArgoCD/Flux): see README "GitOps note".
   admin:
-    user:
-      secretName: "lunar-grafana-admin"
-      secretKey: "username"
-    password:
-      secretName: "lunar-grafana-admin"
-      secretKey: "password"
+    secretName: ""
+    userKey: "username"
+    passwordKey: "password"
 
   extraEnv: []
 

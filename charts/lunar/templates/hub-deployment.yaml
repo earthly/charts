@@ -1,4 +1,5 @@
 {{- include "lunar.githubAuthCheck" . }}
+{{- include "lunar.tenantIdCheck" . }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -73,7 +74,7 @@ spec:
             - name: HUB_GITHUB_WEBHOOK_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: {{ .github.webhookSecret.secretName }}
+                  name: {{ include "lunar.hubWebhookSecretName" $ }}
                   key: {{ .github.webhookSecret.secretKey }}
             - name: HUB_GITHUB_SYNC_WINDOW
               value: {{ .github.syncWindow | quote }}
@@ -95,7 +96,7 @@ spec:
             - name: HUB_AUTH_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: {{ .auth.secretName }}
+                  name: {{ include "lunar.hubAuthSecretName" $ }}
                   key: {{ .auth.secretKey }}
             {{- if .secrets.collector.secretName }}
             - name: HUB_COLLECTOR_SECRETS
@@ -119,23 +120,23 @@ spec:
                   key: {{ .secrets.policy.secretKey }}
             {{- end }}
             - name: HUB_TENANT_ID
-              value: {{ .logging.tenantId | quote }}
+              value: {{ $.Values.tenantId | quote }}
             - name: HUB_LOG_LEVEL
-              value: {{ .logging.level | quote }}
+              value: {{ $.Values.logging.level | quote }}
             - name: HUB_LOG_FORMAT
-              value: {{ .logging.format | quote }}
-            {{- if .logging.elastic.url }}
+              value: {{ $.Values.logging.format | quote }}
+            {{- if and $.Values.telemetry.enabled $.Values.telemetry.elastic.url }}
             - name: HUB_ELASTIC_URL
-              value: {{ .logging.elastic.url | quote }}
+              value: {{ $.Values.telemetry.elastic.url | quote }}
             - name: HUB_ELASTIC_API_KEY
               valueFrom:
                 secretKeyRef:
-                  name: {{ .logging.elastic.apiKeySecret.secretName }}
-                  key: {{ .logging.elastic.apiKeySecret.secretKey }}
+                  name: {{ $.Values.telemetry.elastic.apiKeySecret.secretName }}
+                  key: {{ $.Values.telemetry.elastic.apiKeySecret.secretKey }}
             - name: HUB_ELASTIC_BUFFER_SIZE
-              value: {{ .logging.elastic.bufferSize | quote }}
+              value: {{ $.Values.telemetry.elastic.bufferSize | quote }}
             - name: HUB_ELASTIC_FLUSH_INTERVAL
-              value: {{ .logging.elastic.flushInterval | quote }}
+              value: {{ $.Values.telemetry.elastic.flushInterval | quote }}
             {{- end }}
             - name: HUB_LOGS_AWS_BUCKET
               value: {{ .s3.logsBucket | quote }}
