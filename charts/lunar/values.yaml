@@ -66,7 +66,7 @@ hub:
     # Webhook secret. Leave secretName empty to have the chart generate one
     # (recommended for fresh installs). The chart-managed secret persists
     # across upgrade and uninstall (helm.sh/resource-policy: keep). Retrieve:
-    #   kubectl get secret <release>-hub-github-webhook \
+    #   kubectl get secret <release>-github-webhook \
     #     -o jsonpath='{.data.webhook-secret}' | base64 -d
     # and register it with your GitHub App.
     #
@@ -101,7 +101,7 @@ hub:
   # Hub auth token. Leave secretName empty to have the chart generate one
   # (recommended for fresh installs). The chart-managed secret persists
   # across upgrade and uninstall (helm.sh/resource-policy: keep). Retrieve:
-  #   kubectl get secret <release>-hub-auth-token \
+  #   kubectl get secret <release>-auth-token \
   #     -o jsonpath='{.data.token}' | base64 -d
   # and pass to CLI / CI agent installs as LUNAR_HUB_TOKEN.
   #

@@ -99,14 +99,14 @@ Resolved name for the chart-managed Hub auth-token secret.
 Honors hub.auth.secretName when set; otherwise derives from the release.
 */}}
 {{- define "lunar.hubAuthSecretName" -}}
-{{- .Values.hub.auth.secretName | default (printf "%s-hub-auth-token" (include "lunar.fullname" .)) -}}
+{{- .Values.hub.auth.secretName | default (printf "%s-auth-token" (include "lunar.fullname" .)) -}}
 {{- end }}
 
 {{/*
 Resolved name for the chart-managed GitHub webhook secret.
 */}}
 {{- define "lunar.hubWebhookSecretName" -}}
-{{- .Values.hub.github.webhookSecret.secretName | default (printf "%s-hub-github-webhook" (include "lunar.fullname" .)) -}}
+{{- .Values.hub.github.webhookSecret.secretName | default (printf "%s-github-webhook" (include "lunar.fullname" .)) -}}
 {{- end }}
 
 {{/*
