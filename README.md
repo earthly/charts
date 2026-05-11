@@ -321,6 +321,19 @@ The central gRPC/HTTP server. Stores metadata, evaluates policies, and serves th
 | `hub.db.user.secretKey` | Key within the secret | `username` |
 | `hub.db.pass.secretName` | Secret containing the DB password | `lunar-db` |
 | `hub.db.pass.secretKey` | Key within the secret | `password` |
+| `hub.db.connectionOptions` | Extra options appended to the Postgres connection string (libpq KV format, space-separated). Default works against managed Postgres with forced TLS (RDS, Aurora, Cloud SQL); set to `"sslmode=disable"` for plain cluster-local Postgres. Also consumed by the operator. | `"sslmode=require"` |
+
+> **Override footgun:** setting `hub.db.connectionOptions` **replaces** the whole string — the default is not merged in. If passing additional options (`connect_timeout`, `application_name`, etc.), include `sslmode=` yourself, space-separated:
+> ```yaml
+> # OK
+> hub:
+>   db:
+>     connectionOptions: "sslmode=require connect_timeout=10"
+> # BAD — silently drops sslmode=require
+> hub:
+>   db:
+>     connectionOptions: "connect_timeout=10"
+> ```
 
 **GitHub**
 
@@ -496,11 +509,11 @@ Operator logging uses the top-level global `logging.*` values. Telemetry shippin
 <details>
 <summary><strong>Grafana</strong></summary>
 
-Optional pre-built Grafana instance with dashboards for policy results, component health, and collection activity.
+Pre-built Grafana instance with dashboards for policy results, component health, and collection activity. Deployed by default; set `grafana.enabled: false` to opt out.
 
 | Key | Description | Default |
 |-----|-------------|---------|
-| `grafana.enabled` | Deploy the pre-built Grafana instance | `false` |
+| `grafana.enabled` | Deploy the pre-built Grafana instance | `true` |
 | `grafana.image.repository` | Grafana image | `earthly/lunar-grafana` |
 | `grafana.image.tag` | Image tag | `main` |
 | `grafana.admin.secretName` | Secret containing both admin credentials. Empty = chart auto-generates `<release>-grafana-admin` (kept across uninstall) | `""` |

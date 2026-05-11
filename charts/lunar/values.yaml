@@ -55,6 +55,22 @@ hub:
     host: ""
     port: 5432
     waitSecs: 45
+    # Extra options appended to the Postgres connection string. Defaults to
+    # sslmode=require so fresh managed-Postgres installs (RDS / Aurora /
+    # Cloud SQL, all of which default to forced TLS) just work. Set to
+    # "sslmode=disable" for plain cluster-local Postgres without TLS.
+    #
+    # Format: libpq KV pairs, space-separated. NOT URL query syntax.
+    #   OK:  "sslmode=require"
+    #   OK:  "sslmode=require connect_timeout=10"
+    #   BAD: "sslmode=require&connect_timeout=10"   # will fail to parse
+    #
+    # Footgun: overriding REPLACES the whole string — the default is not
+    # merged in. If you pass additional options, include sslmode= yourself.
+    #
+    # Also consumed by the operator (OPERATOR_DB_CONNECTION_OPTIONS); both
+    # components connect to the same DB so they share this value.
+    connectionOptions: "sslmode=require"
   github:
     baseUrl: ""
     app:
@@ -269,7 +285,7 @@ operator:
   affinity: {}
 
 grafana:
-  enabled: false
+  enabled: true
 
   # Admin credentials. Leave secretName empty to have the chart generate them
   # (recommended for fresh installs): username defaults to "admin", password
