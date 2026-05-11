@@ -496,11 +496,11 @@ Operator logging uses the top-level global `logging.*` values. Telemetry shippin
 <details>
 <summary><strong>Grafana</strong></summary>
 
-Optional pre-built Grafana instance with dashboards for policy results, component health, and collection activity.
+Pre-built Grafana instance with dashboards for policy results, component health, and collection activity. Deployed by default; set `grafana.enabled: false` to opt out.
 
 | Key | Description | Default |
 |-----|-------------|---------|
-| `grafana.enabled` | Deploy the pre-built Grafana instance | `false` |
+| `grafana.enabled` | Deploy the pre-built Grafana instance | `true` |
 | `grafana.image.repository` | Grafana image | `earthly/lunar-grafana` |
 | `grafana.image.tag` | Image tag | `main` |
 | `grafana.admin.secretName` | Secret containing both admin credentials. Empty = chart auto-generates `<release>-grafana-admin` (kept across uninstall) | `""` |

@@ -269,7 +269,7 @@ operator:
   affinity: {}
 
 grafana:
-  enabled: false
+  enabled: true
 
   # Admin credentials. Leave secretName empty to have the chart generate them
   # (recommended for fresh installs): username defaults to "admin", password
