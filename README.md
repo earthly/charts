@@ -321,6 +321,19 @@ The central gRPC/HTTP server. Stores metadata, evaluates policies, and serves th
 | `hub.db.user.secretKey` | Key within the secret | `username` |
 | `hub.db.pass.secretName` | Secret containing the DB password | `lunar-db` |
 | `hub.db.pass.secretKey` | Key within the secret | `password` |
+| `hub.db.connectionOptions` | Extra options appended to the Postgres connection string (libpq KV format, space-separated). Default works against managed Postgres with forced TLS (RDS, Aurora, Cloud SQL); set to `"sslmode=disable"` for plain cluster-local Postgres. Also consumed by the operator. | `"sslmode=require"` |
+
+> **Override footgun:** setting `hub.db.connectionOptions` **replaces** the whole string — the default is not merged in. If passing additional options (`connect_timeout`, `application_name`, etc.), include `sslmode=` yourself, space-separated:
+> ```yaml
+> # OK
+> hub:
+>   db:
+>     connectionOptions: "sslmode=require connect_timeout=10"
+> # BAD — silently drops sslmode=require
+> hub:
+>   db:
+>     connectionOptions: "connect_timeout=10"
+> ```
 
 **GitHub**
 
