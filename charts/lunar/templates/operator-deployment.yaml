@@ -78,25 +78,10 @@ spec:
               value: {{ .Values.operator.maxConcurrent | quote }}
             - name: OPERATOR_HEALTH_PORT
               value: {{ .Values.operator.healthPort | quote }}
-            - name: LUNAR_TENANT_ID
-              value: {{ .Values.tenantId | quote }}
             - name: LUNAR_LOG_LEVEL
               value: {{ .Values.logging.level | quote }}
             - name: LUNAR_LOG_FORMAT
               value: {{ .Values.logging.format | quote }}
-            {{- if and .Values.telemetry.enabled .Values.telemetry.elastic.url }}
-            - name: LUNAR_ELASTIC_URL
-              value: {{ .Values.telemetry.elastic.url | quote }}
-            - name: LUNAR_ELASTIC_API_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.telemetry.elastic.apiKeySecret.secretName }}
-                  key: {{ .Values.telemetry.elastic.apiKeySecret.secretKey }}
-            - name: LUNAR_ELASTIC_BUFFER_SIZE
-              value: {{ .Values.telemetry.elastic.bufferSize | quote }}
-            - name: LUNAR_ELASTIC_FLUSH_INTERVAL
-              value: {{ .Values.telemetry.elastic.flushInterval | quote }}
-            {{- end }}
             - name: OPERATOR_INIT_IMAGE
               value: "{{ .Values.operator.initImage.repository }}:{{ .Values.operator.initImage.tag | default .Chart.AppVersion }}"
             - name: OPERATOR_SIDECAR_IMAGE

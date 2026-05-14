@@ -4,30 +4,11 @@ fullnameOverride: ""
 
 imagePullSecrets: []
 
-# Required. Tenant identifier used for telemetry routing (Elastic indices,
-# Grafana dashboard scoping) and as this Hub's instance ID when registering
-# GitHub webhooks. Earthly assigns this value — ask your contact if you don't
-# know it. The chart fails install if unset.
-tenantId: ""
-
 # Global logger config applied to both Hub and Operator.
 # Controls local process logging (stdout/stderr).
 logging:
   level: "info"
   format: "json"
-
-# Global telemetry shipping config applied to both Hub and Operator.
-# When enabled and elastic.url is set, Elastic env vars are injected for both
-# components together.
-telemetry:
-  enabled: true
-  elastic:
-    url: ""
-    apiKeySecret:
-      secretName: "lunar-elastic-api-key"
-      secretKey: "api-key"
-    bufferSize: 100
-    flushInterval: "5s"
 
 serviceAccount:
   create: true
@@ -43,6 +24,13 @@ hub:
   publicBaseURL: ""
 
   rootDir: /hub/
+
+  # Hub licence JWT secret mount. This token is authoritative for tenant and
+  # telemetry routing configuration.
+  licence:
+    secretName: "lunar-hub-licence"
+    secretKey: "hub-licence.jwt"
+    filePath: "/var/run/secrets/lunar/hub-licence.jwt"
 
   db:
     user:

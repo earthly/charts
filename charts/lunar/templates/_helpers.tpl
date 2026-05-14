@@ -84,13 +84,17 @@ Fail fast when GitHub App auth is misconfigured.
 {{- end }}
 
 {{/*
-Fail fast when tenantId is unset. tenantId is required — it's used for
-telemetry routing (Elastic indices, Grafana dashboard scoping) and as
-this Hub's instance ID for GitHub webhook registration. Earthly assigns it.
+Fail fast when licence mount configuration is invalid.
 */}}
-{{- define "lunar.tenantIdCheck" -}}
-{{- if not .Values.tenantId -}}
-{{- fail "tenantId is required. Earthly assigns this value — ask your contact if you don't know it." -}}
+{{- define "lunar.hubLicenceCheck" -}}
+{{- if not .Values.hub.licence.secretName -}}
+{{- fail "hub.licence.secretName is required. Create a Kubernetes secret containing the signed hub licence JWT." -}}
+{{- end -}}
+{{- if not .Values.hub.licence.secretKey -}}
+{{- fail "hub.licence.secretKey is required." -}}
+{{- end -}}
+{{- if not .Values.hub.licence.filePath -}}
+{{- fail "hub.licence.filePath is required." -}}
 {{- end -}}
 {{- end }}
 
