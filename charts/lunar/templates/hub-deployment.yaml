@@ -139,6 +139,10 @@ spec:
             - name: HUB_PUBLIC_BASE_URL
               value: {{ .publicBaseURL | quote }}
             {{- end }}
+            {{- with (or .grafanaURLBase .publicBaseURL) }}
+            - name: HUB_GRAFANA_URL_BASE
+              value: {{ . | quote }}
+            {{- end }}
             - name: HUB_K8S_EXECUTION_ENABLED
               value: "true"
             {{- with .extraEnv }}

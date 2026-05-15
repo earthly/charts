@@ -23,6 +23,14 @@ hub:
   # Used by the hub for webhook callbacks and by Grafana for dashboard log links.
   publicBaseURL: ""
 
+  # URL the hub uses to build [More Details] links in PR comments back to
+  # the Grafana dashboard. Defaults to publicBaseURL when empty — that's
+  # the right answer for single-hostname installs (Caddy / content-type
+  # routing). Override only when Grafana is served from a separate
+  # hostname (e.g. grafana.lunar.example.com behind a distinct NGINX
+  # ingress, which is the topology the chart's docs advocate).
+  grafanaURLBase: ""
+
   rootDir: /hub/
 
   # Hub licence JWT secret mount. This token is authoritative for tenant and
