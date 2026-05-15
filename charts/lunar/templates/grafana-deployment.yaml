@@ -60,7 +60,7 @@ spec:
             - name: POSTGRES_DB
               value: {{ $.Values.hub.db.name | quote }}
             - name: LUNAR_HUB_HOST
-              value: {{ include "lunar.fullname" $ }}-hub
+              value: {{ include "lunar.hubHost" $ | quote }}
             - name: LUNAR_HUB_HTTP_PORT
               value: {{ $.Values.hub.service.ports.http | quote }}
             {{- if $.Values.hub.publicBaseURL }}

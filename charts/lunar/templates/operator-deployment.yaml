@@ -87,7 +87,7 @@ spec:
             - name: OPERATOR_SIDECAR_IMAGE
               value: "{{ .Values.operator.sidecarImage.repository }}:{{ .Values.operator.sidecarImage.tag | default .Chart.AppVersion }}"
             - name: OPERATOR_HUB_HOST
-              value: {{ include "lunar.fullname" . }}-hub
+              value: {{ .Values.operator.hubHost | default (include "lunar.hubHost" .) | quote }}
             - name: OPERATOR_HUB_GRPC_PORT
               value: {{ .Values.hub.service.ports.server | quote }}
             - name: OPERATOR_HUB_HTTP_PORT

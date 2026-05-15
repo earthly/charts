@@ -2,6 +2,12 @@
 nameOverride: ""
 fullnameOverride: ""
 
+# Kubernetes cluster DNS domain. Used to render in-cluster service FQDNs
+# (`<svc>.<ns>.svc.<clusterDomain>`). Default matches stock K8s. Override only
+# if your cluster was provisioned with a non-default --cluster-domain (rare;
+# most managed clusters — EKS, GKE, AKS — use cluster.local).
+clusterDomain: cluster.local
+
 imagePullSecrets: []
 
 # Global logger config applied to both Hub and Operator.
@@ -227,6 +233,16 @@ operator:
   # Namespace where snippet pods are created. Defaults to the release namespace.
   # If set, the namespace must already exist — the chart will not create it.
   snippetNamespace: ""
+
+  # Hostname the operator (and the snippet pods it spawns) uses to reach Hub
+  # gRPC. Empty = chart computes the in-cluster FQDN
+  # `<release>-hub.<release-namespace>.svc.<clusterDomain>`, which resolves
+  # from any namespace and is the right answer for ~all installs (including
+  # cross-namespace `snippetNamespace`). Override only for service-mesh /
+  # split-DNS / multi-cluster topologies where Hub is reachable at a
+  # non-standard name.
+  hubHost: ""
+
   maxConcurrent: 10
   healthPort: 8081
 

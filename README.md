@@ -234,6 +234,7 @@ Run `helm show values earthly/lunar` for the full, authoritative list. Defaults 
 |-----|-------------|---------|
 | `nameOverride` | Override the chart name | `""` |
 | `fullnameOverride` | Override the full release name | `""` |
+| `clusterDomain` | Kubernetes cluster DNS domain. Override only if your cluster was provisioned with a non-default `--cluster-domain` | `cluster.local` |
 | `logging.level` | Log level (`debug`, `info`, `warn`, `error`) applied to both Hub and Operator | `info` |
 | `logging.format` | Log format (`json` or `text`) applied to both Hub and Operator | `json` |
 | `imagePullSecrets` | Image pull secrets for all pods | `[]` |
@@ -433,6 +434,7 @@ Watches for snippet execution jobs and creates Kubernetes pods to run them.
 | Key | Description | Default |
 |-----|-------------|---------|
 | `operator.snippetNamespace` | Namespace for snippet pods (must exist if set) | `""` (release namespace) |
+| `operator.hubHost` | Override hostname the operator and snippet pods use to reach Hub gRPC. Empty = computed in-cluster FQDN, which resolves cross-namespace. Set only for service-mesh / split-DNS / multi-cluster topologies | `""` |
 | `operator.maxConcurrent` | Max concurrent snippet pods | `10` |
 | `operator.healthPort` | Operator health check port | `8081` |
 | `operator.extraEnv` | Additional environment variables | `[]` |
