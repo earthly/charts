@@ -149,12 +149,14 @@ Only create these if you need the features they enable.
 
 ```bash
 # Per-scope runtime secrets (only when the matching hub.secrets.*.secretName is set).
-# Values are JSON-encoded map[string]string, made available to snippets by the hub.
+# The k8s secret's `secrets` data key is parsed by Hub as a comma-separated list
+# of `NAME:VALUE` pairs (kelseyhightower/envconfig map format — NOT JSON). Each
+# pair surfaces in script pods as `LUNAR_SECRET_<NAME>`.
 # Most installs don't need these — prefer per-type snippet container spec envFrom /
 # volumes (see operator.snippetContainerSpec*) for fine-grained control.
-kubectl -n lunar create secret generic lunar-collector-secrets --from-literal=secrets='{}'
-kubectl -n lunar create secret generic lunar-cataloger-secrets --from-literal=secrets='{}'
-kubectl -n lunar create secret generic lunar-policy-secrets    --from-literal=secrets='{}'
+kubectl -n lunar create secret generic lunar-collector-secrets --from-literal=secrets='GH_TOKEN:ghp_xxx,NPM_TOKEN:npm_yyy'
+kubectl -n lunar create secret generic lunar-cataloger-secrets --from-literal=secrets='GH_TOKEN:ghp_xxx'
+kubectl -n lunar create secret generic lunar-policy-secrets    --from-literal=secrets='SLACK_WEBHOOK_URL:https://hooks.slack.com/services/...'
 
 # Grafana admin (only if you set grafana.admin.secretName instead of letting
 # the chart auto-generate; both username and password live in one secret)
@@ -329,7 +331,7 @@ Hub authenticates as a GitHub App. App ID, install ID, and the App's private-key
 
 **Snippet secrets (optional)**
 
-Per-scope secrets the hub forwards to snippet execution as JSON-encoded `map[string]string` env vars. Most installs don't need these — per-type container spec `envFrom` / `volumes` on `operator.snippetContainerSpec*` is usually a cleaner path. Leave `secretName` empty to skip injection entirely.
+Per-scope secrets the hub forwards to script execution. The K8s secret's `secrets` data key is a comma-separated list of `NAME:VALUE` pairs (envconfig map format, **not JSON**); each pair surfaces as `LUNAR_SECRET_<NAME>` in the script pod. Most installs don't need these — per-type container spec `envFrom` / `volumes` on `operator.snippetContainerSpec*` is usually a cleaner path. Leave `secretName` empty to skip injection entirely.
 
 | Key | Description | Default |
 |-----|-------------|---------|

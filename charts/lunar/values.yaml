@@ -113,10 +113,16 @@ hub:
   auth:
     secretName: ""
     secretKey: "token"
-  # Optional per-scope runtime secrets, exposed to snippets via the hub's
+  # Optional per-scope runtime secrets, exposed to scripts via the hub's
   # "lunar secret set" workflow. Leave secretName empty to skip injection —
-  # snippets can alternatively read secrets from envFrom / volumes declared
+  # scripts can alternatively read secrets from envFrom / volumes declared
   # on the per-type operator.snippetContainerSpec* you control.
+  #
+  # Format: the referenced K8s secret's data key (default "secrets") is
+  # parsed by Hub as a comma-separated list of `NAME:VALUE` pairs
+  # (kelseyhightower/envconfig map format — NOT JSON). Each pair surfaces
+  # in script pods as `LUNAR_SECRET_<NAME>`. See README "Snippet secrets
+  # (optional)" section for examples.
   secrets:
     collector:
       secretName: ""
