@@ -433,6 +433,7 @@ Watches for snippet execution jobs and creates Kubernetes pods to run them.
 | Key | Description | Default |
 |-----|-------------|---------|
 | `operator.snippetNamespace` | Namespace for snippet pods (must exist if set) | `""` (release namespace) |
+| `operator.hubHost` | Hostname snippet pods use to reach Hub gRPC. Override to the cross-namespace FQDN (e.g. `lunar-hub.lunar.svc.cluster.local`) when `snippetNamespace` differs from the release namespace | `""` (in-namespace `<release>-hub`) |
 | `operator.maxConcurrent` | Max concurrent snippet pods | `10` |
 | `operator.healthPort` | Operator health check port | `8081` |
 | `operator.extraEnv` | Additional environment variables | `[]` |

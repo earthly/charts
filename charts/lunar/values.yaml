@@ -227,6 +227,14 @@ operator:
   # Namespace where snippet pods are created. Defaults to the release namespace.
   # If set, the namespace must already exist — the chart will not create it.
   snippetNamespace: ""
+
+  # Hostname snippet pods use to reach Hub gRPC. Defaults to the in-namespace
+  # short name (`<release>-hub`), which only resolves from inside Hub's own
+  # namespace. Override to the cross-namespace FQDN (e.g.
+  # `lunar-hub.lunar.svc.cluster.local`) when `snippetNamespace` differs from
+  # the release namespace.
+  hubHost: ""
+
   maxConcurrent: 10
   healthPort: 8081
 
