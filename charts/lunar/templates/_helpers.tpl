@@ -119,3 +119,13 @@ Resolved name for the chart-managed Grafana admin secret.
 {{- define "lunar.grafanaAdminSecretName" -}}
 {{- .Values.grafana.admin.secretName | default (printf "%s-grafana-admin" (include "lunar.fullname" .)) -}}
 {{- end }}
+
+{{/*
+In-cluster DNS name for the Hub service, in `<svc>.<ns>.svc.<clusterDomain>`
+form so it resolves from any namespace (the operator's snippetNamespace, in
+particular). Callers that need to honor a per-component override should do
+`default (include "lunar.hubHost" .) .Values.<component>.hubHost`.
+*/}}
+{{- define "lunar.hubHost" -}}
+{{- printf "%s-hub.%s.svc.%s" (include "lunar.fullname" .) .Release.Namespace .Values.clusterDomain -}}
+{{- end }}
