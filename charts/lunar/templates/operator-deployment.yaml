@@ -73,7 +73,7 @@ spec:
             - name: OPERATOR_DB_CONNECTION_OPTIONS
               value: {{ .Values.hub.db.connectionOptions | quote }}
             - name: OPERATOR_NAMESPACE
-              value: {{ include "lunar.snippetNamespace" . | quote }}
+              value: {{ include "lunar.scriptNamespace" . | quote }}
             - name: OPERATOR_MAX_CONCURRENT
               value: {{ .Values.operator.maxConcurrent | quote }}
             - name: OPERATOR_HEALTH_PORT
@@ -100,22 +100,22 @@ spec:
             - name: OPERATOR_HUB_INSECURE
               value: "true"
             - name: OPERATOR_POD_SERVICE_ACCOUNT
-              value: {{ include "lunar.fullname" . }}-snippet-pod
+              value: {{ include "lunar.fullname" . }}-script-pod
             {{- if .Values.imagePullSecrets }}
             - name: OPERATOR_IMAGE_PULL_SECRETS
               value: {{ range $i, $s := .Values.imagePullSecrets }}{{ if $i }},{{ end }}{{ $s.name }}{{ end }}
             {{- end }}
-            {{- if not (eq (toJson .Values.operator.snippetContainerSpecPolicy) "{}") }}
+            {{- if not (eq (toJson .Values.operator.scriptContainerSpecPolicy) "{}") }}
             - name: OPERATOR_SNIPPET_CONTAINER_SPEC_POLICY
-              value: {{ .Values.operator.snippetContainerSpecPolicy | toJson | quote }}
+              value: {{ .Values.operator.scriptContainerSpecPolicy | toJson | quote }}
             {{- end }}
-            {{- if not (eq (toJson .Values.operator.snippetContainerSpecCollector) "{}") }}
+            {{- if not (eq (toJson .Values.operator.scriptContainerSpecCollector) "{}") }}
             - name: OPERATOR_SNIPPET_CONTAINER_SPEC_COLLECTOR
-              value: {{ .Values.operator.snippetContainerSpecCollector | toJson | quote }}
+              value: {{ .Values.operator.scriptContainerSpecCollector | toJson | quote }}
             {{- end }}
-            {{- if not (eq (toJson .Values.operator.snippetContainerSpecCataloger) "{}") }}
+            {{- if not (eq (toJson .Values.operator.scriptContainerSpecCataloger) "{}") }}
             - name: OPERATOR_SNIPPET_CONTAINER_SPEC_CATALOGER
-              value: {{ .Values.operator.snippetContainerSpecCataloger | toJson | quote }}
+              value: {{ .Values.operator.scriptContainerSpecCataloger | toJson | quote }}
             {{- end }}
             {{- if gt (int .Values.operator.batchMaxCountPolicy) 0 }}
             - name: OPERATOR_BATCH_MAX_COUNT_POLICY
@@ -129,13 +129,13 @@ spec:
             - name: OPERATOR_BATCH_MAX_COUNT_CATALOGER
               value: {{ .Values.operator.batchMaxCountCataloger | quote }}
             {{- end }}
-            {{- if not (eq (toJson .Values.operator.snippetPodNodeSelector) "{}") }}
+            {{- if not (eq (toJson .Values.operator.scriptPodNodeSelector) "{}") }}
             - name: OPERATOR_SNIPPET_POD_NODE_SELECTOR
-              value: {{ .Values.operator.snippetPodNodeSelector | toJson | quote }}
+              value: {{ .Values.operator.scriptPodNodeSelector | toJson | quote }}
             {{- end }}
-            {{- if .Values.operator.snippetPodTolerations }}
+            {{- if .Values.operator.scriptPodTolerations }}
             - name: OPERATOR_SNIPPET_POD_TOLERATIONS
-              value: {{ .Values.operator.snippetPodTolerations | toJson | quote }}
+              value: {{ .Values.operator.scriptPodTolerations | toJson | quote }}
             {{- end }}
             {{- with .Values.operator.extraEnv }}
               {{- toYaml . | nindent 12 }}

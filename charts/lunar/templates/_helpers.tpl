@@ -62,10 +62,10 @@ Create the name of the service account to use
 {{- end }}
 
 {{/*
-Namespace where snippet pods run. Defaults to the release namespace.
+Namespace where script pods run. Defaults to the release namespace.
 */}}
-{{- define "lunar.snippetNamespace" -}}
-{{- .Values.operator.snippetNamespace | default .Release.Namespace }}
+{{- define "lunar.scriptNamespace" -}}
+{{- .Values.operator.scriptNamespace | default .Release.Namespace }}
 {{- end }}
 
 {{/*
@@ -122,7 +122,7 @@ Resolved name for the chart-managed Grafana admin secret.
 
 {{/*
 In-cluster DNS name for the Hub service, in `<svc>.<ns>.svc.<clusterDomain>`
-form so it resolves from any namespace (the operator's snippetNamespace, in
+form so it resolves from any namespace (the operator's scriptNamespace, in
 particular). Callers that need to honor a per-component override should do
 `default (include "lunar.hubHost" .) .Values.<component>.hubHost`.
 */}}
