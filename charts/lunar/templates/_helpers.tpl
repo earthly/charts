@@ -36,9 +36,6 @@ Common labels
 {{- define "lunar.labels" -}}
 helm.sh/chart: {{ include "lunar.chart" . }}
 {{ include "lunar.selectorLabels" . }}
-{{- if .Chart.AppVersion }}
-app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
-{{- end }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
 

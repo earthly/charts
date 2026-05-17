@@ -38,7 +38,7 @@ spec:
           securityContext:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          image: "{{ .Values.operator.image.repository }}:{{ .Values.operator.image.tag | default .Chart.AppVersion }}"
+          image: "{{ .Values.operator.image.repository }}:{{ .Values.operator.image.tag }}"
           imagePullPolicy: {{ .Values.operator.image.pullPolicy }}
           ports:
             - containerPort: {{ .Values.operator.healthPort }}
@@ -83,9 +83,9 @@ spec:
             - name: LUNAR_LOG_FORMAT
               value: {{ .Values.logging.format | quote }}
             - name: OPERATOR_INIT_IMAGE
-              value: "{{ .Values.operator.initImage.repository }}:{{ .Values.operator.initImage.tag | default .Chart.AppVersion }}"
+              value: "{{ .Values.operator.initImage.repository }}:{{ .Values.operator.initImage.tag }}"
             - name: OPERATOR_SIDECAR_IMAGE
-              value: "{{ .Values.operator.sidecarImage.repository }}:{{ .Values.operator.sidecarImage.tag | default .Chart.AppVersion }}"
+              value: "{{ .Values.operator.sidecarImage.repository }}:{{ .Values.operator.sidecarImage.tag }}"
             - name: OPERATOR_HUB_HOST
               value: {{ .Values.operator.hubHost | default (include "lunar.hubHost" .) | quote }}
             - name: OPERATOR_HUB_GRPC_PORT

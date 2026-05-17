@@ -159,9 +159,9 @@ hub:
   extraEnv: []
 
   image:
-    repository: "earthly/lunar-hub"
+    repository: "ghcr.io/earthly/lunar-hub"
     pullPolicy: IfNotPresent
-    tag: "main"
+    tag: "v2.1.1"
 
   service:
     type: ClusterIP
@@ -216,19 +216,19 @@ hub:
 
 operator:
   image:
-    repository: "earthly/lunar-snippet-operator"
+    repository: "ghcr.io/earthly/lunar-snippet-operator"
     pullPolicy: IfNotPresent
-    tag: "main"
+    tag: "v2.1.1"
 
   initImage:
-    repository: "earthly/lunar-snippet-init"
+    repository: "ghcr.io/earthly/lunar-snippet-init"
     pullPolicy: IfNotPresent
-    tag: "main"
+    tag: "v2.1.1"
 
   sidecarImage:
-    repository: "earthly/lunar-snippet-sidecar"
+    repository: "ghcr.io/earthly/lunar-snippet-sidecar"
     pullPolicy: IfNotPresent
-    tag: "main"
+    tag: "v2.1.1"
 
   # Namespace where script pods are created. Defaults to the release namespace.
   # If set, the namespace must already exist — the chart will not create it.
@@ -321,9 +321,9 @@ grafana:
   extraEnv: []
 
   image:
-    repository: "earthly/lunar-grafana"
+    repository: "ghcr.io/earthly/lunar-grafana"
     pullPolicy: IfNotPresent
-    tag: "main"
+    tag: "v2.1.1"
 
   service:
     type: ClusterIP
