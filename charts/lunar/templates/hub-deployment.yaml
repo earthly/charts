@@ -153,8 +153,6 @@ spec:
               value: {{ .maxWorkers.cronCollect | quote }}
             - name: HUB_MAX_WORKERS_CATALOGER
               value: {{ .maxWorkers.cataloger | quote }}
-            - name: HUB_MAX_OPERATOR_POOL_SIZE
-              value: {{ .maxOperatorPoolSize | quote }}
             {{- with .extraEnv }}
               {{- toYaml . | nindent 12 }}
             {{- end }}

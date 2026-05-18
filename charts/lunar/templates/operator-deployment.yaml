@@ -76,8 +76,6 @@ spec:
               value: {{ include "lunar.scriptNamespace" . | quote }}
             - name: OPERATOR_MAX_CONCURRENT
               value: {{ .Values.operator.maxConcurrent | quote }}
-            - name: OPERATOR_MAX_POOL_SIZE
-              value: {{ .Values.operator.maxPoolSize | quote }}
             - name: OPERATOR_HEALTH_PORT
               value: {{ .Values.operator.healthPort | quote }}
             - name: LUNAR_LOG_LEVEL

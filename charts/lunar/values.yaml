@@ -106,8 +106,6 @@ hub:
     policy: 20
     cronCollect: 5
     cataloger: 1
-  maxOperatorPoolSize: 5
-
   # S3-compatible object storage for script logs and resource archives.
   # The buckets must exist and be writable by the hub's AWS credentials.
   # AWS credentials themselves are intentionally out of scope for this
@@ -254,7 +252,6 @@ operator:
   hubHost: ""
 
   maxConcurrent: 10
-  maxPoolSize: 5
   healthPort: 8081
 
   # Per-script-type base container spec. The operator overlays required

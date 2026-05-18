@@ -261,7 +261,6 @@ The central gRPC/HTTP server. Stores metadata, evaluates policies, and serves th
 | `hub.maxWorkers.policy` | Max Hub workers for policy queue jobs | `20` |
 | `hub.maxWorkers.cronCollect` | Max Hub workers for cron collector queue jobs | `5` |
 | `hub.maxWorkers.cataloger` | Max Hub workers for cataloger queue jobs | `1` |
-| `hub.maxOperatorPoolSize` | Max Hub Postgres connections for operator queue work | `5` |
 | `hub.extraEnv` | Additional environment variables (`name`/`value` or `valueFrom` pairs) | `[]` |
 
 **Public URL**
@@ -441,7 +440,6 @@ Watches for script execution jobs and creates Kubernetes pods to run them.
 | `operator.scriptNamespace` | Namespace for script pods (must exist if set) | `""` (release namespace) |
 | `operator.hubHost` | Override hostname the operator and script pods use to reach Hub gRPC. Empty = computed in-cluster FQDN, which resolves cross-namespace. Set only for service-mesh / split-DNS / multi-cluster topologies | `""` |
 | `operator.maxConcurrent` | Max concurrent script pods | `10` |
-| `operator.maxPoolSize` | Max operator Postgres pool size | `5` |
 | `operator.healthPort` | Operator health check port | `8081` |
 | `operator.extraEnv` | Additional environment variables | `[]` |
 
