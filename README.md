@@ -255,7 +255,7 @@ The central gRPC/HTTP server. Stores metadata, evaluates policies, and serves th
 | Key | Description | Default |
 |-----|-------------|---------|
 | `hub.image.repository` | Hub container image | `ghcr.io/earthly/lunar-hub` |
-| `hub.image.tag` | Image tag | `v2.1.1` |
+| `hub.image.tag` | Image tag | `2.1.1` |
 | `hub.image.pullPolicy` | Pull policy | `IfNotPresent` |
 | `hub.extraEnv` | Additional environment variables (`name`/`value` or `valueFrom` pairs) | `[]` |
 
@@ -422,12 +422,12 @@ Watches for script execution jobs and creates Kubernetes pods to run them.
 | Key | Description | Default |
 |-----|-------------|---------|
 | `operator.image.repository` | Operator image | `ghcr.io/earthly/lunar-snippet-operator` |
-| `operator.image.tag` | Image tag | `v2.1.1` |
+| `operator.image.tag` | Image tag | `2.1.1` |
 | `operator.image.pullPolicy` | Pull policy | `IfNotPresent` |
 | `operator.initImage.repository` | Init container image | `ghcr.io/earthly/lunar-snippet-init` |
-| `operator.initImage.tag` | Image tag | `v2.1.1` |
+| `operator.initImage.tag` | Image tag | `2.1.1` |
 | `operator.sidecarImage.repository` | Sidecar container image | `ghcr.io/earthly/lunar-snippet-sidecar` |
-| `operator.sidecarImage.tag` | Image tag | `v2.1.1` |
+| `operator.sidecarImage.tag` | Image tag | `2.1.1` |
 
 **Behavior**
 
@@ -480,7 +480,7 @@ Pre-built Grafana instance with dashboards for policy results, component health,
 |-----|-------------|---------|
 | `grafana.enabled` | Deploy the pre-built Grafana instance | `true` |
 | `grafana.image.repository` | Grafana image | `ghcr.io/earthly/lunar-grafana` |
-| `grafana.image.tag` | Image tag | `v2.1.1` |
+| `grafana.image.tag` | Image tag | `2.1.1` |
 | `grafana.admin.secretName` | Secret containing both admin credentials. Empty = chart auto-generates `<release>-grafana-admin` (kept across uninstall) | `""` |
 | `grafana.admin.userKey` | Key within the secret holding the username | `username` |
 | `grafana.admin.passwordKey` | Key within the secret holding the password | `password` |
