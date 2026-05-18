@@ -21,12 +21,16 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Generate release files from templates
+      - name: Update versions
         env:
           VERSION: ${{ inputs.version }}
         run: |
-          envsubst '${VERSION}' < .github/templates/Chart-template.yaml > charts/lunar/Chart.yaml
-          envsubst '${VERSION}' < .github/templates/values-template.yaml > charts/lunar/values.yaml
+          yq -i ".version = \"${VERSION}\"" charts/lunar/Chart.yaml
+          yq -i ".hub.image.tag = \"${VERSION}\"" charts/lunar/values.yaml
+          yq -i ".operator.image.tag = \"${VERSION}\"" charts/lunar/values.yaml
+          yq -i ".operator.initImage.tag = \"${VERSION}\"" charts/lunar/values.yaml
+          yq -i ".operator.sidecarImage.tag = \"${VERSION}\"" charts/lunar/values.yaml
+          yq -i ".grafana.image.tag = \"${VERSION}\"" charts/lunar/values.yaml
 
       - name: Commit and push
         env:

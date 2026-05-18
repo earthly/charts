@@ -1,6 +1,0 @@
-apiVersion: v2
-name: lunar
-description: A Helm chart for Earthly Lunar 🌙
-type: application
-version: ${VERSION}
-kubeVersion: ">=1.29.0-0"
