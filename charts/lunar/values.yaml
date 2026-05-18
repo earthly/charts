@@ -98,20 +98,20 @@ hub:
   policyQueue:
     pollInterval: 1s
     numWorkers: 5
-  # S3-compatible object storage for snippet logs and resource archives.
+  # S3-compatible object storage for script logs and resource archives.
   # The buckets must exist and be writable by the hub's AWS credentials.
   # AWS credentials themselves are intentionally out of scope for this
   # chart — see README "Object storage & AWS credentials" for options
   # (IRSA on EKS, explicit AWS_* via hub.extraEnv, etc.).
   s3:
     # Bucket names are effectively required — empty values make every log
-    # upload and every snippet resource fetch fail at runtime.
+    # upload and every script resource fetch fail at runtime.
     logsBucket: ""
     resourcesBucket: ""
     # TTL for pre-signed URLs, as Go duration strings
     # (see https://pkg.go.dev/time#ParseDuration), e.g. "5m", "1h".
-    # - logsUrlTtl: PUT URLs for snippet log uploads during execution.
-    # - resourcesUrlTtl: GET URLs for snippet resource archives fetched
+    # - logsUrlTtl: PUT URLs for script log uploads during execution.
+    # - resourcesUrlTtl: GET URLs for script resource archives fetched
     #   by init containers before execution; leave generous to absorb
     #   pod scheduling / image pull / cluster backpressure.
     logsUrlTtl: 5m
@@ -130,12 +130,12 @@ hub:
   # Optional per-scope runtime secrets, exposed to scripts via the hub's
   # "lunar secret set" workflow. Leave secretName empty to skip injection —
   # scripts can alternatively read secrets from envFrom / volumes declared
-  # on the per-type operator.snippetContainerSpec* you control.
+  # on the per-type operator.scriptContainerSpec* you control.
   #
   # Format: the referenced K8s secret's data key (default "secrets") is
   # parsed by Hub as a comma-separated list of `NAME:VALUE` pairs
   # (kelseyhightower/envconfig map format — NOT JSON). Each pair surfaces
-  # in script pods as `LUNAR_SECRET_<NAME>`. See README "Snippet secrets
+  # in script pods as `LUNAR_SECRET_<NAME>`. See README "Script secrets
   # (optional)" section for examples.
   secrets:
     collector:
@@ -159,9 +159,9 @@ hub:
   extraEnv: []
 
   image:
-    repository: "earthly/lunar-hub"
+    repository: "ghcr.io/earthly/lunar-hub"
     pullPolicy: IfNotPresent
-    tag: "main"
+    tag: "v2.1.1"
 
   service:
     type: ClusterIP
@@ -216,29 +216,29 @@ hub:
 
 operator:
   image:
-    repository: "earthly/lunar-snippet-operator"
+    repository: "ghcr.io/earthly/lunar-snippet-operator"
     pullPolicy: IfNotPresent
-    tag: "main"
+    tag: "v2.1.1"
 
   initImage:
-    repository: "earthly/lunar-snippet-init"
+    repository: "ghcr.io/earthly/lunar-snippet-init"
     pullPolicy: IfNotPresent
-    tag: "main"
+    tag: "v2.1.1"
 
   sidecarImage:
-    repository: "earthly/lunar-snippet-sidecar"
+    repository: "ghcr.io/earthly/lunar-snippet-sidecar"
     pullPolicy: IfNotPresent
-    tag: "main"
+    tag: "v2.1.1"
 
-  # Namespace where snippet pods are created. Defaults to the release namespace.
+  # Namespace where script pods are created. Defaults to the release namespace.
   # If set, the namespace must already exist — the chart will not create it.
-  snippetNamespace: ""
+  scriptNamespace: ""
 
-  # Hostname the operator (and the snippet pods it spawns) uses to reach Hub
+  # Hostname the operator (and the script pods it spawns) uses to reach Hub
   # gRPC. Empty = chart computes the in-cluster FQDN
   # `<release>-hub.<release-namespace>.svc.<clusterDomain>`, which resolves
   # from any namespace and is the right answer for ~all installs (including
-  # cross-namespace `snippetNamespace`). Override only for service-mesh /
+  # cross-namespace `scriptNamespace`). Override only for service-mesh /
   # split-DNS / multi-cluster topologies where Hub is reachable at a
   # non-standard name.
   hubHost: ""
@@ -246,7 +246,7 @@ operator:
   maxConcurrent: 10
   healthPort: 8081
 
-  # Per-snippet-type base container spec. The operator overlays required
+  # Per-script-type base container spec. The operator overlays required
   # fields (name, image, command, workingDir, volume mounts) on top — you
   # control everything else: resources, env, envFrom, securityContext, etc.
   #
@@ -258,7 +258,7 @@ operator:
   #   - cataloger: similar to collector but typically lighter.
   #
   # Example:
-  #   snippetContainerSpecPolicy:
+  #   scriptContainerSpecPolicy:
   #     resources:
   #       requests:
   #         cpu: "50m"
@@ -266,11 +266,11 @@ operator:
   #       limits:
   #         cpu: "500m"
   #         memory: "256Mi"
-  snippetContainerSpecPolicy: {}
-  snippetContainerSpecCollector: {}
-  snippetContainerSpecCataloger: {}
+  scriptContainerSpecPolicy: {}
+  scriptContainerSpecCollector: {}
+  scriptContainerSpecCataloger: {}
 
-  # Per-snippet-type batch size: how many jobs the operator groups into a
+  # Per-script-type batch size: how many jobs the operator groups into a
   # single pod. Zero = use the operator's built-in default. Policies are cheap
   # and uniform — pack more per pod to amortize init+sidecar overhead.
   # Collectors have higher runtime variance, so smaller batches limit blast
@@ -281,16 +281,16 @@ operator:
   batchMaxCountCollector: 0
   batchMaxCountCataloger: 0
 
-  # Pod-level scheduling for snippet pods. Applied to every pod the operator creates.
+  # Pod-level scheduling for script pods. Applied to every pod the operator creates.
   # Example:
-  #   snippetPodNodeSelector:
+  #   scriptPodNodeSelector:
   #     tenant: cronos
-  #   snippetPodTolerations:
+  #   scriptPodTolerations:
   #     - key: tenant
   #       value: cronos
   #       effect: NoSchedule
-  snippetPodNodeSelector: {}
-  snippetPodTolerations: []
+  scriptPodNodeSelector: {}
+  scriptPodTolerations: []
 
   extraEnv: []
   resources: {}
@@ -321,9 +321,9 @@ grafana:
   extraEnv: []
 
   image:
-    repository: "earthly/lunar-grafana"
+    repository: "ghcr.io/earthly/lunar-grafana"
     pullPolicy: IfNotPresent
-    tag: "main"
+    tag: "v2.1.1"
 
   service:
     type: ClusterIP

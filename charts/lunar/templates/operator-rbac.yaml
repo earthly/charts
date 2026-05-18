@@ -2,7 +2,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: {{ include "lunar.fullname" . }}-operator
-  namespace: {{ include "lunar.snippetNamespace" . }}
+  namespace: {{ include "lunar.scriptNamespace" . }}
   labels:
     {{- include "lunar.labels" . | nindent 4 }}
     app.kubernetes.io/component: operator
@@ -18,7 +18,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: {{ include "lunar.fullname" . }}-operator
-  namespace: {{ include "lunar.snippetNamespace" . }}
+  namespace: {{ include "lunar.scriptNamespace" . }}
   labels:
     {{- include "lunar.labels" . | nindent 4 }}
     app.kubernetes.io/component: operator

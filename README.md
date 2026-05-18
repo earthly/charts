@@ -110,7 +110,7 @@ Hub authenticates to GitHub as a GitHub App. Set `hub.github.app.id` + `hub.gith
 
 ### Object storage & AWS credentials
 
-Lunar uses two S3-compatible buckets — one for streaming snippet logs, one for snippet resource archives fetched by init containers. Both must exist and be writable before pods start doing real work.
+Lunar uses two S3-compatible buckets — one for streaming script logs, one for script resource archives fetched by init containers. Both must exist and be writable before pods start doing real work.
 
 **AWS credentials are intentionally out of scope for this chart.** The hub uses the standard AWS SDK credential chain, so you can use whichever mechanism fits your cluster:
 
@@ -152,8 +152,8 @@ Only create these if you need the features they enable.
 # The k8s secret's `secrets` data key is parsed by Hub as a comma-separated list
 # of `NAME:VALUE` pairs (kelseyhightower/envconfig map format — NOT JSON). Each
 # pair surfaces in script pods as `LUNAR_SECRET_<NAME>`.
-# Most installs don't need these — prefer per-type snippet container spec envFrom /
-# volumes (see operator.snippetContainerSpec*) for fine-grained control.
+# Most installs don't need these — prefer per-type script container spec envFrom /
+# volumes (see operator.scriptContainerSpec*) for fine-grained control.
 kubectl -n lunar create secret generic lunar-collector-secrets --from-literal=secrets='GH_TOKEN:ghp_xxx,NPM_TOKEN:npm_yyy'
 kubectl -n lunar create secret generic lunar-cataloger-secrets --from-literal=secrets='GH_TOKEN:ghp_xxx'
 kubectl -n lunar create secret generic lunar-policy-secrets    --from-literal=secrets='SLACK_WEBHOOK_URL:https://hooks.slack.com/services/...'
@@ -254,8 +254,8 @@ The central gRPC/HTTP server. Stores metadata, evaluates policies, and serves th
 
 | Key | Description | Default |
 |-----|-------------|---------|
-| `hub.image.repository` | Hub container image | `earthly/lunar-hub` |
-| `hub.image.tag` | Image tag | `main` |
+| `hub.image.repository` | Hub container image | `ghcr.io/earthly/lunar-hub` |
+| `hub.image.tag` | Image tag | `v2.1.1` |
 | `hub.image.pullPolicy` | Pull policy | `IfNotPresent` |
 | `hub.extraEnv` | Additional environment variables (`name`/`value` or `valueFrom` pairs) | `[]` |
 
@@ -319,9 +319,9 @@ Hub authenticates as a GitHub App. App ID, install ID, and the App's private-key
 | Key | Description | Default |
 |-----|-------------|---------|
 | `hub.s3.logsBucket` | S3 bucket for log storage | `""` **(required)** |
-| `hub.s3.resourcesBucket` | S3 bucket for snippet resources | `""` **(required)** |
-| `hub.s3.logsUrlTtl` | Pre-signed URL TTL for snippet log uploads — Go [duration string](https://pkg.go.dev/time#ParseDuration) | `5m` |
-| `hub.s3.resourcesUrlTtl` | Pre-signed URL TTL for snippet resource downloads (init-container fetch) | `1h` |
+| `hub.s3.resourcesBucket` | S3 bucket for script resources | `""` **(required)** |
+| `hub.s3.logsUrlTtl` | Pre-signed URL TTL for script log uploads — Go [duration string](https://pkg.go.dev/time#ParseDuration) | `5m` |
+| `hub.s3.resourcesUrlTtl` | Pre-signed URL TTL for script resource downloads (init-container fetch) | `1h` |
 
 **Auth**
 
@@ -330,9 +330,9 @@ Hub authenticates as a GitHub App. App ID, install ID, and the App's private-key
 | `hub.auth.secretName` | Secret containing the Hub auth token | `lunar-auth-token` |
 | `hub.auth.secretKey` | Key within the secret | `token` |
 
-**Snippet secrets (optional)**
+**Script secrets (optional)**
 
-Per-scope secrets the hub forwards to script execution. The K8s secret's `secrets` data key is a comma-separated list of `NAME:VALUE` pairs (envconfig map format, **not JSON**); each pair surfaces as `LUNAR_SECRET_<NAME>` in the script pod. Most installs don't need these — per-type container spec `envFrom` / `volumes` on `operator.snippetContainerSpec*` is usually a cleaner path. Leave `secretName` empty to skip injection entirely.
+Per-scope secrets the hub forwards to script execution. The K8s secret's `secrets` data key is a comma-separated list of `NAME:VALUE` pairs (envconfig map format, **not JSON**); each pair surfaces as `LUNAR_SECRET_<NAME>` in the script pod. Most installs don't need these — per-type container spec `envFrom` / `volumes` on `operator.scriptContainerSpec*` is usually a cleaner path. Leave `secretName` empty to skip injection entirely.
 
 | Key | Description | Default |
 |-----|-------------|---------|
@@ -356,7 +356,7 @@ Hub logging uses the top-level global `logging.*` values. Tenant and telemetry r
 
 **Persistence**
 
-The Hub uses a PVC for state, cached repos, and snippet code.
+The Hub uses a PVC for state, cached repos, and script code.
 
 | Key | Description | Default |
 |-----|-------------|---------|
@@ -415,42 +415,42 @@ The Hub uses a PVC for state, cached repos, and snippet code.
 <details>
 <summary><strong>Operator</strong></summary>
 
-Watches for snippet execution jobs and creates Kubernetes pods to run them.
+Watches for script execution jobs and creates Kubernetes pods to run them.
 
 **Images**
 
 | Key | Description | Default |
 |-----|-------------|---------|
-| `operator.image.repository` | Operator image | `earthly/lunar-snippet-operator` |
-| `operator.image.tag` | Image tag | `main` |
+| `operator.image.repository` | Operator image | `ghcr.io/earthly/lunar-snippet-operator` |
+| `operator.image.tag` | Image tag | `v2.1.1` |
 | `operator.image.pullPolicy` | Pull policy | `IfNotPresent` |
-| `operator.initImage.repository` | Init container image | `earthly/lunar-snippet-init` |
-| `operator.initImage.tag` | Image tag | `main` |
-| `operator.sidecarImage.repository` | Sidecar container image | `earthly/lunar-snippet-sidecar` |
-| `operator.sidecarImage.tag` | Image tag | `main` |
+| `operator.initImage.repository` | Init container image | `ghcr.io/earthly/lunar-snippet-init` |
+| `operator.initImage.tag` | Image tag | `v2.1.1` |
+| `operator.sidecarImage.repository` | Sidecar container image | `ghcr.io/earthly/lunar-snippet-sidecar` |
+| `operator.sidecarImage.tag` | Image tag | `v2.1.1` |
 
 **Behavior**
 
 | Key | Description | Default |
 |-----|-------------|---------|
-| `operator.snippetNamespace` | Namespace for snippet pods (must exist if set) | `""` (release namespace) |
-| `operator.hubHost` | Override hostname the operator and snippet pods use to reach Hub gRPC. Empty = computed in-cluster FQDN, which resolves cross-namespace. Set only for service-mesh / split-DNS / multi-cluster topologies | `""` |
-| `operator.maxConcurrent` | Max concurrent snippet pods | `10` |
+| `operator.scriptNamespace` | Namespace for script pods (must exist if set) | `""` (release namespace) |
+| `operator.hubHost` | Override hostname the operator and script pods use to reach Hub gRPC. Empty = computed in-cluster FQDN, which resolves cross-namespace. Set only for service-mesh / split-DNS / multi-cluster topologies | `""` |
+| `operator.maxConcurrent` | Max concurrent script pods | `10` |
 | `operator.healthPort` | Operator health check port | `8081` |
 | `operator.extraEnv` | Additional environment variables | `[]` |
 
-**Snippet pod configuration**
+**Script pod configuration**
 
 | Key | Description | Default |
 |-----|-------------|---------|
-| `operator.snippetContainerSpecPolicy` | Base container spec for policy snippet pods (resources, securityContext, env, etc.) | `{}` |
-| `operator.snippetContainerSpecCollector` | Base container spec for collector snippet pods | `{}` |
-| `operator.snippetContainerSpecCataloger` | Base container spec for cataloger snippet pods | `{}` |
+| `operator.scriptContainerSpecPolicy` | Base container spec for policy script pods (resources, securityContext, env, etc.) | `{}` |
+| `operator.scriptContainerSpecCollector` | Base container spec for collector script pods | `{}` |
+| `operator.scriptContainerSpecCataloger` | Base container spec for cataloger script pods | `{}` |
 | `operator.batchMaxCountPolicy` | Max jobs per policy pod; `0` uses the operator default | `0` |
 | `operator.batchMaxCountCollector` | Max jobs per collector pod; `0` uses the operator default | `0` |
 | `operator.batchMaxCountCataloger` | Max jobs per cataloger pod; `0` uses the operator default | `0` |
-| `operator.snippetPodNodeSelector` | Node selector for snippet pods | `{}` |
-| `operator.snippetPodTolerations` | Tolerations for snippet pods | `[]` |
+| `operator.scriptPodNodeSelector` | Node selector for script pods | `{}` |
+| `operator.scriptPodTolerations` | Tolerations for script pods | `[]` |
 
 **Logging**
 
@@ -479,8 +479,8 @@ Pre-built Grafana instance with dashboards for policy results, component health,
 | Key | Description | Default |
 |-----|-------------|---------|
 | `grafana.enabled` | Deploy the pre-built Grafana instance | `true` |
-| `grafana.image.repository` | Grafana image | `earthly/lunar-grafana` |
-| `grafana.image.tag` | Image tag | `main` |
+| `grafana.image.repository` | Grafana image | `ghcr.io/earthly/lunar-grafana` |
+| `grafana.image.tag` | Image tag | `v2.1.1` |
 | `grafana.admin.secretName` | Secret containing both admin credentials. Empty = chart auto-generates `<release>-grafana-admin` (kept across uninstall) | `""` |
 | `grafana.admin.userKey` | Key within the secret holding the username | `username` |
 | `grafana.admin.passwordKey` | Key within the secret holding the password | `password` |
