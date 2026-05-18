@@ -257,10 +257,10 @@ The central gRPC/HTTP server. Stores metadata, evaluates policies, and serves th
 | `hub.image.repository` | Hub container image | `ghcr.io/earthly/lunar-hub` |
 | `hub.image.tag` | Image tag | `2.1.1` |
 | `hub.image.pullPolicy` | Pull policy | `IfNotPresent` |
-| `hub.maxWorkers.collect` | Max Hub workers for collector queue jobs | `10` |
-| `hub.maxWorkers.policy` | Max Hub workers for policy queue jobs | `20` |
-| `hub.maxWorkers.cronCollect` | Max Hub workers for cron collector queue jobs | `5` |
-| `hub.maxWorkers.cataloger` | Max Hub workers for cataloger queue jobs | `1` |
+| `hub.maxWorkers.collect` | Max Hub workers for collector queue jobs; `0` means unlimited | `0` |
+| `hub.maxWorkers.policy` | Max Hub workers for policy queue jobs; `0` means unlimited | `0` |
+| `hub.maxWorkers.cronCollect` | Max Hub workers for cron collector queue jobs; `0` means unlimited | `0` |
+| `hub.maxWorkers.cataloger` | Max Hub workers for cataloger queue jobs; `0` means unlimited | `0` |
 | `hub.extraEnv` | Additional environment variables (`name`/`value` or `valueFrom` pairs) | `[]` |
 
 **Public URL**
