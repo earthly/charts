@@ -145,6 +145,14 @@ spec:
             {{- end }}
             - name: HUB_K8S_EXECUTION_ENABLED
               value: "true"
+            - name: HUB_MAX_WORKERS_COLLECT
+              value: {{ .maxWorkers.collect | quote }}
+            - name: HUB_MAX_WORKERS_POLICY
+              value: {{ .maxWorkers.policy | quote }}
+            - name: HUB_MAX_WORKERS_CRON_COLLECT
+              value: {{ .maxWorkers.cronCollect | quote }}
+            - name: HUB_MAX_WORKERS_CATALOGER
+              value: {{ .maxWorkers.cataloger | quote }}
             {{- with .extraEnv }}
               {{- toYaml . | nindent 12 }}
             {{- end }}

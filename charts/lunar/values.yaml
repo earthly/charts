@@ -98,6 +98,13 @@ hub:
   policyQueue:
     pollInterval: 1s
     numWorkers: 5
+
+  # Worker caps for Hub's script-feeding queues. 0 means unlimited.
+  maxWorkers:
+    collect: 10
+    policy: 20
+    cronCollect: 5
+    cataloger: 1
   # S3-compatible object storage for script logs and resource archives.
   # The buckets must exist and be writable by the hub's AWS credentials.
   # AWS credentials themselves are intentionally out of scope for this
