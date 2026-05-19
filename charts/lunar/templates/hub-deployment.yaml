@@ -90,6 +90,8 @@ spec:
             - name: HUB_GITHUB_APPS
               value: {{ include "lunar.githubAppsJSON" $ | quote }}
             {{- else }}
+            - name: HUB_GITHUB_APP_OWNER
+              value: {{ .github.app.owner | quote }}
             - name: HUB_GITHUB_APP_PRIVATE_KEY
               valueFrom:
                 secretKeyRef:

@@ -116,7 +116,7 @@ Plus two URL prerequisites the chart needs to wire correctly:
 
 Hub authenticates to GitHub as a GitHub App. Two modes, mutually exclusive:
 
-- **Single-App (default).** Set `hub.github.app.id` + `hub.github.app.installId` and create the `lunar-github-app` Secret holding the App's private-key PEM. Suitable for single-tenant deployments where the Hub fronts one App installed in one org.
+- **Single-App (default).** Set `hub.github.app.owner` (the GitHub org or user the App is installed on), `hub.github.app.id`, and `hub.github.app.installId`, then create the `lunar-github-app` Secret holding the App's private-key PEM. Suitable for single-tenant deployments where the Hub fronts one App installed in one org. **Breaking change in 3.0.0:** `hub.github.app.owner` is now required — prior chart versions inferred a default routing internally; the Hub now requires the value explicitly via `HUB_GITHUB_APP_OWNER`.
 
 - **Multi-App.** Use this when the Hub serves multiple orgs that each install their own Lunar App. List one entry per owner under `hub.github.apps`, and put all the PEM files in a single Kubernetes Secret named via `hub.github.appsSecret.secretName`. The chart looks up each entry's PEM at `<lowercase-owner>.pem` inside that Secret.
 
@@ -502,6 +502,7 @@ Hub authenticates as a GitHub App. App ID, install ID, and the App's private-key
 
 | Key | Description | Default |
 |-----|-------------|---------|
+| `hub.github.app.owner` | GitHub org or user the App is installed on (single-App mode) **(required as of 3.0.0)** | `""` |
 | `hub.github.app.id` | GitHub App ID (single-App mode) | `0` |
 | `hub.github.app.installId` | GitHub App Installation ID (single-App mode) | `0` |
 | `hub.github.app.privateKey.secretName` | Secret containing the App private-key PEM (single-App mode) | `lunar-github-app` |
