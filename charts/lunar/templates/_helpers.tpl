@@ -126,3 +126,109 @@ particular). Callers that need to honor a per-component override should do
 {{- define "lunar.hubHost" -}}
 {{- printf "%s-hub.%s.svc.%s" (include "lunar.fullname" .) .Release.Namespace .Values.clusterDomain -}}
 {{- end }}
+
+{{/*
+Reject chart 1.x ingress shape early with a migration message. Anyone
+upgrading from 1.x with their old values intact would otherwise get a
+cryptic render error or, worse, silently end up with no ingress at all.
+*/}}
+{{- define "lunar.rejectLegacyIngressShape" -}}
+{{- $h := .Values.hub -}}
+{{- if hasKey $h "publicBaseURL" -}}
+{{- fail "hub.publicBaseURL was renamed to hub.webhookURL in chart 2.0.0 (and now defaults to https://<hub.ingress.webhooks.host>). See README \"Migrating from chart 1.x\"." -}}
+{{- end -}}
+{{- if or (hasKey $h.ingress "host") (hasKey $h.ingress "grpcAnnotations") (hasKey $h.ingress "httpAnnotations") -}}
+{{- fail "hub.ingress shape changed in chart 2.0.0. Move 'host' under api.host AND webhooks.host. Move 'grpcAnnotations'/'httpAnnotations' under api.grpcAnnotations/api.httpAnnotations. See README \"Migrating from chart 1.x\"." -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Effective external URL where GitHub posts webhooks. Falls back to
+"https://<hub.ingress.webhooks.host>" when not explicitly set and the
+chart's ingress is enabled. Empty when neither is configured — lunar
+itself warns at boot in that case.
+
+Consumed by hub-deployment.yaml as HUB_PUBLIC_BASE_URL (lunar env var
+name preserved from chart 1.x).
+*/}}
+{{- define "lunar.webhookURL" -}}
+{{- $hub := .Values.hub -}}
+{{- if $hub.webhookURL -}}
+{{- $hub.webhookURL -}}
+{{- else if and $hub.ingress.enabled $hub.ingress.webhooks.host -}}
+{{- printf "https://%s" $hub.ingress.webhooks.host -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Fail fast on ingress misconfiguration: missing required hosts when
+ingress is enabled, and (when the user explicitly overrides webhookURL)
+a webhookURL host that doesn't match webhooks.host.
+*/}}
+{{- define "lunar.validateIngress" -}}
+{{- $hub := .Values.hub -}}
+{{- if $hub.ingress.enabled -}}
+  {{- if not $hub.ingress.api.host -}}
+    {{- fail "hub.ingress.api.host is required when hub.ingress.enabled is true." -}}
+  {{- end -}}
+  {{- if not $hub.ingress.webhooks.host -}}
+    {{- fail "hub.ingress.webhooks.host is required when hub.ingress.enabled is true." -}}
+  {{- end -}}
+  {{- if $hub.webhookURL -}}
+    {{- $parsed := urlParse $hub.webhookURL -}}
+    {{- if not $parsed.host -}}
+      {{- fail (printf "hub.webhookURL %q must be a full URL including scheme (e.g. https://webhooks.example.com)." $hub.webhookURL) -}}
+    {{- end -}}
+    {{- $publicHost := lower (regexReplaceAll ":\\d+$" $parsed.host "") -}}
+    {{- $webhookHost := lower $hub.ingress.webhooks.host -}}
+    {{- if ne $publicHost $webhookHost -}}
+      {{- fail (printf "hub.webhookURL host (%q) must equal hub.ingress.webhooks.host (%q). GitHub POSTs to webhookURL/webhooks/github and must reach the webhooks ingress." $publicHost $webhookHost) -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Resolve per-ingress className. Block-level value wins; falls back to
+the shared ingress.className default. Empty is allowed (no className
+rendered).
+
+Usage:
+  {{ include "lunar.ingress.className" (dict "shared" .Values.hub.ingress.className "block" .Values.hub.ingress.api.className) }}
+*/}}
+{{- define "lunar.ingress.className" -}}
+{{- default .shared .block -}}
+{{- end }}
+
+{{/*
+Resolve per-ingress TLS list. Block-level list wins when non-empty;
+otherwise falls back to ingress.tls. Empty list passes through.
+
+Usage:
+  {{ include "lunar.ingress.tls" (dict "shared" .Values.hub.ingress.tls "block" .Values.hub.ingress.api.tls) }}
+*/}}
+{{- define "lunar.ingress.tls" -}}
+{{- if .block -}}
+{{- toYaml .block -}}
+{{- else -}}
+{{- toYaml .shared -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Resolve per-ingress annotations by deep-merging the shared, block, and
+optional sub-block layers in priority order (deepest wins). Sub-block
+is used for api.grpcAnnotations / api.httpAnnotations.
+
+Usage:
+  {{ include "lunar.ingress.annotations" (dict "shared" .Values.hub.ingress.annotations "block" .Values.hub.ingress.api.annotations "sub" .Values.hub.ingress.api.grpcAnnotations) }}
+*/}}
+{{- define "lunar.ingress.annotations" -}}
+{{- $sub := default (dict) .sub -}}
+{{- $block := default (dict) .block -}}
+{{- $shared := default (dict) .shared -}}
+{{- $merged := merge (deepCopy $sub) $block $shared -}}
+{{- if $merged -}}
+{{- toYaml $merged -}}
+{{- end -}}
+{{- end }}

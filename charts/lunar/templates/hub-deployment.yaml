@@ -1,5 +1,7 @@
 {{- include "lunar.githubAuthCheck" . }}
 {{- include "lunar.hubLicenceCheck" . }}
+{{- include "lunar.rejectLegacyIngressShape" . }}
+{{- $webhookURL := include "lunar.webhookURL" . -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -135,14 +137,10 @@ spec:
               value: {{ .s3.logsUrlTtl | quote }}
             - name: HUB_RESOURCES_AWS_URL_TTL
               value: {{ .s3.resourcesUrlTtl | quote }}
-            {{- if .publicBaseURL }}
             - name: HUB_PUBLIC_BASE_URL
-              value: {{ .publicBaseURL | quote }}
-            {{- end }}
-            {{- with (or .grafanaURLBase .publicBaseURL) }}
+              value: {{ $webhookURL | quote }}
             - name: HUB_GRAFANA_URL_BASE
-              value: {{ . | quote }}
-            {{- end }}
+              value: {{ default $webhookURL .grafanaURLBase | quote }}
             - name: HUB_K8S_EXECUTION_ENABLED
               value: "true"
             - name: HUB_MAX_WORKERS_COLLECT
