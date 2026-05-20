@@ -2,6 +2,7 @@
 {{- include "lunar.hubLicenceCheck" . }}
 {{- include "lunar.rejectLegacyIngressShape" . }}
 {{- $webhookURL := include "lunar.webhookURL" . -}}
+{{- $grafanaURL := include "lunar.grafanaURL" . -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -140,7 +141,7 @@ spec:
             - name: HUB_PUBLIC_BASE_URL
               value: {{ $webhookURL | quote }}
             - name: HUB_GRAFANA_URL_BASE
-              value: {{ default $webhookURL .grafanaURLBase | quote }}
+              value: {{ $grafanaURL | quote }}
             - name: HUB_K8S_EXECUTION_ENABLED
               value: "true"
             - name: HUB_MAX_WORKERS_COLLECT

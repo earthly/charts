@@ -38,12 +38,17 @@ hub:
   # must equal hub.ingress.webhooks.host.
   webhookURL: ""
 
-  # URL the hub uses to build [More Details] links in PR comments back to
-  # the Grafana dashboard. Defaults to webhookURL (derived or explicit) when
-  # empty — that's the right answer for single-hostname installs where
-  # Grafana is path-routed under the same host (Caddy / content-type
-  # routing). Override only when Grafana is served from a separate
-  # hostname (e.g. grafana.lunar.example.com behind its own ingress).
+  # Base URL the hub uses for [More Details] links in PR comments. Resolution
+  # chain when empty (highest priority first):
+  #   1. https://<grafana.ingress.hosts[0].host>  when chart manages Grafana's ingress
+  #   2. https://<hub.ingress.api.host>           when chart manages Hub's ingress
+  #   3. hub.webhookURL                           BYO fallback
+  #
+  # The api.host fallback is deliberate: Grafana is a human-facing dashboard
+  # accessed from internal browsers — same trust boundary as lunar CLI / CI
+  # agent traffic, NOT the public webhooks ingress. Set explicitly when
+  # Grafana lives on a hostname none of these capture (separate ingress that
+  # isn't chart-managed, external Grafana, etc).
   grafanaURLBase: ""
 
   rootDir: /hub/

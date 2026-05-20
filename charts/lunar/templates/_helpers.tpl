@@ -161,6 +161,41 @@ name preserved from chart 1.x).
 {{- end }}
 
 {{/*
+Effective base URL for Grafana — used by hub to build [More Details]
+links in PR comments. Resolution chain (highest priority first):
+
+  1. hub.grafanaURLBase explicit override
+  2. https://<grafana.ingress.hosts[0].host>  when chart manages Grafana's ingress
+  3. https://<hub.ingress.api.host>           when chart manages Hub's ingress
+  4. lunar.webhookURL                         BYO fallback
+
+The api.host fallback (#3) is the correct trust boundary for human-facing
+Grafana — same network as lunar CLI / CI agent traffic — even when no
+path-routing is configured there. Customers in non-trivial topologies
+should set grafanaURLBase explicitly.
+
+Consumed by hub-deployment.yaml as HUB_GRAFANA_URL_BASE.
+*/}}
+{{- define "lunar.grafanaURL" -}}
+{{- $hub := .Values.hub -}}
+{{- $grafana := .Values.grafana -}}
+{{- if $hub.grafanaURLBase -}}
+{{- $hub.grafanaURLBase -}}
+{{- else if and $grafana.ingress.enabled $grafana.ingress.hosts -}}
+{{- $firstHost := (index $grafana.ingress.hosts 0).host -}}
+{{- if $firstHost -}}
+{{- printf "https://%s" $firstHost -}}
+{{- else -}}
+{{- include "lunar.webhookURL" . -}}
+{{- end -}}
+{{- else if and $hub.ingress.enabled $hub.ingress.api.host -}}
+{{- printf "https://%s" $hub.ingress.api.host -}}
+{{- else -}}
+{{- include "lunar.webhookURL" . -}}
+{{- end -}}
+{{- end }}
+
+{{/*
 Fail fast on ingress misconfiguration: missing required hosts when
 ingress is enabled, and (when the user explicitly overrides webhookURL)
 a webhookURL host that doesn't match webhooks.host.
