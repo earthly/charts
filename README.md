@@ -101,7 +101,16 @@ hub:
       installId: 78901234
 ```
 
-For GitHub webhook registration to work, the hub also needs an externally-reachable URL. The simplest path is to let the chart manage your ingress and set `hub.ingress.webhooks.host` — see [Ingress](#ingress) below. When `hub.ingress.enabled: true`, the chart derives `https://<webhooks.host>` automatically. BYO-ingress installs (`hub.ingress.enabled: false`) must set `hub.webhookURL` explicitly — the chart will not guess a URL it doesn't route to.
+Plus two URL prerequisites the chart needs to wire correctly:
+
+1. **Hub webhook URL** — for GitHub webhook registration to work, the hub needs an externally-reachable URL. The simplest path is to let the chart manage your ingress and set `hub.ingress.webhooks.host` — see [Ingress](#ingress) below. When `hub.ingress.enabled: true`, the chart derives `https://<webhooks.host>` automatically. BYO-ingress installs (`hub.ingress.enabled: false`) must set `hub.webhookURL` explicitly — the chart will not guess a URL it doesn't route to.
+
+2. **Grafana URL** (when `grafana.enabled: true`, which is the default) — Grafana needs to know its own external URL for OIDC `redirect_uri` and absolute link rendering. Pick one:
+   - `grafana.ingress.enabled: true` with `grafana.ingress.hosts[0].host` set — chart derives the URL automatically.
+   - `grafana.externalURL: "https://grafana.example.com"` — explicit override, for BYO ingress / Caddy / shared LB with path routing.
+   - `grafana.enabled: false` — skip Grafana entirely.
+
+   The chart fails fast at install time if none of these are set (it deliberately won't guess at a URL it doesn't route to — wrong host means broken OIDC, silently).
 
 ### GitHub authentication
 
@@ -534,7 +543,7 @@ The Hub uses a PVC for state, cached repos, and script code.
 | `hub.ingress.api.host` | Hostname for the API ingress (gRPC + `/logs`). Required when enabled. | `""` |
 | `hub.ingress.api.className` | Override `ingress.className` for the API ingress. | `""` |
 | `hub.ingress.api.tls` | Override `ingress.tls` for the API ingress. | `[]` |
-| `hub.ingress.api.grpcAnnotations` | Annotations applied only to the api-grpc Ingress, layered on top of `ingress.annotations` (typically NGINX `backend-protocol: GRPC`). | NGINX `backend-protocol: GRPC` |
+| `hub.ingress.api.grpcAnnotations` | Annotations applied only to the api-grpc Ingress, layered on top of `ingress.annotations`. NGINX users need `backend-protocol: GRPC` here (other controllers have their own equivalent — see [Ingress](#ingress) for examples). Controller-neutral default — set explicitly for your ingress class. | `{}` |
 | `hub.ingress.api.httpAnnotations` | Annotations applied only to the api-http (`/logs`) Ingress, layered on top of `ingress.annotations`. | `{}` |
 | `hub.ingress.webhooks.host` | Hostname for the webhooks ingress (GitHub `/webhooks`). Required when `ingress.enabled: true`. Source of the derived `hub.webhookURL` (only in that case — when ingress is disabled the chart does not derive from this field). | `""` |
 | `hub.ingress.webhooks.className` | Override `ingress.className` for the webhooks ingress. | `""` |
