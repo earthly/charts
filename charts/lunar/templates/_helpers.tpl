@@ -137,6 +137,9 @@ cryptic render error or, worse, silently end up with no ingress at all.
 {{- if hasKey $h "publicBaseURL" -}}
 {{- fail "hub.publicBaseURL was renamed to hub.webhookURL in chart 2.0.0 (and is now optional — defaults to https://<hub.ingress.webhooks.host>). See README \"Migrating from chart 1.x\"." -}}
 {{- end -}}
+{{- if hasKey $h "grafanaURLBase" -}}
+{{- fail "hub.grafanaURLBase was renamed to grafana.externalURL in chart 2.0.0 (the value is a Grafana property; the hub consumes it, doesn't own it). See README \"Migrating from chart 1.x\"." -}}
+{{- end -}}
 {{- if or (hasKey $h.ingress "host") (hasKey $h.ingress "grpcAnnotations") (hasKey $h.ingress "httpAnnotations") -}}
 {{- fail "hub.ingress shape changed in chart 2.0.0. Move 'host' under api.host AND webhooks.host. Move 'grpcAnnotations'/'httpAnnotations' under api.grpcAnnotations/api.httpAnnotations. See README \"Migrating from chart 1.x\"." -}}
 {{- end -}}
@@ -166,28 +169,51 @@ Consumed by hub-deployment.yaml as HUB_PUBLIC_BASE_URL.
 {{/*
 Effective base URL for Grafana. Resolution chain (highest priority first):
 
-  1. hub.grafanaURLBase                       explicit override
+  1. grafana.externalURL                      explicit override
   2. https://<grafana.ingress.hosts[0].host>  chart-managed Grafana ingress
 
 Empty otherwise — the chart only derives a URL when it actually controls
 the routing. Deliberately does NOT guess based on hub.ingress.api.host
 (chart doesn't route Grafana traffic there) or hub.webhookURL (wrong
 trust boundary). Installs that expose Grafana via external routing
-MUST set hub.grafanaURLBase explicitly, especially when Grafana fronts
+MUST set grafana.externalURL explicitly, especially when Grafana fronts
 OIDC (otherwise redirect_uri is wrong or empty).
 
 Consumed by hub-deployment.yaml as HUB_GRAFANA_URL_BASE and by
 grafana-deployment.yaml as GF_SERVER_ROOT_URL.
 */}}
 {{- define "lunar.grafanaURL" -}}
-{{- $hub := .Values.hub -}}
-{{- $grafanaIng := .Values.grafana.ingress -}}
+{{- $grafana := .Values.grafana -}}
+{{- $grafanaIng := $grafana.ingress -}}
 {{- $grafanaHost := "" -}}
 {{- if and $grafanaIng.enabled $grafanaIng.hosts -}}
 {{- $grafanaHost = (index $grafanaIng.hosts 0).host -}}
 {{- end -}}
-{{- if $hub.grafanaURLBase -}}{{ $hub.grafanaURLBase }}
+{{- if $grafana.externalURL -}}{{ $grafana.externalURL }}
 {{- else if $grafanaHost -}}{{ printf "https://%s" $grafanaHost }}
+{{- end -}}
+{{- end }}
+
+{{/*
+Fail fast when grafana.enabled is true but the chart can't determine a
+Grafana URL. Specifically catches the 1.x "Caddy / content-routing"
+upgrader: in 1.x, GF_SERVER_ROOT_URL and HUB_GRAFANA_URL_BASE both
+defaulted to publicBaseURL. 2.0.0 deliberately drops that fallback —
+guessing at a URL the chart doesn't route to is wrong. Without this
+guard, upgraders silently end up with GF_SERVER_ROOT_URL unset →
+Grafana defaults to http://localhost:3000/ → OIDC redirect_uri breaks.
+
+Three escape hatches, depending on topology:
+  - Set grafana.externalURL (BYO ingress / Caddy / external routing)
+  - Enable grafana.ingress (chart-managed Grafana ingress)
+  - Set grafana.enabled: false (skip Grafana entirely)
+*/}}
+{{- define "lunar.validateGrafana" -}}
+{{- if .Values.grafana.enabled -}}
+  {{- $url := include "lunar.grafanaURL" . -}}
+  {{- if not $url -}}
+    {{- fail "grafana.externalURL is required when grafana.enabled is true and the chart doesn't manage Grafana's ingress (chart 2.0.0 no longer derives Grafana URLs it doesn't route to — see README \"Migrating from chart 1.x\" for the Caddy / content-routing case). Pick one:\n  - grafana.externalURL = \"<your Grafana URL>\"  (BYO ingress / Caddy / external routing)\n  - grafana.ingress.enabled = true              (chart-managed Grafana ingress)\n  - grafana.enabled = false                     (skip Grafana entirely)" -}}
+  {{- end -}}
 {{- end -}}
 {{- end }}
 

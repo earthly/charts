@@ -54,3 +54,24 @@ Retrieve any of them with:
 {{- end }}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+URLs wired by the chart:
+
+{{- $webhookURL := include "lunar.webhookURL" . }}
+{{- $grafanaURL := include "lunar.grafanaURL" . }}
+{{- if $webhookURL }}
+  HUB_PUBLIC_BASE_URL    {{ $webhookURL }}
+  (GitHub registers webhooks at {{ $webhookURL }}/webhooks/github)
+{{- else }}
+  HUB_PUBLIC_BASE_URL    (unset — hub will warn at boot and skip webhook
+                         auto-registration. BYO-ingress installs should
+                         set hub.webhookURL.)
+{{- end }}
+{{- if .Values.grafana.enabled }}
+{{- if $grafanaURL }}
+  HUB_GRAFANA_URL_BASE   {{ $grafanaURL }}
+  GF_SERVER_ROOT_URL     {{ $grafanaURL }}
+{{- end }}
+{{- end }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

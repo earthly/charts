@@ -45,22 +45,6 @@ hub:
   # GitHub would POST into the void.
   webhookURL: ""
 
-  # Base URL where Grafana is reachable. Used for two distinct purposes:
-  #   - HUB_GRAFANA_URL_BASE — base for hub's [More Details] links in PR comments
-  #   - GF_SERVER_ROOT_URL — Grafana's own self-knowledge (drives absolute
-  #     link generation, OIDC redirect_uri, etc). Critical to get right when
-  #     Grafana fronts third-party auth (Google, Okta, GitHub OIDC, ...).
-  #
-  # Defaults to https://<grafana.ingress.hosts[0].host> when chart-managed
-  # Grafana ingress is enabled — most installs just turn that on and leave
-  # this empty. Empty otherwise — the chart deliberately does NOT guess at
-  # a Grafana URL when it doesn't control the routing (no fallback to
-  # webhookURL or api.host — wrong trust boundary, wrong host).
-  #
-  # Set explicitly when Grafana is reachable via external routing the chart
-  # doesn't manage. Required for OIDC to work in that topology.
-  grafanaURLBase: ""
-
   rootDir: /hub/
 
   # Hub licence JWT secret mount. This token is authoritative for tenant and
@@ -226,22 +210,34 @@ hub:
     # one hostname — the split exists because most ingress controllers
     # apply backend-protocol annotations per-Ingress, not per-path. Safe
     # to put on a private hostname.
+    #
+    # Annotation API: webhooks.annotations is a single map (one Ingress);
+    # api has split grpcAnnotations + httpAnnotations because the two API
+    # Ingresses typically need different controller hints. There's no
+    # api.annotations layer — annotations that apply to both api Ingresses
+    # but not webhooks go in BOTH maps below (slight duplication, simpler
+    # contract). Annotations that apply to ALL three Ingresses go in the
+    # shared ingress.annotations above.
     api:
       # Required when ingress.enabled is true.
       host: ""
 
-      # Optional per-ingress overrides of the shared defaults above.
-      # Empty values fall back to ingress.className / ingress.tls.
+      # Optional per-ingress overrides of the shared defaults above. Note
+      # the asymmetry: per-block tls/className are matched against the
+      # shared defaults via Helm's `default` — empty list/string falls
+      # back to shared, so there's no way to say "I want NO TLS on this
+      # block when shared TLS is set." If you need per-block TLS, set it
+      # only on the block(s) that should have it (leave others as []).
       className: ""
       tls: []
 
       # Per-sub-Ingress annotations, layered on top of ingress.annotations.
-      # NGINX users almost always need backend-protocol: "GRPC" for the gRPC
-      # half. To add the same annotation to BOTH api Ingresses, either put it
-      # in ingress.annotations (shared with webhooks too) or duplicate it under
-      # both maps below.
-      grpcAnnotations:
-        nginx.ingress.kubernetes.io/backend-protocol: "GRPC"
+      # NGINX users need backend-protocol: "GRPC" for the gRPC half; other
+      # controllers have their own equivalent (ALB: backend-protocol-version:
+      # GRPC; Traefik: scheme h2c per-service; etc). Chart ships {} as
+      # default to stay controller-neutral — set the appropriate value for
+      # your ingress class. See README "Ingress" for examples.
+      grpcAnnotations: {}
       httpAnnotations: {}
 
     # Webhooks ingress: GitHub webhook receiver only. Public-facing.
@@ -251,7 +247,8 @@ hub:
       # Required when ingress.enabled is true.
       host: ""
 
-      # Optional per-ingress overrides.
+      # Optional per-ingress overrides. Same fall-back-to-shared
+      # behavior as api.* above.
       className: ""
       tls: []
       annotations: {}
@@ -371,6 +368,25 @@ operator:
 
 grafana:
   enabled: true
+
+  # External URL where Grafana is reachable. Used for two distinct purposes:
+  #   - GF_SERVER_ROOT_URL — Grafana's own self-knowledge (drives absolute
+  #     link generation, OIDC redirect_uri, etc). Critical to get right when
+  #     Grafana fronts third-party auth (Google, Okta, GitHub OIDC, ...).
+  #   - HUB_GRAFANA_URL_BASE — base for hub's [More Details] links in PR
+  #     comments. The hub consumes this; it doesn't own it.
+  #
+  # Defaults to https://<grafana.ingress.hosts[0].host> when chart-managed
+  # Grafana ingress is enabled — most installs just turn that on and leave
+  # this empty. Empty otherwise — the chart deliberately does NOT guess at
+  # a Grafana URL when it doesn't control the routing (no fallback to
+  # hub.webhookURL or api.host — wrong trust boundary, wrong host).
+  #
+  # Set explicitly when Grafana is reachable via external routing the chart
+  # doesn't manage (Caddy / mesh / shared LB with path routing). Required
+  # for OIDC to work in that topology. The chart fails fast at install time
+  # if grafana.enabled is true and no URL can be determined.
+  externalURL: ""
 
   # Admin credentials. Leave secretName empty to have the chart generate them
   # (recommended for fresh installs): username defaults to "admin", password
