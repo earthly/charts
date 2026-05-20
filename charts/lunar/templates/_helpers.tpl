@@ -135,21 +135,24 @@ cryptic render error or, worse, silently end up with no ingress at all.
 {{- define "lunar.rejectLegacyIngressShape" -}}
 {{- $h := .Values.hub -}}
 {{- if hasKey $h "publicBaseURL" -}}
-{{- fail "hub.publicBaseURL was renamed to hub.webhookURL in chart 2.0.0 (and now defaults to https://<hub.ingress.webhooks.host>). See README \"Migrating from chart 1.x\"." -}}
+{{- fail "hub.publicBaseURL was renamed to hub.webhookURL in chart 2.0.0 (and is now optional — defaults to https://<hub.ingress.webhooks.host>). See README \"Migrating from chart 1.x\"." -}}
 {{- end -}}
 {{- if or (hasKey $h.ingress "host") (hasKey $h.ingress "grpcAnnotations") (hasKey $h.ingress "httpAnnotations") -}}
 {{- fail "hub.ingress shape changed in chart 2.0.0. Move 'host' under api.host AND webhooks.host. Move 'grpcAnnotations'/'httpAnnotations' under api.grpcAnnotations/api.httpAnnotations. See README \"Migrating from chart 1.x\"." -}}
 {{- end -}}
+{{- if hasKey $h.ingress.api "annotations" -}}
+{{- fail "hub.ingress.api.annotations is not a chart value. Per-Ingress annotations go in hub.ingress.api.grpcAnnotations and hub.ingress.api.httpAnnotations (the chart collapsed the middle layer to keep the merge contract simple). Annotations shared with the webhooks Ingress go in hub.ingress.annotations." -}}
+{{- end -}}
 {{- end }}
 
 {{/*
-Effective external URL where GitHub posts webhooks. Falls back to
-"https://<hub.ingress.webhooks.host>" when not explicitly set and the
-chart's ingress is enabled. Empty when neither is configured — lunar
-itself warns at boot in that case.
+Effective external URL where GitHub posts webhooks. hub.webhookURL when
+set; otherwise derived from hub.ingress.webhooks.host ONLY when chart-
+managed ingress is enabled (the chart only derives a URL when it
+actually routes traffic at that host). Empty otherwise — BYO-ingress
+installs must set hub.webhookURL explicitly.
 
-Consumed by hub-deployment.yaml as HUB_PUBLIC_BASE_URL (lunar env var
-name preserved from chart 1.x).
+Consumed by hub-deployment.yaml as HUB_PUBLIC_BASE_URL.
 */}}
 {{- define "lunar.webhookURL" -}}
 {{- $hub := .Values.hub -}}
@@ -161,47 +164,54 @@ name preserved from chart 1.x).
 {{- end }}
 
 {{/*
-Effective base URL for Grafana — used by hub to build [More Details]
-links in PR comments. Resolution chain (highest priority first):
+Effective base URL for Grafana. Resolution chain (highest priority first):
 
-  1. hub.grafanaURLBase explicit override
-  2. https://<grafana.ingress.hosts[0].host>  when chart manages Grafana's ingress
-  3. https://<hub.ingress.api.host>           when chart manages Hub's ingress
-  4. lunar.webhookURL                         BYO fallback
+  1. hub.grafanaURLBase                       explicit override
+  2. https://<grafana.ingress.hosts[0].host>  chart-managed Grafana ingress
 
-The api.host fallback (#3) is the correct trust boundary for human-facing
-Grafana — same network as lunar CLI / CI agent traffic — even when no
-path-routing is configured there. Customers in non-trivial topologies
-should set grafanaURLBase explicitly.
+Empty otherwise — the chart only derives a URL when it actually controls
+the routing. Deliberately does NOT guess based on hub.ingress.api.host
+(chart doesn't route Grafana traffic there) or hub.webhookURL (wrong
+trust boundary). Installs that expose Grafana via external routing
+MUST set hub.grafanaURLBase explicitly, especially when Grafana fronts
+OIDC (otherwise redirect_uri is wrong or empty).
 
-Consumed by hub-deployment.yaml as HUB_GRAFANA_URL_BASE.
+Consumed by hub-deployment.yaml as HUB_GRAFANA_URL_BASE and by
+grafana-deployment.yaml as GF_SERVER_ROOT_URL.
 */}}
 {{- define "lunar.grafanaURL" -}}
 {{- $hub := .Values.hub -}}
-{{- $grafana := .Values.grafana -}}
-{{- if $hub.grafanaURLBase -}}
-{{- $hub.grafanaURLBase -}}
-{{- else if and $grafana.ingress.enabled $grafana.ingress.hosts -}}
-{{- $firstHost := (index $grafana.ingress.hosts 0).host -}}
-{{- if $firstHost -}}
-{{- printf "https://%s" $firstHost -}}
-{{- else -}}
-{{- include "lunar.webhookURL" . -}}
+{{- $grafanaIng := .Values.grafana.ingress -}}
+{{- $grafanaHost := "" -}}
+{{- if and $grafanaIng.enabled $grafanaIng.hosts -}}
+{{- $grafanaHost = (index $grafanaIng.hosts 0).host -}}
 {{- end -}}
-{{- else if and $hub.ingress.enabled $hub.ingress.api.host -}}
-{{- printf "https://%s" $hub.ingress.api.host -}}
-{{- else -}}
-{{- include "lunar.webhookURL" . -}}
+{{- if $hub.grafanaURLBase -}}{{ $hub.grafanaURLBase }}
+{{- else if $grafanaHost -}}{{ printf "https://%s" $grafanaHost }}
 {{- end -}}
 {{- end }}
 
 {{/*
-Fail fast on ingress misconfiguration: missing required hosts when
-ingress is enabled, and (when the user explicitly overrides webhookURL)
-a webhookURL host that doesn't match webhooks.host.
+Fail fast on ingress misconfiguration:
+  - hub.webhookURL (whenever set) must be a full URL with scheme. This
+    fires for BYO ingress too, where it matters most — a bare hostname
+    in HUB_PUBLIC_BASE_URL silently breaks webhook registration.
+  - When chart-managed ingress is enabled, api.host and webhooks.host
+    are required.
+  - When both webhookURL and webhooks.host are set, host portions must
+    match — otherwise GitHub POSTs into the void.
 */}}
 {{- define "lunar.validateIngress" -}}
 {{- $hub := .Values.hub -}}
+{{- if $hub.webhookURL -}}
+  {{- $parsed := urlParse $hub.webhookURL -}}
+  {{- if not $parsed.host -}}
+    {{- fail (printf "hub.webhookURL %q must be a full URL including scheme (e.g. https://webhooks.example.com)." $hub.webhookURL) -}}
+  {{- end -}}
+  {{- if not (has $parsed.scheme (list "http" "https")) -}}
+    {{- fail (printf "hub.webhookURL %q has unsupported scheme %q. GitHub webhook URLs must be http or https." $hub.webhookURL $parsed.scheme) -}}
+  {{- end -}}
+{{- end -}}
 {{- if $hub.ingress.enabled -}}
   {{- if not $hub.ingress.api.host -}}
     {{- fail "hub.ingress.api.host is required when hub.ingress.enabled is true." -}}
@@ -211,9 +221,6 @@ a webhookURL host that doesn't match webhooks.host.
   {{- end -}}
   {{- if $hub.webhookURL -}}
     {{- $parsed := urlParse $hub.webhookURL -}}
-    {{- if not $parsed.host -}}
-      {{- fail (printf "hub.webhookURL %q must be a full URL including scheme (e.g. https://webhooks.example.com)." $hub.webhookURL) -}}
-    {{- end -}}
     {{- $publicHost := lower (regexReplaceAll ":\\d+$" $parsed.host "") -}}
     {{- $webhookHost := lower $hub.ingress.webhooks.host -}}
     {{- if ne $publicHost $webhookHost -}}
@@ -224,45 +231,17 @@ a webhookURL host that doesn't match webhooks.host.
 {{- end }}
 
 {{/*
-Resolve per-ingress className. Block-level value wins; falls back to
-the shared ingress.className default. Empty is allowed (no className
-rendered).
+Resolve per-ingress annotations by merging the per-Ingress map on top
+of the shared ingress.annotations default. Per-Ingress wins on key
+collision.
 
 Usage:
-  {{ include "lunar.ingress.className" (dict "shared" .Values.hub.ingress.className "block" .Values.hub.ingress.api.className) }}
-*/}}
-{{- define "lunar.ingress.className" -}}
-{{- default .shared .block -}}
-{{- end }}
-
-{{/*
-Resolve per-ingress TLS list. Block-level list wins when non-empty;
-otherwise falls back to ingress.tls. Empty list passes through.
-
-Usage:
-  {{ include "lunar.ingress.tls" (dict "shared" .Values.hub.ingress.tls "block" .Values.hub.ingress.api.tls) }}
-*/}}
-{{- define "lunar.ingress.tls" -}}
-{{- if .block -}}
-{{- toYaml .block -}}
-{{- else -}}
-{{- toYaml .shared -}}
-{{- end -}}
-{{- end }}
-
-{{/*
-Resolve per-ingress annotations by deep-merging the shared, block, and
-optional sub-block layers in priority order (deepest wins). Sub-block
-is used for api.grpcAnnotations / api.httpAnnotations.
-
-Usage:
-  {{ include "lunar.ingress.annotations" (dict "shared" .Values.hub.ingress.annotations "block" .Values.hub.ingress.api.annotations "sub" .Values.hub.ingress.api.grpcAnnotations) }}
+  {{ include "lunar.ingress.annotations" (dict "shared" .Values.hub.ingress.annotations "specific" .Values.hub.ingress.api.grpcAnnotations) }}
 */}}
 {{- define "lunar.ingress.annotations" -}}
-{{- $sub := default (dict) .sub -}}
-{{- $block := default (dict) .block -}}
+{{- $specific := default (dict) .specific -}}
 {{- $shared := default (dict) .shared -}}
-{{- $merged := merge (deepCopy $sub) $block $shared -}}
+{{- $merged := merge (deepCopy $specific) $shared -}}
 {{- if $merged -}}
 {{- toYaml $merged -}}
 {{- end -}}

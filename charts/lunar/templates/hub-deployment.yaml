@@ -138,10 +138,14 @@ spec:
               value: {{ .s3.logsUrlTtl | quote }}
             - name: HUB_RESOURCES_AWS_URL_TTL
               value: {{ .s3.resourcesUrlTtl | quote }}
+            {{- with $webhookURL }}
             - name: HUB_PUBLIC_BASE_URL
-              value: {{ $webhookURL | quote }}
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with $grafanaURL }}
             - name: HUB_GRAFANA_URL_BASE
-              value: {{ $grafanaURL | quote }}
+              value: {{ . | quote }}
+            {{- end }}
             - name: HUB_K8S_EXECUTION_ENABLED
               value: "true"
             - name: HUB_MAX_WORKERS_COLLECT

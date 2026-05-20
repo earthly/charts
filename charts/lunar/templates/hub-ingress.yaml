@@ -23,13 +23,13 @@ itself defaults to https://<webhooks.host>). The chart enforces this.
 {{- $fullname := include "lunar.fullname" . -}}
 {{- $hub := .Values.hub -}}
 {{- $ing := $hub.ingress -}}
-{{- $apiClassName := include "lunar.ingress.className" (dict "shared" $ing.className "block" $ing.api.className) -}}
-{{- $apiTLS := include "lunar.ingress.tls" (dict "shared" $ing.tls "block" $ing.api.tls) -}}
-{{- $apiGrpcAnnotations := include "lunar.ingress.annotations" (dict "shared" $ing.annotations "block" $ing.api.annotations "sub" $ing.api.grpcAnnotations) -}}
-{{- $apiHttpAnnotations := include "lunar.ingress.annotations" (dict "shared" $ing.annotations "block" $ing.api.annotations "sub" $ing.api.httpAnnotations) -}}
-{{- $webhooksClassName := include "lunar.ingress.className" (dict "shared" $ing.className "block" $ing.webhooks.className) -}}
-{{- $webhooksTLS := include "lunar.ingress.tls" (dict "shared" $ing.tls "block" $ing.webhooks.tls) -}}
-{{- $webhooksAnnotations := include "lunar.ingress.annotations" (dict "shared" $ing.annotations "block" $ing.webhooks.annotations) -}}
+{{- $apiClassName := default $ing.className $ing.api.className -}}
+{{- $apiTLS := default $ing.tls $ing.api.tls -}}
+{{- $apiGrpcAnnotations := include "lunar.ingress.annotations" (dict "shared" $ing.annotations "specific" $ing.api.grpcAnnotations) -}}
+{{- $apiHttpAnnotations := include "lunar.ingress.annotations" (dict "shared" $ing.annotations "specific" $ing.api.httpAnnotations) -}}
+{{- $webhooksClassName := default $ing.className $ing.webhooks.className -}}
+{{- $webhooksTLS := default $ing.tls $ing.webhooks.tls -}}
+{{- $webhooksAnnotations := include "lunar.ingress.annotations" (dict "shared" $ing.annotations "specific" $ing.webhooks.annotations) -}}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -46,7 +46,7 @@ spec:
   {{- end }}
   {{- with $apiTLS }}
   tls:
-    {{- . | nindent 4 }}
+    {{- toYaml . | nindent 4 }}
   {{- end }}
   rules:
     - host: {{ $ing.api.host | quote }}
@@ -76,7 +76,7 @@ spec:
   {{- end }}
   {{- with $apiTLS }}
   tls:
-    {{- . | nindent 4 }}
+    {{- toYaml . | nindent 4 }}
   {{- end }}
   rules:
     - host: {{ $ing.api.host | quote }}
@@ -106,7 +106,7 @@ spec:
   {{- end }}
   {{- with $webhooksTLS }}
   tls:
-    {{- . | nindent 4 }}
+    {{- toYaml . | nindent 4 }}
   {{- end }}
   rules:
     - host: {{ $ing.webhooks.host | quote }}

@@ -64,8 +64,10 @@ spec:
               value: {{ include "lunar.hubHost" $ | quote }}
             - name: LUNAR_HUB_HTTP_PORT
               value: {{ $.Values.hub.service.ports.http | quote }}
+            {{- with $grafanaURL }}
             - name: GF_SERVER_ROOT_URL
-              value: {{ $grafanaURL | quote }}
+              value: {{ . | quote }}
+            {{- end }}
             - name: LUNAR_HUB_TOKEN
               valueFrom:
                 secretKeyRef:

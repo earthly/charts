@@ -28,14 +28,21 @@ hub:
   # External URL where GitHub posts webhooks. Hub registers
   # <webhookURL>/webhooks/github with the GitHub App at boot.
   #
-  # Defaults to "https://<hub.ingress.webhooks.host>" when ingress.enabled
-  # is true — most installs leave this empty and let the chart derive it.
+  # Defaults to "https://<hub.ingress.webhooks.host>" ONLY when chart-
+  # managed ingress is enabled — that's the case where the chart actually
+  # routes traffic at that host. Most chart-managed installs leave this
+  # empty and let the chart derive it.
+  #
   # Set explicitly when:
-  #   - hub.ingress.enabled is false (BYO ingress / LoadBalancer / mesh),
-  #   - you need a non-default scheme (http for dev), port, or path prefix.
+  #   - hub.ingress.enabled is false (BYO ingress / LoadBalancer / mesh).
+  #     The chart will not guess a URL it doesn't route to; if you leave
+  #     this empty in BYO mode, HUB_PUBLIC_BASE_URL is empty and the hub
+  #     warns at boot and skips webhook auto-registration.
+  #   - You need a non-default scheme (http for dev), port, or path prefix.
   #
   # When set explicitly AND hub.ingress.enabled is true, the host portion
-  # must equal hub.ingress.webhooks.host.
+  # must equal hub.ingress.webhooks.host. The chart fails fast otherwise —
+  # GitHub would POST into the void.
   webhookURL: ""
 
   # Base URL where Grafana is reachable. Used for two distinct purposes:
@@ -44,16 +51,14 @@ hub:
   #     link generation, OIDC redirect_uri, etc). Critical to get right when
   #     Grafana fronts third-party auth (Google, Okta, GitHub OIDC, ...).
   #
-  # Resolution chain when empty (highest priority first):
-  #   1. https://<grafana.ingress.hosts[0].host>  when chart manages Grafana's ingress
-  #   2. https://<hub.ingress.api.host>           when chart manages Hub's ingress
-  #   3. hub.webhookURL                           BYO fallback
+  # Defaults to https://<grafana.ingress.hosts[0].host> when chart-managed
+  # Grafana ingress is enabled — most installs just turn that on and leave
+  # this empty. Empty otherwise — the chart deliberately does NOT guess at
+  # a Grafana URL when it doesn't control the routing (no fallback to
+  # webhookURL or api.host — wrong trust boundary, wrong host).
   #
-  # The api.host fallback is deliberate: Grafana is a human-facing dashboard
-  # accessed from internal browsers — same trust boundary as lunar CLI / CI
-  # agent traffic, NOT the public webhooks ingress. Set explicitly when
-  # Grafana lives on a hostname none of these capture (separate ingress that
-  # isn't chart-managed, external Grafana, etc).
+  # Set explicitly when Grafana is reachable via external routing the chart
+  # doesn't manage. Required for OIDC to work in that topology.
   grafanaURLBase: ""
 
   rootDir: /hub/
@@ -226,19 +231,22 @@ hub:
       host: ""
 
       # Optional per-ingress overrides of the shared defaults above.
-      className: ""    # empty -> falls back to ingress.className
-      tls: []          # empty -> falls back to ingress.tls
-      annotations: {}  # merged on top of ingress.annotations
+      # Empty values fall back to ingress.className / ingress.tls.
+      className: ""
+      tls: []
 
-      # Per-sub-Ingress annotations within the api block. NGINX users
-      # almost always need backend-protocol: "GRPC" for the gRPC half.
+      # Per-sub-Ingress annotations, layered on top of ingress.annotations.
+      # NGINX users almost always need backend-protocol: "GRPC" for the gRPC
+      # half. To add the same annotation to BOTH api Ingresses, either put it
+      # in ingress.annotations (shared with webhooks too) or duplicate it under
+      # both maps below.
       grpcAnnotations:
         nginx.ingress.kubernetes.io/backend-protocol: "GRPC"
       httpAnnotations: {}
 
     # Webhooks ingress: GitHub webhook receiver only. Public-facing.
     # Lock this down to /webhooks if you want — nothing else lives here.
-    # Also the source of truth for the derived hub.webhookURL.
+    # Also the source of the derived hub.webhookURL (https://<host>).
     webhooks:
       # Required when ingress.enabled is true.
       host: ""
