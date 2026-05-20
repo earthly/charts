@@ -126,3 +126,149 @@ particular). Callers that need to honor a per-component override should do
 {{- define "lunar.hubHost" -}}
 {{- printf "%s-hub.%s.svc.%s" (include "lunar.fullname" .) .Release.Namespace .Values.clusterDomain -}}
 {{- end }}
+
+{{/*
+Reject chart 1.x ingress shape early with a migration message. Anyone
+upgrading from 1.x with their old values intact would otherwise get a
+cryptic render error or, worse, silently end up with no ingress at all.
+*/}}
+{{- define "lunar.rejectLegacyIngressShape" -}}
+{{- $h := .Values.hub -}}
+{{- if hasKey $h "publicBaseURL" -}}
+{{- fail "hub.publicBaseURL was renamed to hub.webhookURL in chart 2.0.0 (and is now optional — defaults to https://<hub.ingress.webhooks.host>). See README \"Migrating from chart 1.x\"." -}}
+{{- end -}}
+{{- if hasKey $h "grafanaURLBase" -}}
+{{- fail "hub.grafanaURLBase was renamed to grafana.externalURL in chart 2.0.0 (the value is a Grafana property; the hub consumes it, doesn't own it). See README \"Migrating from chart 1.x\"." -}}
+{{- end -}}
+{{- if or (hasKey $h.ingress "host") (hasKey $h.ingress "grpcAnnotations") (hasKey $h.ingress "httpAnnotations") -}}
+{{- fail "hub.ingress shape changed in chart 2.0.0. Move 'host' under api.host AND webhooks.host. Move 'grpcAnnotations'/'httpAnnotations' under api.grpcAnnotations/api.httpAnnotations. See README \"Migrating from chart 1.x\"." -}}
+{{- end -}}
+{{- if hasKey $h.ingress.api "annotations" -}}
+{{- fail "hub.ingress.api.annotations is not a chart value. Per-Ingress annotations go in hub.ingress.api.grpcAnnotations and hub.ingress.api.httpAnnotations (the chart collapsed the middle layer to keep the merge contract simple). Annotations shared with the webhooks Ingress go in hub.ingress.annotations." -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Effective external URL where GitHub posts webhooks. hub.webhookURL when
+set; otherwise derived from hub.ingress.webhooks.host ONLY when chart-
+managed ingress is enabled (the chart only derives a URL when it
+actually routes traffic at that host). Empty otherwise — BYO-ingress
+installs must set hub.webhookURL explicitly.
+
+Consumed by hub-deployment.yaml as HUB_PUBLIC_BASE_URL.
+*/}}
+{{- define "lunar.webhookURL" -}}
+{{- $hub := .Values.hub -}}
+{{- if $hub.webhookURL -}}
+{{- $hub.webhookURL -}}
+{{- else if and $hub.ingress.enabled $hub.ingress.webhooks.host -}}
+{{- printf "https://%s" $hub.ingress.webhooks.host -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Effective base URL for Grafana. Resolution chain (highest priority first):
+
+  1. grafana.externalURL                      explicit override
+  2. https://<grafana.ingress.hosts[0].host>  chart-managed Grafana ingress
+
+Empty otherwise — the chart only derives a URL when it actually controls
+the routing. Deliberately does NOT guess based on hub.ingress.api.host
+(chart doesn't route Grafana traffic there) or hub.webhookURL (wrong
+trust boundary). Installs that expose Grafana via external routing
+MUST set grafana.externalURL explicitly, especially when Grafana fronts
+OIDC (otherwise redirect_uri is wrong or empty).
+
+Consumed by hub-deployment.yaml as HUB_GRAFANA_URL_BASE and by
+grafana-deployment.yaml as GF_SERVER_ROOT_URL.
+*/}}
+{{- define "lunar.grafanaURL" -}}
+{{- $grafana := .Values.grafana -}}
+{{- $grafanaIng := $grafana.ingress -}}
+{{- $grafanaHost := "" -}}
+{{- if and $grafanaIng.enabled $grafanaIng.hosts -}}
+{{- $grafanaHost = (index $grafanaIng.hosts 0).host -}}
+{{- end -}}
+{{- if $grafana.externalURL -}}{{ $grafana.externalURL }}
+{{- else if $grafanaHost -}}{{ printf "https://%s" $grafanaHost }}
+{{- end -}}
+{{- end }}
+
+{{/*
+Fail fast when grafana.enabled is true but the chart can't determine a
+Grafana URL. Specifically catches the 1.x "Caddy / content-routing"
+upgrader: in 1.x, GF_SERVER_ROOT_URL and HUB_GRAFANA_URL_BASE both
+defaulted to publicBaseURL. 2.0.0 deliberately drops that fallback —
+guessing at a URL the chart doesn't route to is wrong. Without this
+guard, upgraders silently end up with GF_SERVER_ROOT_URL unset →
+Grafana defaults to http://localhost:3000/ → OIDC redirect_uri breaks.
+
+Three escape hatches, depending on topology:
+  - Set grafana.externalURL (BYO ingress / Caddy / external routing)
+  - Enable grafana.ingress (chart-managed Grafana ingress)
+  - Set grafana.enabled: false (skip Grafana entirely)
+*/}}
+{{- define "lunar.validateGrafana" -}}
+{{- if .Values.grafana.enabled -}}
+  {{- $url := include "lunar.grafanaURL" . -}}
+  {{- if not $url -}}
+    {{- fail "grafana.externalURL is required when grafana.enabled is true and the chart doesn't manage Grafana's ingress (chart 2.0.0 no longer derives Grafana URLs it doesn't route to — see README \"Migrating from chart 1.x\" for the Caddy / content-routing case). Pick one:\n  - grafana.externalURL = \"<your Grafana URL>\"  (BYO ingress / Caddy / external routing)\n  - grafana.ingress.enabled = true              (chart-managed Grafana ingress)\n  - grafana.enabled = false                     (skip Grafana entirely)" -}}
+  {{- end -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Fail fast on ingress misconfiguration:
+  - hub.webhookURL (whenever set) must be a full URL with scheme. This
+    fires for BYO ingress too, where it matters most — a bare hostname
+    in HUB_PUBLIC_BASE_URL silently breaks webhook registration.
+  - When chart-managed ingress is enabled, api.host and webhooks.host
+    are required.
+  - When both webhookURL and webhooks.host are set, host portions must
+    match — otherwise GitHub POSTs into the void.
+*/}}
+{{- define "lunar.validateIngress" -}}
+{{- $hub := .Values.hub -}}
+{{- if $hub.webhookURL -}}
+  {{- $parsed := urlParse $hub.webhookURL -}}
+  {{- if not $parsed.host -}}
+    {{- fail (printf "hub.webhookURL %q must be a full URL including scheme (e.g. https://webhooks.example.com)." $hub.webhookURL) -}}
+  {{- end -}}
+  {{- if not (has $parsed.scheme (list "http" "https")) -}}
+    {{- fail (printf "hub.webhookURL %q has unsupported scheme %q. GitHub webhook URLs must be http or https." $hub.webhookURL $parsed.scheme) -}}
+  {{- end -}}
+{{- end -}}
+{{- if $hub.ingress.enabled -}}
+  {{- if not $hub.ingress.api.host -}}
+    {{- fail "hub.ingress.api.host is required when hub.ingress.enabled is true." -}}
+  {{- end -}}
+  {{- if not $hub.ingress.webhooks.host -}}
+    {{- fail "hub.ingress.webhooks.host is required when hub.ingress.enabled is true." -}}
+  {{- end -}}
+  {{- if $hub.webhookURL -}}
+    {{- $parsed := urlParse $hub.webhookURL -}}
+    {{- $publicHost := lower (regexReplaceAll ":\\d+$" $parsed.host "") -}}
+    {{- $webhookHost := lower $hub.ingress.webhooks.host -}}
+    {{- if ne $publicHost $webhookHost -}}
+      {{- fail (printf "hub.webhookURL host (%q) must equal hub.ingress.webhooks.host (%q). GitHub POSTs to webhookURL/webhooks/github and must reach the webhooks ingress." $publicHost $webhookHost) -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Resolve per-ingress annotations by merging the per-Ingress map on top
+of the shared ingress.annotations default. Per-Ingress wins on key
+collision.
+
+Usage:
+  {{ include "lunar.ingress.annotations" (dict "shared" .Values.hub.ingress.annotations "specific" .Values.hub.ingress.api.grpcAnnotations) }}
+*/}}
+{{- define "lunar.ingress.annotations" -}}
+{{- $specific := default (dict) .specific -}}
+{{- $shared := default (dict) .shared -}}
+{{- $merged := merge (deepCopy $specific) $shared -}}
+{{- if $merged -}}
+{{- toYaml $merged -}}
+{{- end -}}
+{{- end }}

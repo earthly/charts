@@ -83,7 +83,6 @@ Minimum `values.yaml` that has to be provided — everything else has a sensible
 
 ```yaml
 hub:
-  publicBaseURL: "https://lunar.example.com"
   licence:
     secretName: "lunar-hub-licence"
     secretKey: "hub-licence.jwt"
@@ -102,7 +101,16 @@ hub:
       installId: 78901234
 ```
 
-`hub.publicBaseURL` should resolve to the Hub from the public internet — it's used for automatic GitHub webhook registration (see [Webhooks](#webhooks) below).
+Plus two URL prerequisites the chart needs to wire correctly:
+
+1. **Hub webhook URL** — for GitHub webhook registration to work, the hub needs an externally-reachable URL. The simplest path is to let the chart manage your ingress and set `hub.ingress.webhooks.host` — see [Ingress](#ingress) below. When `hub.ingress.enabled: true`, the chart derives `https://<webhooks.host>` automatically. BYO-ingress installs (`hub.ingress.enabled: false`) must set `hub.webhookURL` explicitly — the chart will not guess a URL it doesn't route to.
+
+2. **Grafana URL** (when `grafana.enabled: true`, which is the default) — Grafana needs to know its own external URL for OIDC `redirect_uri` and absolute link rendering. Pick one:
+   - `grafana.ingress.enabled: true` with `grafana.ingress.hosts[0].host` set — chart derives the URL automatically.
+   - `grafana.externalURL: "https://grafana.example.com"` — explicit override, for BYO ingress / Caddy / shared LB with path routing.
+   - `grafana.enabled: false` — skip Grafana entirely.
+
+   The chart fails fast at install time if none of these are set (it deliberately won't guess at a URL it doesn't route to — wrong host means broken OIDC, silently).
 
 ### GitHub authentication
 
@@ -167,13 +175,19 @@ kubectl -n lunar create secret generic my-grafana-admin \
 
 ## Ingress
 
-The hub serves gRPC (port 8000, used by CLI / CI agents / operator) and HTTP (port 8001, GitHub webhooks + log redirects) on separate ports. Most ingress controllers — NGINX especially — apply backend-protocol annotations per-Ingress, not per-path, so when ingress is enabled the chart renders **two Ingress resources** sharing the same host and TLS config (same shape as Argo CD's chart). Disable entirely if you front the hub with a LoadBalancer Service, a service mesh, or another ingress mechanism.
+The hub has two trust boundaries:
+
+1. **Trusted API clients** — lunar CLI, CI agents, operator. Talk to hub over gRPC (port 8000) and HTTP (`/logs` on port 8001). Both use the same Hub auth token.
+2. **GitHub webhooks** — public internet. POST to `/webhooks` on port 8001 only.
+
+The chart renders separate ingresses for each, configured under two logical blocks: `hub.ingress.api` and `hub.ingress.webhooks`. You can put the API ingress on a private hostname (Tailscale, internal-DNS, VPN) and only expose webhooks to the public internet — or use the same hostname for both. Disable entirely (`hub.ingress.enabled: false`) if you front the hub with a LoadBalancer Service, a service mesh, or your own Ingress YAML.
+
+**Single-host install** (same hostname serves both — fine for most setups):
 
 ```yaml
 hub:
   ingress:
     enabled: true
-    host: lunar.example.com
     className: nginx
     tls:
       - secretName: lunar-tls
@@ -181,12 +195,156 @@ hub:
           - lunar.example.com
     annotations:
       cert-manager.io/cluster-issuer: letsencrypt
-    grpcAnnotations:
-      nginx.ingress.kubernetes.io/backend-protocol: "GRPC"
-    httpAnnotations: {}
+    api:
+      host: lunar.example.com
+      # NGINX needs backend-protocol: GRPC on the gRPC Ingress. Other
+      # controllers use their own equivalent (ALB: backend-protocol-version:
+      # GRPC; Traefik: h2c per-service; etc).
+      grpcAnnotations:
+        nginx.ingress.kubernetes.io/backend-protocol: "GRPC"
+    webhooks:
+      host: lunar.example.com
 ```
 
-The gRPC ingress routes `/` to the hub's gRPC port. The HTTP ingress routes `/webhooks` (GitHub webhook receiver) and `/logs` (signed-URL log redirects) to the hub's HTTP port.
+**Split-host install** (API stays internal, webhooks ingress is the only public surface):
+
+```yaml
+hub:
+  ingress:
+    enabled: true
+    className: nginx
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt
+    api:
+      host: api.lunar.example.com
+      tls:
+        - secretName: lunar-api-tls
+          hosts:
+            - api.lunar.example.com
+      # Per-sub-Ingress annotations. Repeat the whitelist on both so it
+      # applies to api-grpc AND api-http; the chart intentionally does not
+      # apply it to webhooks (different trust boundary).
+      grpcAnnotations:
+        nginx.ingress.kubernetes.io/backend-protocol: "GRPC"
+        nginx.ingress.kubernetes.io/whitelist-source-range: "10.0.0.0/8"
+      httpAnnotations:
+        nginx.ingress.kubernetes.io/whitelist-source-range: "10.0.0.0/8"
+    webhooks:
+      host: webhooks.lunar.example.com
+      tls:
+        - secretName: lunar-webhooks-tls
+          hosts:
+            - webhooks.lunar.example.com
+```
+
+### How webhooks reach the hub
+
+When the hub boots, it reads `hub.webhookURL` (derived as `https://<hub.ingress.webhooks.host>` when `hub.ingress.enabled: true`; must be set explicitly otherwise) and registers `<webhookURL>/webhooks/github` with the GitHub App. GitHub then POSTs every webhook event to that URL, which must resolve to the webhooks ingress.
+
+```mermaid
+sequenceDiagram
+    participant Hub as Hub<br/>(reads webhookURL)
+    participant GH as GitHub App
+    participant DNS
+    participant Ingress as Webhooks Ingress<br/>(listens on webhooks.host)
+    participant HubPod as Hub Pod<br/>:8001
+
+    Hub->>GH: "Register webhook at <webhookURL>/webhooks/github"
+    Note over Hub,GH: One-time, at hub boot
+
+    Note over GH: Later: a PR event happens
+    GH->>DNS: Resolve <webhookURL host>
+    DNS-->>GH: Cluster LB IP
+    GH->>Ingress: POST /webhooks/github
+    Ingress->>HubPod: Forward
+    HubPod-->>Ingress: 200 OK
+    Ingress-->>GH: 200 OK
+```
+
+Three things must agree, or webhooks land in the void:
+
+1. The hostname inside `hub.webhookURL` (derived from `webhooks.host` when `hub.ingress.enabled: true`; set explicitly otherwise).
+2. The DNS record for that hostname must resolve to your cluster's ingress.
+3. An Ingress with a rule for that hostname and `/webhooks` path — which the chart creates for you when `hub.ingress.enabled: true`; BYO installs are responsible for routing themselves.
+
+The chart enforces #1 internally: if you set `hub.webhookURL` explicitly alongside chart-managed ingress, its host portion must equal `hub.ingress.webhooks.host`. Install fails fast if they disagree.
+
+### What gets rendered
+
+Three `Ingress` resources, all in the release namespace:
+
+| Resource | Host | Path | Backend port |
+|----------|------|------|--------------|
+| `<release>-hub-api-grpc` | `api.host` | `/` | hub gRPC (8000) |
+| `<release>-hub-api-http` | `api.host` | `/logs` | hub HTTP (8001) |
+| `<release>-hub-webhooks` | `webhooks.host` | `/webhooks` | hub HTTP (8001) |
+
+The `api-grpc` and `api-http` split exists because most ingress controllers apply `backend-protocol` annotations per-Ingress.
+
+## Migrating from chart 1.x
+
+The ingress shape changed in chart 2.0.0:
+
+- `hub.publicBaseURL` was renamed to `hub.webhookURL`, and is now optional when `hub.ingress.enabled: true` — defaults to `https://<webhooks.host>` in that case. BYO-ingress installs must set it explicitly (the chart will not derive a URL it doesn't route to). Also set explicitly for non-default scheme/port or a path prefix.
+- `hub.ingress.host` moved to `hub.ingress.api.host` **and** `hub.ingress.webhooks.host` (set both to the same value for a single-host install).
+- `hub.ingress.grpcAnnotations` / `httpAnnotations` moved under `hub.ingress.api.*`.
+- `hub.ingress.api.grpcAnnotations` no longer defaults to NGINX's `backend-protocol: "GRPC"`. NGINX users must set it explicitly (see [Ingress](#ingress) examples); other controllers set their equivalent.
+- `hub.grafanaURLBase` was renamed to `grafana.externalURL`. It's a Grafana property — Hub consumes it as `HUB_GRAFANA_URL_BASE`, Grafana consumes it as `GF_SERVER_ROOT_URL`. Lives under `grafana.*` now, where it belongs.
+- **Grafana URL derivation changed.** In 1.x, `HUB_GRAFANA_URL_BASE` and Grafana's own `GF_SERVER_ROOT_URL` defaulted to `publicBaseURL`. 2.0.0 only derives a Grafana URL when the chart actually controls Grafana's routing (chart-managed `grafana.ingress` or explicit `grafana.externalURL`). **If you used a single hostname with `grafana.ingress.enabled: false` and external path-routing (Caddy / nginx-ingress with split paths / similar), set `grafana.externalURL` to that same URL explicitly** — otherwise Grafana's OIDC `redirect_uri` and absolute links break after upgrade. The chart fails fast at install time when `grafana.enabled: true` and no Grafana URL can be determined.
+
+The chart fails fast at install time when it sees the old shape.
+
+```yaml
+# Before (chart 1.x)
+hub:
+  publicBaseURL: "https://lunar.example.com"
+  ingress:
+    enabled: true
+    host: lunar.example.com
+    grpcAnnotations:
+      nginx.ingress.kubernetes.io/backend-protocol: "GRPC"
+
+# After (chart 2.0.0) — single-host
+hub:
+  # webhookURL derived as "https://lunar.example.com" automatically.
+  ingress:
+    enabled: true
+    api:
+      host: lunar.example.com
+      grpcAnnotations:
+        nginx.ingress.kubernetes.io/backend-protocol: "GRPC"
+    webhooks:
+      host: lunar.example.com
+
+# After (chart 2.0.0) — split-host
+hub:
+  # webhookURL derived as "https://webhooks.lunar.example.com".
+  ingress:
+    enabled: true
+    api:
+      host: api.lunar.example.com
+      grpcAnnotations:
+        nginx.ingress.kubernetes.io/backend-protocol: "GRPC"
+    webhooks:
+      host: webhooks.lunar.example.com
+
+# After (chart 2.0.0) — BYO ingress (LoadBalancer / mesh / your own YAML).
+# The chart wires HUB_PUBLIC_BASE_URL, HUB_GRAFANA_URL_BASE, and Grafana's
+# GF_SERVER_ROOT_URL from the values below — set whichever apply. You own
+# routing GitHub's POSTs to the hub-http Service (named `<release>-hub:8001`)
+# and routing browser traffic to the grafana Service. The chart only emits
+# these env vars when the corresponding value is set; unset means the
+# component falls back to its own default (or warns at boot).
+hub:
+  webhookURL: "https://lunar.example.com"
+  ingress:
+    enabled: false
+grafana:
+  # Required when grafana.enabled is true and the chart isn't managing
+  # Grafana's ingress — otherwise the install fails fast at template time
+  # (GF_SERVER_ROOT_URL empty → OIDC redirect_uris break).
+  externalURL: "https://grafana.example.com"
+```
 
 ## Post-install
 
@@ -200,10 +358,10 @@ lunar hub pull github://your-org/your-config-repo@main
 
 ### Webhooks
 
-The Hub automatically registers per-repo GitHub webhooks at `<hub.publicBaseURL>/webhooks/github` when manifests are pulled. No manual webhook configuration is required as long as:
+The Hub automatically registers per-repo GitHub webhooks at `<hub.webhookURL>/webhooks/github` when manifests are pulled. No manual webhook configuration is required as long as:
 
-- `hub.publicBaseURL` is set and reachable from GitHub
-- The GitHub App has the `repository_hooks: write` permission (the manifest script grants this by default)
+- `hub.webhookURL` resolves to your webhooks ingress and is reachable from GitHub. When chart-managed ingress is enabled, this is derived from `hub.ingress.webhooks.host` automatically.
+- The GitHub App has the `repository_hooks: write` permission (the manifest script grants this by default).
 
 ## Upgrading
 
@@ -267,7 +425,9 @@ The central gRPC/HTTP server. Stores metadata, evaluates policies, and serves th
 
 | Key | Description | Default |
 |-----|-------------|---------|
-| `hub.publicBaseURL` | Externally-reachable base URL for the Hub. Required for automatic GitHub webhook registration | `""` |
+| `hub.webhookURL` | External URL where GitHub posts webhooks. Chart registers `<webhookURL>/webhooks/github` with the GitHub App at boot. Defaults to `https://<hub.ingress.webhooks.host>` **only when `hub.ingress.enabled: true`** — the chart only derives a URL when it actually routes the traffic. Set explicitly when ingress is disabled (BYO) or you need a non-default scheme/port/path. When set explicitly alongside chart-managed ingress, the host portion must equal `hub.ingress.webhooks.host` — install fails fast otherwise. | `""` (derived) |
+
+See also `grafana.externalURL` (under [Grafana](#grafana)) for the Grafana-side equivalent — drives both `HUB_GRAFANA_URL_BASE` (consumed by Hub) and `GF_SERVER_ROOT_URL` (consumed by Grafana).
 
 **Licence**
 
@@ -376,13 +536,19 @@ The Hub uses a PVC for state, cached repos, and script code.
 | `hub.service.type` | Service type | `ClusterIP` |
 | `hub.service.ports.server` | gRPC port | `8000` |
 | `hub.service.ports.http` | HTTP port | `8001` |
-| `hub.ingress.enabled` | Render the gRPC + HTTP ingresses for the hub | `false` |
-| `hub.ingress.host` | Hostname shared by both ingresses (required when enabled) | `""` |
-| `hub.ingress.className` | Ingress class | `""` |
-| `hub.ingress.tls` | Ingress TLS config (shared) | `[]` |
-| `hub.ingress.annotations` | Annotations applied to both ingresses | `{}` |
-| `hub.ingress.grpcAnnotations` | Annotations applied only to the gRPC ingress | `{}` |
-| `hub.ingress.httpAnnotations` | Annotations applied only to the HTTP ingress | `{}` |
+| `hub.ingress.enabled` | Render the hub ingresses (three resources: api-grpc, api-http, webhooks) | `false` |
+| `hub.ingress.className` | Shared default ingress class. Overridden per-block when set. | `""` |
+| `hub.ingress.tls` | Shared default TLS config. Overridden per-block when set. | `[]` |
+| `hub.ingress.annotations` | Shared default annotations applied to all three ingresses. | `{}` |
+| `hub.ingress.api.host` | Hostname for the API ingress (gRPC + `/logs`). Required when enabled. | `""` |
+| `hub.ingress.api.className` | Override `ingress.className` for the API ingress. | `""` |
+| `hub.ingress.api.tls` | Override `ingress.tls` for the API ingress. | `[]` |
+| `hub.ingress.api.grpcAnnotations` | Annotations applied only to the api-grpc Ingress, layered on top of `ingress.annotations`. NGINX users need `backend-protocol: GRPC` here (other controllers have their own equivalent — see [Ingress](#ingress) for examples). Controller-neutral default — set explicitly for your ingress class. | `{}` |
+| `hub.ingress.api.httpAnnotations` | Annotations applied only to the api-http (`/logs`) Ingress, layered on top of `ingress.annotations`. | `{}` |
+| `hub.ingress.webhooks.host` | Hostname for the webhooks ingress (GitHub `/webhooks`). Required when `ingress.enabled: true`. Source of the derived `hub.webhookURL` (only in that case — when ingress is disabled the chart does not derive from this field). | `""` |
+| `hub.ingress.webhooks.className` | Override `ingress.className` for the webhooks ingress. | `""` |
+| `hub.ingress.webhooks.tls` | Override `ingress.tls` for the webhooks ingress. | `[]` |
+| `hub.ingress.webhooks.annotations` | Annotations layered on top of `ingress.annotations` for the webhooks ingress. | `{}` |
 
 **Probes**
 
@@ -483,6 +649,7 @@ Pre-built Grafana instance with dashboards for policy results, component health,
 | Key | Description | Default |
 |-----|-------------|---------|
 | `grafana.enabled` | Deploy the pre-built Grafana instance | `true` |
+| `grafana.externalURL` | External URL where Grafana is reachable. Drives `GF_SERVER_ROOT_URL` (Grafana's self-knowledge — used for OIDC `redirect_uri`, absolute link rendering, etc) and `HUB_GRAFANA_URL_BASE` (`[More Details]` links in PR comments). Defaults to `https://<grafana.ingress.hosts[0].host>` when chart-managed Grafana ingress is enabled. Empty otherwise — the chart only derives a URL when it actually controls the routing (no fallback to `hub.webhookURL` or `hub.ingress.api.host` — wrong trust boundary). Installs with externally-managed Grafana routing **must** set this explicitly; otherwise install fails fast. | `""` (derived) |
 | `grafana.image.repository` | Grafana image | `ghcr.io/earthly/lunar-grafana` |
 | `grafana.image.tag` | Image tag | `2.1.1` |
 | `grafana.admin.secretName` | Secret containing both admin credentials. Empty = chart auto-generates `<release>-grafana-admin` (kept across uninstall) | `""` |

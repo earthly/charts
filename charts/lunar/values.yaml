@@ -25,17 +25,25 @@ serviceAccount:
   name: ""
 
 hub:
-  # External URL where the hub is reachable (e.g. https://cronos.demo.earthly.dev).
-  # Used by the hub for webhook callbacks and by Grafana for dashboard log links.
-  publicBaseURL: ""
-
-  # URL the hub uses to build [More Details] links in PR comments back to
-  # the Grafana dashboard. Defaults to publicBaseURL when empty — that's
-  # the right answer for single-hostname installs (Caddy / content-type
-  # routing). Override only when Grafana is served from a separate
-  # hostname (e.g. grafana.lunar.example.com behind a distinct NGINX
-  # ingress, which is the topology the chart's docs advocate).
-  grafanaURLBase: ""
+  # External URL where GitHub posts webhooks. Hub registers
+  # <webhookURL>/webhooks/github with the GitHub App at boot.
+  #
+  # Defaults to "https://<hub.ingress.webhooks.host>" ONLY when chart-
+  # managed ingress is enabled — that's the case where the chart actually
+  # routes traffic at that host. Most chart-managed installs leave this
+  # empty and let the chart derive it.
+  #
+  # Set explicitly when:
+  #   - hub.ingress.enabled is false (BYO ingress / LoadBalancer / mesh).
+  #     The chart will not guess a URL it doesn't route to; if you leave
+  #     this empty in BYO mode, HUB_PUBLIC_BASE_URL is empty and the hub
+  #     warns at boot and skips webhook auto-registration.
+  #   - You need a non-default scheme (http for dev), port, or path prefix.
+  #
+  # When set explicitly AND hub.ingress.enabled is true, the host portion
+  # must equal hub.ingress.webhooks.host. The chart fails fast otherwise —
+  # GitHub would POST into the void.
+  webhookURL: ""
 
   rootDir: /hub/
 
@@ -176,25 +184,74 @@ hub:
       server: 8000
       http: 8001
 
-  # The hub serves gRPC (port 8000, used by CLI / CI agents / operator) and
-  # HTTP (port 8001, GitHub webhooks + log redirects) on separate ports.
-  # Most ingress controllers apply backend-protocol annotations per-Ingress,
-  # not per-path, so when enabled the chart renders two Ingress resources
-  # sharing the same host and TLS config (same pattern as Argo CD's chart).
+  # Hub has two trust boundaries:
+  #   1. Trusted API clients — lunar CLI, CI agents, operator. Talk to hub
+  #      over gRPC (port 8000) and HTTP (port 8001, /logs only). Both use
+  #      the same Hub auth token.
+  #   2. GitHub webhooks — public internet. POST to /webhooks/github only.
+  #
+  # The chart renders separate ingresses for each so you can put the API
+  # ingress on a private hostname (Tailscale, internal-DNS, VPN) and only
+  # expose the webhooks ingress to the public internet.
+  #
   # Disable entirely if you front the hub with a LoadBalancer Service, a
-  # service mesh, or some other ingress mechanism.
+  # service mesh, or your own Ingress YAML.
   ingress:
     enabled: false
-    host: ""
+
+    # Shared defaults. Applied to all three rendered Ingress resources
+    # unless overridden inside api.* / webhooks.* below.
     className: ""
     tls: []
-    # Annotations applied to both ingresses.
     annotations: {}
-    # Annotations applied only to the gRPC ingress. Required for most NGINX
-    # setups: nginx.ingress.kubernetes.io/backend-protocol: "GRPC".
-    grpcAnnotations: {}
-    # Annotations applied only to the HTTP ingress.
-    httpAnnotations: {}
+
+    # API ingress: gRPC + /logs. Used by lunar CLI, CI agents, and the
+    # operator. Renders TWO Ingress resources (api-grpc + api-http) sharing
+    # one hostname — the split exists because most ingress controllers
+    # apply backend-protocol annotations per-Ingress, not per-path. Safe
+    # to put on a private hostname.
+    #
+    # Annotation API: webhooks.annotations is a single map (one Ingress);
+    # api has split grpcAnnotations + httpAnnotations because the two API
+    # Ingresses typically need different controller hints. There's no
+    # api.annotations layer — annotations that apply to both api Ingresses
+    # but not webhooks go in BOTH maps below (slight duplication, simpler
+    # contract). Annotations that apply to ALL three Ingresses go in the
+    # shared ingress.annotations above.
+    api:
+      # Required when ingress.enabled is true.
+      host: ""
+
+      # Optional per-ingress overrides of the shared defaults above. Note
+      # the asymmetry: per-block tls/className are matched against the
+      # shared defaults via Helm's `default` — empty list/string falls
+      # back to shared, so there's no way to say "I want NO TLS on this
+      # block when shared TLS is set." If you need per-block TLS, set it
+      # only on the block(s) that should have it (leave others as []).
+      className: ""
+      tls: []
+
+      # Per-sub-Ingress annotations, layered on top of ingress.annotations.
+      # NGINX users need backend-protocol: "GRPC" for the gRPC half; other
+      # controllers have their own equivalent (ALB: backend-protocol-version:
+      # GRPC; Traefik: scheme h2c per-service; etc). Chart ships {} as
+      # default to stay controller-neutral — set the appropriate value for
+      # your ingress class. See README "Ingress" for examples.
+      grpcAnnotations: {}
+      httpAnnotations: {}
+
+    # Webhooks ingress: GitHub webhook receiver only. Public-facing.
+    # Lock this down to /webhooks if you want — nothing else lives here.
+    # Also the source of the derived hub.webhookURL (https://<host>).
+    webhooks:
+      # Required when ingress.enabled is true.
+      host: ""
+
+      # Optional per-ingress overrides. Same fall-back-to-shared
+      # behavior as api.* above.
+      className: ""
+      tls: []
+      annotations: {}
 
   readinessProbe:
     enabled: true
@@ -311,6 +368,25 @@ operator:
 
 grafana:
   enabled: true
+
+  # External URL where Grafana is reachable. Used for two distinct purposes:
+  #   - GF_SERVER_ROOT_URL — Grafana's own self-knowledge (drives absolute
+  #     link generation, OIDC redirect_uri, etc). Critical to get right when
+  #     Grafana fronts third-party auth (Google, Okta, GitHub OIDC, ...).
+  #   - HUB_GRAFANA_URL_BASE — base for hub's [More Details] links in PR
+  #     comments. The hub consumes this; it doesn't own it.
+  #
+  # Defaults to https://<grafana.ingress.hosts[0].host> when chart-managed
+  # Grafana ingress is enabled — most installs just turn that on and leave
+  # this empty. Empty otherwise — the chart deliberately does NOT guess at
+  # a Grafana URL when it doesn't control the routing (no fallback to
+  # hub.webhookURL or api.host — wrong trust boundary, wrong host).
+  #
+  # Set explicitly when Grafana is reachable via external routing the chart
+  # doesn't manage (Caddy / mesh / shared LB with path routing). Required
+  # for OIDC to work in that topology. The chart fails fast at install time
+  # if grafana.enabled is true and no URL can be determined.
+  externalURL: ""
 
   # Admin credentials. Leave secretName empty to have the chart generate them
   # (recommended for fresh installs): username defaults to "admin", password
