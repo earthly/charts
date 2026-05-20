@@ -381,7 +381,7 @@ The central gRPC/HTTP server. Stores metadata, evaluates policies, and serves th
 | Key | Description | Default |
 |-----|-------------|---------|
 | `hub.webhookURL` | External URL where GitHub posts webhooks. Chart registers `<webhookURL>/webhooks/github` with the GitHub App at boot. Defaults to `https://<hub.ingress.webhooks.host>` when chart-managed ingress is enabled. Set explicitly only when ingress is disabled (BYO) or you need a non-default scheme/port/path. | `""` (derived) |
-| `hub.grafanaURLBase` | Base URL Hub uses for `[More Details]` links in PR comments. Resolution chain when empty: (1) `https://<grafana.ingress.hosts[0].host>` if chart-managed Grafana ingress; (2) `https://<hub.ingress.api.host>` if chart-managed Hub ingress (internal trust boundary, deliberately not the public webhooks host); (3) `hub.webhookURL` as BYO fallback. Override when Grafana lives on a hostname none of these capture. | `""` (derived) |
+| `hub.grafanaURLBase` | Base URL where Grafana is reachable. Drives both `HUB_GRAFANA_URL_BASE` (`[More Details]` links in PR comments) and `GF_SERVER_ROOT_URL` (Grafana's self-knowledge — used for OIDC `redirect_uri` generation, absolute link rendering, etc). Resolution chain when empty: (1) `https://<grafana.ingress.hosts[0].host>` if chart-managed Grafana ingress; (2) `https://<hub.ingress.api.host>` if chart-managed Hub ingress (internal trust boundary, deliberately not the public webhooks host); (3) `hub.webhookURL` as BYO fallback. Override when Grafana lives on a hostname none of these capture. | `""` (derived) |
 
 **Licence**
 

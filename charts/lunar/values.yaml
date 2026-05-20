@@ -38,8 +38,13 @@ hub:
   # must equal hub.ingress.webhooks.host.
   webhookURL: ""
 
-  # Base URL the hub uses for [More Details] links in PR comments. Resolution
-  # chain when empty (highest priority first):
+  # Base URL where Grafana is reachable. Used for two distinct purposes:
+  #   - HUB_GRAFANA_URL_BASE — base for hub's [More Details] links in PR comments
+  #   - GF_SERVER_ROOT_URL — Grafana's own self-knowledge (drives absolute
+  #     link generation, OIDC redirect_uri, etc). Critical to get right when
+  #     Grafana fronts third-party auth (Google, Okta, GitHub OIDC, ...).
+  #
+  # Resolution chain when empty (highest priority first):
   #   1. https://<grafana.ingress.hosts[0].host>  when chart manages Grafana's ingress
   #   2. https://<hub.ingress.api.host>           when chart manages Hub's ingress
   #   3. hub.webhookURL                           BYO fallback
