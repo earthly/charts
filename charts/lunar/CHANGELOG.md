@@ -158,16 +158,20 @@ Entries below 0.4.0 are abbreviated — see the git history for that range
 - Hub PAT auth path removed. Use GitHub App authentication. The
   `hub.github.token.secretName` value is ignored.
 
+## [0.5.2] - 2026-05-01
+
+### Fixed
+
+- IAM example in chart docs dropped the unused `s3:DeleteObject`
+  action. Hub never calls `DeleteObject` on either bucket — the
+  documented example was over-granting. Tightened to the actual
+  Hub-required actions (`s3:GetObject` + `s3:PutObject`).
+
 ## [0.5.1] - 2026-04-30
 
 ### Removed
 
 - Badges service. Deprecated for some time; final removal here.
-
-### Fixed
-
-- IAM example in chart docs dropped the unused `s3:DeleteObject`
-  action.
 
 ## [0.5.0] - 2026-04-23
 
@@ -250,6 +254,8 @@ Entries below 0.4.0 are abbreviated — see the git history for that range
 
 - `HUB_BADGES_SECURE` env var plumbed through the Hub deployment
   template.
+
+## [0.4.5] - 2026-04-01
 
 ### Fixed
 
