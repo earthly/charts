@@ -106,21 +106,21 @@ spec:
                   key: {{ .auth.secretKey }}
             - name: HUB_LICENCE_FILE
               value: {{ .licence.filePath | quote }}
-            {{- if .secrets.collector.secretName }}
+            {{- if and .secrets.collector.secretName (not .secrets.collector.perKey) }}
             - name: HUB_COLLECTOR_SECRETS
               valueFrom:
                 secretKeyRef:
                   name: {{ .secrets.collector.secretName }}
                   key: {{ .secrets.collector.secretKey }}
             {{- end }}
-            {{- if .secrets.cataloger.secretName }}
+            {{- if and .secrets.cataloger.secretName (not .secrets.cataloger.perKey) }}
             - name: HUB_CATALOGER_SECRETS
               valueFrom:
                 secretKeyRef:
                   name: {{ .secrets.cataloger.secretName }}
                   key: {{ .secrets.cataloger.secretKey }}
             {{- end }}
-            {{- if .secrets.policy.secretName }}
+            {{- if and .secrets.policy.secretName (not .secrets.policy.perKey) }}
             - name: HUB_POLICY_SECRETS
               valueFrom:
                 secretKeyRef:
@@ -160,6 +160,24 @@ spec:
             {{- with .extraEnv }}
               {{- toYaml . | nindent 12 }}
             {{- end }}
+          {{- if or (and .secrets.collector.secretName .secrets.collector.perKey) (and .secrets.cataloger.secretName .secrets.cataloger.perKey) (and .secrets.policy.secretName .secrets.policy.perKey) }}
+          envFrom:
+            {{- if and .secrets.collector.secretName .secrets.collector.perKey }}
+            - secretRef:
+                name: {{ .secrets.collector.secretName }}
+              prefix: HUB_COLLECTOR_SECRET_
+            {{- end }}
+            {{- if and .secrets.cataloger.secretName .secrets.cataloger.perKey }}
+            - secretRef:
+                name: {{ .secrets.cataloger.secretName }}
+              prefix: HUB_CATALOGER_SECRET_
+            {{- end }}
+            {{- if and .secrets.policy.secretName .secrets.policy.perKey }}
+            - secretRef:
+                name: {{ .secrets.policy.secretName }}
+              prefix: HUB_POLICY_SECRET_
+            {{- end }}
+          {{- end }}
           {{- end }}
           {{- if .Values.hub.livenessProbe.enabled }}
           {{- with .Values.hub.livenessProbe }}
