@@ -9,6 +9,19 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [2.2.0] - 2026-05-26
+
+### Added
+
+- Multi-App GitHub auth. New `hub.github.apps` list pairs each
+  `{owner, appId, installId}` with a per-owner PEM in an
+  operator-managed Secret referenced by `hub.github.appsSecret`.
+  In multi-App mode the chart renders `HUB_GITHUB_APPS` JSON and
+  mounts the Secret at `/secrets/github-apps`. The legacy
+  `hub.github.app.*` single-App configuration is unchanged and
+  remains supported; render-time validation enforces mutual
+  exclusivity between the two modes.
+
 ## [2.1.0] - 2026-05-25
 
 ### Added
