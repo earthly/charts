@@ -114,7 +114,35 @@ Plus two URL prerequisites the chart needs to wire correctly:
 
 ### GitHub authentication
 
-Hub authenticates to GitHub as a GitHub App. Set `hub.github.app.id` + `hub.github.app.installId` and create the `lunar-github-app` secret holding the App's private-key PEM. The chart validates these at install time with `helm.sh/fail`.
+Hub authenticates to GitHub as a GitHub App. Two modes, mutually exclusive:
+
+- **Single-App (default).** Set `hub.github.app.owner` (the GitHub org or user the App is installed on), `hub.github.app.id`, and `hub.github.app.installId`, then create the `lunar-github-app` Secret holding the App's private-key PEM. Suitable for single-tenant deployments where the Hub fronts one App installed in one org. **Required as of 2.2.0:** `hub.github.app.owner` is now required — prior chart versions inferred a default routing internally; the Hub now requires the value explicitly via `HUB_GITHUB_APP_OWNER`.
+
+- **Multi-App.** Use this when the Hub serves multiple orgs that each install their own Lunar App. List one entry per owner under `hub.github.apps`, and put all the PEM files in a single Kubernetes Secret named via `hub.github.appsSecret.secretName`. The chart looks up each entry's PEM at `<lowercase-owner>.pem` inside that Secret.
+
+  ```yaml
+  hub:
+    github:
+      apps:
+        - owner: earthly
+          appId: 123
+          installId: 100
+        - owner: acme
+          appId: 456
+          installId: 200
+      appsSecret:
+        secretName: lunar-github-apps
+  ```
+
+  Create the Secret out of band:
+
+  ```bash
+  kubectl create secret generic lunar-github-apps \
+    --from-file=earthly.pem=./earthly.pem \
+    --from-file=acme.pem=./acme.pem
+  ```
+
+The chart validates the chosen mode at install time with `helm.sh/fail` (mutex, required fields, duplicate owners).
 
 ### Object storage & AWS credentials
 
@@ -474,10 +502,13 @@ Hub authenticates as a GitHub App. App ID, install ID, and the App's private-key
 
 | Key | Description | Default |
 |-----|-------------|---------|
-| `hub.github.app.id` | GitHub App ID | `0` **(required)** |
-| `hub.github.app.installId` | GitHub App Installation ID | `0` **(required)** |
-| `hub.github.app.privateKey.secretName` | Secret containing the App private-key PEM | `lunar-github-app` |
+| `hub.github.app.owner` | GitHub org or user the App is installed on (single-App mode) **(required as of 2.2.0)** | `""` |
+| `hub.github.app.id` | GitHub App ID (single-App mode) | `0` |
+| `hub.github.app.installId` | GitHub App Installation ID (single-App mode) | `0` |
+| `hub.github.app.privateKey.secretName` | Secret containing the App private-key PEM (single-App mode) | `lunar-github-app` |
 | `hub.github.app.privateKey.secretKey` | Key within the secret | `private-key` |
+| `hub.github.apps` | Multi-App entries: list of `{owner, appId, installId}`. Mutually exclusive with `hub.github.app.*`. | `[]` |
+| `hub.github.appsSecret.secretName` | Secret holding one PEM key per `apps[].owner` (key name: `<lowercase-owner>.pem`) | `lunar-github-apps` |
 | `hub.github.webhookSecret.secretName` | Secret containing the webhook secret | `lunar-github-webhook` |
 | `hub.github.webhookSecret.secretKey` | Key within the secret | `webhook-secret` |
 | `hub.github.baseUrl` | GitHub API base URL (for GitHub Enterprise Server) | `""` |

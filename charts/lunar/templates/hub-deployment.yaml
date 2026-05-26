@@ -86,6 +86,12 @@ spec:
               value: {{ .github.syncWindow | quote }}
             - name: HUB_GITHUB_BASE_URL
               value: {{ .github.baseUrl | quote }}
+            {{- if gt (len .github.apps) 0 }}
+            - name: HUB_GITHUB_APPS
+              value: {{ include "lunar.githubAppsJSON" $ | quote }}
+            {{- else }}
+            - name: HUB_GITHUB_APP_OWNER
+              value: {{ .github.app.owner | quote }}
             - name: HUB_GITHUB_APP_PRIVATE_KEY
               valueFrom:
                 secretKeyRef:
@@ -95,6 +101,7 @@ spec:
               value: {{ .github.app.id | quote }}
             - name: HUB_GITHUB_APP_INSTALL_ID
               value: {{ .github.app.installId | quote }}
+            {{- end }}
             - name: HUB_POLICY_QUEUE_POLL_INTERVAL
               value: {{ .policyQueue.pollInterval | quote }}
             - name: HUB_POLICY_QUEUE_NUM_WORKERS
@@ -224,6 +231,11 @@ spec:
               mountPath: {{ .Values.hub.licence.filePath | quote }}
               subPath: {{ base .Values.hub.licence.filePath | quote }}
               readOnly: true
+            {{- if gt (len .Values.hub.github.apps) 0 }}
+            - name: github-apps
+              mountPath: /secrets/github-apps
+              readOnly: true
+            {{- end }}
             {{- with .Values.hub.volumeMounts }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
@@ -240,6 +252,11 @@ spec:
             items:
               - key: {{ .Values.hub.licence.secretKey }}
                 path: {{ base .Values.hub.licence.filePath | quote }}
+        {{- if gt (len .Values.hub.github.apps) 0 }}
+        - name: github-apps
+          secret:
+            secretName: {{ .Values.hub.github.appsSecret.secretName }}
+        {{- end }}
         {{- with .Values.hub.volumes }}
         {{- toYaml . | nindent 8 }}
         {{- end }}

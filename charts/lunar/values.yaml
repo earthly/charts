@@ -83,12 +83,49 @@ hub:
     connectionOptions: "sslmode=require"
   github:
     baseUrl: ""
+    # Single-App config. Use this for single-tenant deployments where the
+    # Hub fronts one GitHub App installed in one org. Mutually exclusive
+    # with hub.github.apps below.
     app:
+      # owner: the GitHub org (or user) the App is installed on. Required
+      # in single-App mode — the Hub uses this to route every webhook
+      # through the configured installation. Operators upgrading from
+      # chart < 2.2.0 must set this; previously the field was implicit.
+      owner: ""
       privateKey:
         secretName: "lunar-github-app"
         secretKey: "private-key"
       id: 0
       installId: 0
+    # Multi-App config. Use this when the Hub serves multiple orgs that
+    # each install their own Lunar App. Each entry pins one repository
+    # owner to a distinct (appId, installId) tuple, and the PEM files for
+    # all entries live in a single Kubernetes Secret referenced by
+    # appsSecret below. Mutually exclusive with the single-App fields
+    # above.
+    #
+    # Example:
+    #   apps:
+    #     - owner: earthly
+    #       appId: 123
+    #       installId: 100
+    #     - owner: acme
+    #       appId: 456
+    #       installId: 200
+    #
+    # The chart looks up each entry's PEM at
+    # <appsSecret.secretName>/<lowercase-owner>.pem, mounted at
+    # /secrets/github-apps inside the hub container.
+    apps: []
+    # Operator-created Secret holding one PEM key per entry above. Each
+    # entry expects a data key named "<lowercase owner>.pem". The chart
+    # does not generate this Secret — create it with kubectl, e.g.:
+    #
+    #   kubectl create secret generic lunar-github-apps \
+    #     --from-file=earthly.pem=./earthly.pem \
+    #     --from-file=acme.pem=./acme.pem
+    appsSecret:
+      secretName: "lunar-github-apps"
     # Webhook secret. Leave secretName empty to have the chart generate one
     # (recommended for fresh installs). The chart-managed secret persists
     # across upgrade and uninstall (helm.sh/resource-policy: keep). Retrieve:

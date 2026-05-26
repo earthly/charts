@@ -69,8 +69,16 @@ Namespace where script pods run. Defaults to the release namespace.
 Fail fast when GitHub App auth is misconfigured.
 */}}
 {{- define "lunar.githubAuthCheck" -}}
+{{- $hasApps := gt (len .Values.hub.github.apps) 0 -}}
+{{- $hasLegacy := or (gt (int .Values.hub.github.app.id) 0) (gt (int .Values.hub.github.app.installId) 0) -}}
+{{- if and $hasApps $hasLegacy -}}
+{{- fail "hub.github.apps is mutually exclusive with hub.github.app.id / hub.github.app.installId. Use one mode or the other." -}}
+{{- end -}}
+{{- if $hasApps -}}
+{{- include "lunar.githubAppsCheck" . -}}
+{{- else -}}
 {{- if not (gt (int .Values.hub.github.app.id) 0) -}}
-{{- fail "hub.github.app.id is required (numeric, non-zero). Run scripts/create-github-app.sh in the lunar repo to create one if you don't have it yet." -}}
+{{- fail "hub.github.app.id is required (numeric, non-zero), or use hub.github.apps for multi-App routing. Run scripts/create-github-app.sh in the lunar repo to create one if you don't have it yet." -}}
 {{- end -}}
 {{- if not (gt (int .Values.hub.github.app.installId) 0) -}}
 {{- fail "hub.github.app.installId is required (numeric, non-zero). It's the installation ID for the App on your org or repo." -}}
@@ -78,6 +86,55 @@ Fail fast when GitHub App auth is misconfigured.
 {{- if not .Values.hub.github.app.privateKey.secretName -}}
 {{- fail "hub.github.app.privateKey.secretName is required. Create a Kubernetes secret holding the App's private-key PEM." -}}
 {{- end -}}
+{{- if not .Values.hub.github.app.owner -}}
+{{- fail "hub.github.app.owner is required (chart >= 2.2.0). It's the GitHub org or user the App is installed on. Operators upgrading from chart < 2.2.0 must set this; the Hub now requires HUB_GITHUB_APP_OWNER to route webhooks." -}}
+{{- end -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Validate the multi-App config (hub.github.apps + hub.github.appsSecret).
+Called from lunar.githubAuthCheck when apps is non-empty.
+*/}}
+{{- define "lunar.githubAppsCheck" -}}
+{{- if not .Values.hub.github.appsSecret.secretName -}}
+{{- fail "hub.github.appsSecret.secretName is required when hub.github.apps is set. Create a Kubernetes secret with one PEM key per entry, named '<lowercase-owner>.pem'." -}}
+{{- end -}}
+{{- $seen := dict -}}
+{{- range $i, $app := .Values.hub.github.apps -}}
+{{- if not $app.owner -}}
+{{- fail (printf "hub.github.apps[%d].owner is required" $i) -}}
+{{- end -}}
+{{- if not (gt (int $app.appId) 0) -}}
+{{- fail (printf "hub.github.apps[%d] (%s): appId is required (numeric, non-zero)" $i $app.owner) -}}
+{{- end -}}
+{{- if not (gt (int $app.installId) 0) -}}
+{{- fail (printf "hub.github.apps[%d] (%s): installId is required (numeric, non-zero)" $i $app.owner) -}}
+{{- end -}}
+{{- $key := lower $app.owner -}}
+{{- if hasKey $seen $key -}}
+{{- fail (printf "hub.github.apps: duplicate owner %q (case-insensitive)" $app.owner) -}}
+{{- end -}}
+{{- $_ := set $seen $key true -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Render the HUB_GITHUB_APPS JSON env value from hub.github.apps. Each
+entry's private_key_path is derived from <lowercase-owner>.pem under
+the Secret mountPath /secrets/github-apps. Used by hub-deployment.yaml.
+*/}}
+{{- define "lunar.githubAppsJSON" -}}
+{{- $entries := list -}}
+{{- range .Values.hub.github.apps -}}
+{{- $entries = append $entries (dict
+    "owner" .owner
+    "app_id" (.appId | int64)
+    "private_key_path" (printf "/secrets/github-apps/%s.pem" (lower .owner))
+    "install_id" (.installId | int64)
+) -}}
+{{- end -}}
+{{- $entries | toJson -}}
 {{- end }}
 
 {{/*
