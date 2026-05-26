@@ -21,9 +21,7 @@ history see `git log -- charts/lunar/`.
   re-supplying all the others. Requires hub >= 2.2.0; the hub merges both
   shapes when both are configured (per-key wins on conflict) so callers
   can migrate one key at a time. See README "Script secrets (optional)"
-  for the full migration walkthrough. ([ENG-760])
-
-[ENG-760]: https://linear.app/earthly-technologies/issue/ENG-760
+  for the full migration walkthrough.
 
 ## [2.0.0] - 2026-05-20
 
