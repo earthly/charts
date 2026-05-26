@@ -201,6 +201,17 @@ spec:
             failureThreshold: {{ .failureThreshold }}
           {{- end }}
           {{- end }}
+          {{- if .Values.hub.startupProbe.enabled }}
+          {{- with .Values.hub.startupProbe }}
+          startupProbe:
+            httpGet:
+              path: /health
+              port: hub-health
+            initialDelaySeconds: {{ .initialDelaySeconds }}
+            periodSeconds: {{ .periodSeconds }}
+            failureThreshold: {{ .failureThreshold }}
+          {{- end }}
+          {{- end }}
           ports:
             - name: hub-grpc
               containerPort: 8000

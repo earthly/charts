@@ -9,6 +9,19 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [Unreleased]
+
+### Added
+
+- **Optional `hub.startupProbe`.** New optional probe (disabled by default
+  to preserve current behaviour) that gives Hub a longer window to come
+  Ready before liveness/readiness kick in. Useful when Hub takes longer
+  than `livenessProbe.failureThreshold × periodSeconds` to start — e.g.
+  on a cold start with a substantial Postgres schema migration.
+  Default tuning when enabled: `30 × 5s = 150s` startup window. Set
+  `hub.startupProbe.enabled: true` and tune `failureThreshold` /
+  `periodSeconds` to taste.
+
 ## [2.1.0] - 2026-05-25
 
 ### Added
