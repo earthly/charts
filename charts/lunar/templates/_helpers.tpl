@@ -87,7 +87,7 @@ Fail fast when GitHub App auth is misconfigured.
 {{- fail "hub.github.app.privateKey.secretName is required. Create a Kubernetes secret holding the App's private-key PEM." -}}
 {{- end -}}
 {{- if not .Values.hub.github.app.owner -}}
-{{- fail "hub.github.app.owner is required (chart >= 3.0.0). It's the GitHub org or user the App is installed on. Operators upgrading from chart < 3.0.0 must set this; the Hub now requires HUB_GITHUB_APP_OWNER to route webhooks." -}}
+{{- fail "hub.github.app.owner is required (chart >= 2.1.0). It's the GitHub org or user the App is installed on. Operators upgrading from chart < 2.1.0 must set this; the Hub now requires HUB_GITHUB_APP_OWNER to route webhooks." -}}
 {{- end -}}
 {{- end -}}
 {{- end }}
