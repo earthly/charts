@@ -9,6 +9,20 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [2.1.0] - 2026-05-25
+
+### Added
+
+- `hub.secrets.<scope>.perKey` (default `false`) flips the script-secrets
+  delivery shape for each scope from a single `HUB_<SCOPE>_SECRETS=KEY1:VAL1,...`
+  env var (`secretKeyRef`) to a per-key `envFrom: secretRef + prefix:` mount,
+  surfacing each data key as `HUB_<SCOPE>_SECRET_<KEY>=<value>`. Operators
+  can now rotate or add a single key with `kubectl patch secret` without
+  re-supplying all the others. Requires hub >= 2.2.0; the hub merges both
+  shapes when both are configured (per-key wins on conflict) so callers
+  can migrate one key at a time. See README "Script secrets (optional)"
+  for the full migration walkthrough.
+
 ## [2.0.0] - 2026-05-20
 
 ### Breaking
