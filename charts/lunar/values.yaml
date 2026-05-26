@@ -147,21 +147,35 @@ hub:
   # scripts can alternatively read secrets from envFrom / volumes declared
   # on the per-type operator.scriptContainerSpec* you control.
   #
-  # Format: the referenced K8s secret's data key (default "secrets") is
-  # parsed by Hub as a comma-separated list of `NAME:VALUE` pairs
-  # (kelseyhightower/envconfig map format — NOT JSON). Each pair surfaces
-  # in script pods as `LUNAR_SECRET_<NAME>`. See README "Script secrets
-  # (optional)" section for examples.
+  # Two delivery shapes are supported:
+  #
+  # 1. Single key (default, perKey: false): the secret's `secretKey` data
+  #    entry is parsed by Hub as a comma-separated list of `NAME:VALUE`
+  #    pairs (kelseyhightower/envconfig map format — NOT JSON). One env
+  #    var, `HUB_<SCOPE>_SECRETS`, holds the whole list.
+  #
+  # 2. Per-key (perKey: true): every data key in the K8s Secret is mounted
+  #    via `envFrom: secretRef + prefix:` and surfaces in Hub as
+  #    `HUB_<SCOPE>_SECRET_<KEY>=<value>`. Operators can rotate or add a
+  #    single key without re-supplying the rest. Hub merges both shapes;
+  #    per-key entries win on conflict. Requires hub >= 2.2.0.
+  #
+  # In either case, each pair surfaces in script pods as
+  # `LUNAR_SECRET_<NAME>`. See README "Script secrets (optional)" section
+  # for examples and a migration walkthrough.
   secrets:
     collector:
       secretName: ""
       secretKey: "secrets"
+      perKey: false
     cataloger:
       secretName: ""
       secretKey: "secrets"
+      perKey: false
     policy:
       secretName: ""
       secretKey: "secrets"
+      perKey: false
 
   persistence:
     enabled: true

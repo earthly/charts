@@ -501,16 +501,25 @@ Hub authenticates as a GitHub App. App ID, install ID, and the App's private-key
 
 **Script secrets (optional)**
 
-Per-scope secrets the hub forwards to script execution. The K8s secret's `secrets` data key is a comma-separated list of `NAME:VALUE` pairs (envconfig map format, **not JSON**); each pair surfaces as `LUNAR_SECRET_<NAME>` in the script pod. Most installs don't need these — per-type container spec `envFrom` / `volumes` on `operator.scriptContainerSpec*` is usually a cleaner path. Leave `secretName` empty to skip injection entirely.
+Per-scope secrets the hub forwards to script execution. Each scope (collector / cataloger / policy) supports two delivery shapes; pick one per scope.
+
+*Default — single key (`perKey: false`):* the K8s Secret's `secretKey` data entry is a comma-separated list of `NAME:VALUE` pairs (envconfig map format, **not JSON**); each pair surfaces as `LUNAR_SECRET_<NAME>` in the script pod. Simplest shape, but all keys travel together: rotating one requires re-supplying the rest.
+
+*Per-key (`perKey: true`):* every data key in the K8s Secret is mounted via `envFrom: secretRef + prefix:` and surfaces as `HUB_<SCOPE>_SECRET_<KEY>=<value>` in the hub, then re-emitted to scripts as `LUNAR_SECRET_<KEY>`. Operators can add or rotate a single key with `kubectl edit secret` / `kubectl patch` without touching the others — this is the recommended shape going forward. Requires hub >= 2.2.0. The hub merges both shapes if both are configured (per-key wins on conflict), so migrating one key at a time is safe.
+
+Most installs don't need these — per-type container spec `envFrom` / `volumes` on `operator.scriptContainerSpec*` is usually a cleaner path. Leave `secretName` empty to skip injection entirely.
 
 | Key | Description | Default |
 |-----|-------------|---------|
 | `hub.secrets.collector.secretName` | Collector secrets; empty disables | `""` |
-| `hub.secrets.collector.secretKey` | Key within the secret | `secrets` |
+| `hub.secrets.collector.secretKey` | Key within the secret (single-key shape only) | `secrets` |
+| `hub.secrets.collector.perKey` | Mount via `envFrom + prefix: HUB_COLLECTOR_SECRET_` (per-key shape) | `false` |
 | `hub.secrets.cataloger.secretName` | Cataloger secrets; empty disables | `""` |
-| `hub.secrets.cataloger.secretKey` | Key within the secret | `secrets` |
+| `hub.secrets.cataloger.secretKey` | Key within the secret (single-key shape only) | `secrets` |
+| `hub.secrets.cataloger.perKey` | Mount via `envFrom + prefix: HUB_CATALOGER_SECRET_` (per-key shape) | `false` |
 | `hub.secrets.policy.secretName` | Policy secrets; empty disables | `""` |
-| `hub.secrets.policy.secretKey` | Key within the secret | `secrets` |
+| `hub.secrets.policy.secretKey` | Key within the secret (single-key shape only) | `secrets` |
+| `hub.secrets.policy.perKey` | Mount via `envFrom + prefix: HUB_POLICY_SECRET_` (per-key shape) | `false` |
 
 **Logging**
 
