@@ -265,6 +265,22 @@ hub:
     periodSeconds: 5
     failureThreshold: 3
 
+  # Optional startup probe (disabled by default to preserve existing
+  # behaviour). Enable when Hub takes longer to become Ready than the
+  # liveness probe's failureThreshold × periodSeconds tolerates — e.g.
+  # on a cold start with a substantial Postgres schema migration. While
+  # the startupProbe is running, kubelet suppresses liveness/readiness
+  # probe failures, so Hub gets `failureThreshold × periodSeconds`
+  # seconds total before kubelet starts considering it unhealthy.
+  #
+  # Default tuning when enabled is 30 × 5s = 150s. Raise
+  # `failureThreshold` for larger databases with longer migrations.
+  startupProbe:
+    enabled: false
+    initialDelaySeconds: 0
+    periodSeconds: 5
+    failureThreshold: 30
+
   labels: {}
   annotations: {}
   podAnnotations: {}
