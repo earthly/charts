@@ -90,7 +90,7 @@ hub:
       # owner: the GitHub org (or user) the App is installed on. Required
       # in single-App mode — the Hub uses this to route every webhook
       # through the configured installation. Operators upgrading from
-      # chart < 2.1.0 must set this; previously the field was implicit.
+      # chart < 2.2.0 must set this; previously the field was implicit.
       owner: ""
       privateKey:
         secretName: "lunar-github-app"
