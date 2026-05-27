@@ -1,21 +1,17 @@
 # This is to override the chart name.
 nameOverride: ""
 fullnameOverride: ""
-
 # Kubernetes cluster DNS domain. Used to render in-cluster service FQDNs
 # (`<svc>.<ns>.svc.<clusterDomain>`). Default matches stock K8s. Override only
 # if your cluster was provisioned with a non-default --cluster-domain (rare;
 # most managed clusters — EKS, GKE, AKS — use cluster.local).
 clusterDomain: cluster.local
-
 imagePullSecrets: []
-
 # Global logger config applied to both Hub and Operator.
 # Controls local process logging (stdout/stderr).
 logging:
   level: "info"
   format: "json"
-
 serviceAccount:
   create: true
   automount: true
@@ -23,7 +19,6 @@ serviceAccount:
   # The name of the service account to use.
   # If not set and create is true, a name is generated using the fullname template
   name: ""
-
 hub:
   # External URL where GitHub posts webhooks. Hub registers
   # <webhookURL>/webhooks/github with the GitHub App at boot.
@@ -44,16 +39,13 @@ hub:
   # must equal hub.ingress.webhooks.host. The chart fails fast otherwise —
   # GitHub would POST into the void.
   webhookURL: ""
-
   rootDir: /hub/
-
   # Hub licence JWT secret mount. This token is authoritative for tenant and
   # telemetry routing configuration.
   licence:
     secretName: "lunar-hub-licence"
     secretKey: "hub-licence.jwt"
     filePath: "/var/run/secrets/lunar/hub-licence.jwt"
-
   db:
     user:
       secretName: "lunar-db"
@@ -143,7 +135,6 @@ hub:
   policyQueue:
     pollInterval: 1s
     numWorkers: 5
-
   # Worker caps for Hub's script-feeding queues. 0 means unlimited.
   maxWorkers:
     collect: 10
@@ -213,7 +204,6 @@ hub:
       secretName: ""
       secretKey: "secrets"
       perKey: false
-
   persistence:
     enabled: true
     # Leave empty to use the cluster default StorageClass.
@@ -221,20 +211,16 @@ hub:
     size: 10Gi
     accessModes:
       - ReadWriteOnce
-
   extraEnv: []
-
   image:
     repository: "ghcr.io/earthly/lunar-hub"
     pullPolicy: IfNotPresent
-    tag: "2.2.0"
-
+    tag: "2.2.1"
   service:
     type: ClusterIP
     ports:
       server: 8000
       http: 8001
-
   # Hub has two trust boundaries:
   #   1. Trusted API clients — lunar CLI, CI agents, operator. Talk to hub
   #      over gRPC (port 8000) and HTTP (port 8001, /logs only). Both use
@@ -249,13 +235,11 @@ hub:
   # service mesh, or your own Ingress YAML.
   ingress:
     enabled: false
-
     # Shared defaults. Applied to all three rendered Ingress resources
     # unless overridden inside api.* / webhooks.* below.
     className: ""
     tls: []
     annotations: {}
-
     # API ingress: gRPC + /logs. Used by lunar CLI, CI agents, and the
     # operator. Renders TWO Ingress resources (api-grpc + api-http) sharing
     # one hostname — the split exists because most ingress controllers
@@ -272,7 +256,6 @@ hub:
     api:
       # Required when ingress.enabled is true.
       host: ""
-
       # Optional per-ingress overrides of the shared defaults above. Note
       # the asymmetry: per-block tls/className are matched against the
       # shared defaults via Helm's `default` — empty list/string falls
@@ -281,7 +264,6 @@ hub:
       # only on the block(s) that should have it (leave others as []).
       className: ""
       tls: []
-
       # Per-sub-Ingress annotations, layered on top of ingress.annotations.
       # NGINX users need backend-protocol: "GRPC" for the gRPC half; other
       # controllers have their own equivalent (ALB: backend-protocol-version:
@@ -290,32 +272,27 @@ hub:
       # your ingress class. See README "Ingress" for examples.
       grpcAnnotations: {}
       httpAnnotations: {}
-
     # Webhooks ingress: GitHub webhook receiver only. Public-facing.
     # Lock this down to /webhooks if you want — nothing else lives here.
     # Also the source of the derived hub.webhookURL (https://<host>).
     webhooks:
       # Required when ingress.enabled is true.
       host: ""
-
       # Optional per-ingress overrides. Same fall-back-to-shared
       # behavior as api.* above.
       className: ""
       tls: []
       annotations: {}
-
   readinessProbe:
     enabled: true
     initialDelaySeconds: 0
     periodSeconds: 5
     failureThreshold: 3
-
   livenessProbe:
     enabled: true
     initialDelaySeconds: 0
     periodSeconds: 5
     failureThreshold: 3
-
   labels: {}
   annotations: {}
   podAnnotations: {}
@@ -328,27 +305,22 @@ hub:
   nodeSelector: {}
   tolerations: []
   affinity: {}
-
 operator:
   image:
     repository: "ghcr.io/earthly/lunar-snippet-operator"
     pullPolicy: IfNotPresent
-    tag: "2.2.0"
-
+    tag: "2.2.1"
   initImage:
     repository: "ghcr.io/earthly/lunar-snippet-init"
     pullPolicy: IfNotPresent
-    tag: "2.2.0"
-
+    tag: "2.2.1"
   sidecarImage:
     repository: "ghcr.io/earthly/lunar-snippet-sidecar"
     pullPolicy: IfNotPresent
-    tag: "2.2.0"
-
+    tag: "2.2.1"
   # Namespace where script pods are created. Defaults to the release namespace.
   # If set, the namespace must already exist — the chart will not create it.
   scriptNamespace: ""
-
   # Hostname the operator (and the script pods it spawns) uses to reach Hub
   # gRPC. Empty = chart computes the in-cluster FQDN
   # `<release>-hub.<release-namespace>.svc.<clusterDomain>`, which resolves
@@ -357,10 +329,8 @@ operator:
   # split-DNS / multi-cluster topologies where Hub is reachable at a
   # non-standard name.
   hubHost: ""
-
   maxConcurrent: 10
   healthPort: 8081
-
   # Per-script-type base container spec. The operator overlays required
   # fields (name, image, command, workingDir, volume mounts) on top — you
   # control everything else: resources, env, envFrom, securityContext, etc.
@@ -384,7 +354,6 @@ operator:
   scriptContainerSpecPolicy: {}
   scriptContainerSpecCollector: {}
   scriptContainerSpecCataloger: {}
-
   # Per-script-type batch size: how many jobs the operator groups into a
   # single pod. Zero = use the operator's built-in default. Policies are cheap
   # and uniform — pack more per pod to amortize init+sidecar overhead.
@@ -395,7 +364,6 @@ operator:
   batchMaxCountPolicy: 0
   batchMaxCountCollector: 0
   batchMaxCountCataloger: 0
-
   # Pod-level scheduling for script pods. Applied to every pod the operator creates.
   # Example:
   #   scriptPodNodeSelector:
@@ -406,7 +374,6 @@ operator:
   #       effect: NoSchedule
   scriptPodNodeSelector: {}
   scriptPodTolerations: []
-
   extraEnv: []
   resources: {}
   podAnnotations: {}
@@ -416,10 +383,8 @@ operator:
   nodeSelector: {}
   tolerations: []
   affinity: {}
-
 grafana:
   enabled: true
-
   # External URL where Grafana is reachable. Used for two distinct purposes:
   #   - GF_SERVER_ROOT_URL — Grafana's own self-knowledge (drives absolute
   #     link generation, OIDC redirect_uri, etc). Critical to get right when
@@ -438,7 +403,6 @@ grafana:
   # for OIDC to work in that topology. The chart fails fast at install time
   # if grafana.enabled is true and no URL can be determined.
   externalURL: ""
-
   # Admin credentials. Leave secretName empty to have the chart generate them
   # (recommended for fresh installs): username defaults to "admin", password
   # is a 32-char alphanumeric. The chart-managed secret persists across
@@ -451,18 +415,14 @@ grafana:
     secretName: ""
     userKey: "username"
     passwordKey: "password"
-
   extraEnv: []
-
   image:
     repository: "ghcr.io/earthly/lunar-grafana"
     pullPolicy: IfNotPresent
-    tag: "2.2.0"
-
+    tag: "2.2.1"
   service:
     type: ClusterIP
     port: 80
-
   ingress:
     enabled: false
     className: ""
@@ -473,7 +433,6 @@ grafana:
           - path: /
             pathType: ImplementationSpecific
     tls: []
-
   labels: {}
   annotations: {}
   podAnnotations: {}
