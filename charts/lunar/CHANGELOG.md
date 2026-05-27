@@ -9,6 +9,37 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [2.2.1] - 2026-05-27
+
+### Fixed
+
+- Grafana: three bugs in the cronos Runs dashboard
+  (earthly/lunar#1710). The `[collectors]`/`[policies]` links
+  from the component dashboard now land on populated rows;
+  policy script names in the Queued tab render as clickable
+  links; the `Created` column displays relative time. Ships
+  in `lunar-grafana:2.2.1`.
+
+### Changed
+
+- Hub: new partial B-tree index on `snippet_runs (started_at
+  DESC) WHERE started_at IS NOT NULL` (earthly/lunar#1708)
+  speeds up narrow-window Runs queries (~300× on a
+  `started_at`-only filter, ~6.5× on a 1-day panel render).
+  Applied by the hub's migration runner on startup; fresh
+  environments build the index inline with a brief
+  `ShareLock` on `snippet_runs`.
+
+### Note
+
+- `2.2.0` was published with `values.yaml` still pinned to
+  `2.1.1` image tags — the auto-bump that ran after the
+  `lunar-hub-v2.2.0` tag failed silently and did not
+  republish the chart. Upgrade to `2.2.1` to get 2.2.x images
+  by default; alternatively, override
+  `<hub|operator|operator.initImage|operator.sidecarImage|grafana>.image.tag`
+  to `2.2.0`.
+
 ## [2.2.0] - 2026-05-26
 
 ### Added
