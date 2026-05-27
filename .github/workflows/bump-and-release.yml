@@ -35,7 +35,11 @@ jobs:
       - name: Push release branch and open PR
         env:
           VERSION: ${{ inputs.version }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Use a non-Actions token so the auto-merge to main triggers release.yml.
+          # Pushes attributed to github-actions[bot] (i.e. the default GITHUB_TOKEN)
+          # do not fire downstream `on: push` workflows; required `release.yml` to
+          # be retriggered manually after PR #52 merged (lunar-2.2.1, 2026-05-27).
+          GH_TOKEN: ${{ secrets.LUNAR_DIST_GITHUB_TOKEN }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
