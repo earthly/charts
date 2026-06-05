@@ -9,6 +9,19 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [2.3.0] - 2026-06-05
+
+### Added
+
+- `operator.scriptPodPriorityClassName` (default `""`) sets the
+  `priorityClassName` on every script pod the operator creates
+  (earthly/lunar#1784), rendered as `OPERATOR_SNIPPET_POD_PRIORITY_CLASS_NAME`.
+  Empty leaves the field unset, so pods take the cluster's default
+  priority. The referenced PriorityClass must already exist in the
+  cluster. Foundational for forcing snippets to be terminated before
+  service pods in single-namespace setups, or prioritizing workloads
+  in shared scratch namespaces.
+
 ## [2.2.1] - 2026-05-27
 
 ### Fixed

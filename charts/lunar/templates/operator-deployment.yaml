@@ -137,6 +137,10 @@ spec:
             - name: OPERATOR_SNIPPET_POD_TOLERATIONS
               value: {{ .Values.operator.scriptPodTolerations | toJson | quote }}
             {{- end }}
+            {{- if .Values.operator.scriptPodPriorityClassName }}
+            - name: OPERATOR_SNIPPET_POD_PRIORITY_CLASS_NAME
+              value: {{ .Values.operator.scriptPodPriorityClassName | quote }}
+            {{- end }}
             {{- with .Values.operator.extraEnv }}
               {{- toYaml . | nindent 12 }}
             {{- end }}

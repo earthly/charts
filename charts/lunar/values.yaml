@@ -374,6 +374,12 @@ operator:
   #       effect: NoSchedule
   scriptPodNodeSelector: {}
   scriptPodTolerations: []
+  # PriorityClass name applied to every script pod the operator creates. Empty
+  # leaves priorityClassName unset, so pods get the cluster's default priority.
+  # The referenced PriorityClass must already exist in the cluster.
+  # Example:
+  #   scriptPodPriorityClassName: lunar-snippet
+  scriptPodPriorityClassName: ""
   extraEnv: []
   resources: {}
   podAnnotations: {}

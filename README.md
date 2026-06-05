@@ -666,6 +666,7 @@ Watches for script execution jobs and creates Kubernetes pods to run them.
 | `operator.batchMaxCountCataloger` | Max jobs per cataloger pod; `0` uses the operator default | `0` |
 | `operator.scriptPodNodeSelector` | Node selector for script pods | `{}` |
 | `operator.scriptPodTolerations` | Tolerations for script pods | `[]` |
+| `operator.scriptPodPriorityClassName` | PriorityClass name for script pods; empty leaves the cluster default | `""` |
 
 **Logging**
 
