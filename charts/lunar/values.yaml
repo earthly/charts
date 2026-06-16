@@ -101,9 +101,27 @@ hub:
     #     - owner: earthly
     #       appId: 123
     #       installId: 100
-    #     - owner: acme
+    #     # A GitHub Enterprise Server org: set host + baseUrl so the Hub
+    #     # keys its components by that host and calls its API there. Omit
+    #     # both for github.com / GHEC orgs (they default to github.com).
+    #     - owner: acme-ghes
+    #       host: ghes.acme.com
+    #       baseUrl: https://ghes.acme.com/api/v3
     #       appId: 456
     #       installId: 200
+    #
+    # Per-entry fields:
+    #   owner      (required) repository owner the App is installed on.
+    #   appId      (required) GitHub App ID.
+    #   installId  (required) installation ID for this owner.
+    #   host       (optional) SCM host for this entry; defaults to
+    #              github.com. Set to the GHES hostname (e.g. ghes.acme.com)
+    #              so components are keyed (host, owner, name) and webhooks
+    #              route to the right host.
+    #   baseUrl    (optional) GitHub API base URL for this entry; defaults
+    #              to the github.com API. Set to the GHES API endpoint (e.g.
+    #              https://ghes.acme.com/api/v3). A GHES entry needs both
+    #              host and baseUrl.
     #
     # The chart looks up each entry's PEM at
     # <appsSecret.secretName>/<lowercase-owner>.pem, mounted at

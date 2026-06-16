@@ -127,12 +127,17 @@ Hub authenticates to GitHub as a GitHub App. Two modes, mutually exclusive:
         - owner: earthly
           appId: 123
           installId: 100
-        - owner: acme
+        # A GitHub Enterprise Server org — set host + baseUrl (see below).
+        - owner: acme-ghes
+          host: ghes.acme.com
+          baseUrl: https://ghes.acme.com/api/v3
           appId: 456
           installId: 200
       appsSecret:
         secretName: lunar-github-apps
   ```
+
+  Each entry may also carry an optional `host` and `baseUrl`. They default to `github.com` and the github.com API, so plain github.com / GitHub Enterprise Cloud entries omit them. For a **GitHub Enterprise Server** org set both — `host` (e.g. `ghes.acme.com`) so the Hub keys that org's components by `(host, owner, name)` and routes its webhooks correctly, and `baseUrl` (e.g. `https://ghes.acme.com/api/v3`) so the Hub calls that instance's API. One Hub can serve github.com and GHES orgs side by side this way. The GHES box must be reachable from the hub pod and its CA trusted by it.
 
   Create the Secret out of band:
 
