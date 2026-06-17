@@ -9,7 +9,7 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
-## [Unreleased]
+## [2.3.1] - 2026-06-17
 
 ### Changed
 
