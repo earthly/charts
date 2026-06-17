@@ -1,6 +1,6 @@
 apiVersion: v2
 name: lunar
-description: "A Helm chart for Earthly Lunar 🌙"
+description: "A Helm chart for Earthly Lunar \U0001F319"
 type: application
-version: 2.3.0
+version: 2.3.1
 kubeVersion: ">=1.29.0-0"

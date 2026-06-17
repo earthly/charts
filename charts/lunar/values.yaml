@@ -215,7 +215,7 @@ hub:
   image:
     repository: "ghcr.io/earthly/lunar-hub"
     pullPolicy: IfNotPresent
-    tag: "2.2.1"
+    tag: "2.3.1"
   service:
     type: ClusterIP
     ports:
@@ -309,15 +309,15 @@ operator:
   image:
     repository: "ghcr.io/earthly/lunar-snippet-operator"
     pullPolicy: IfNotPresent
-    tag: "2.2.1"
+    tag: "2.3.1"
   initImage:
     repository: "ghcr.io/earthly/lunar-snippet-init"
     pullPolicy: IfNotPresent
-    tag: "2.2.1"
+    tag: "2.3.1"
   sidecarImage:
     repository: "ghcr.io/earthly/lunar-snippet-sidecar"
     pullPolicy: IfNotPresent
-    tag: "2.2.1"
+    tag: "2.3.1"
   # Namespace where script pods are created. Defaults to the release namespace.
   # If set, the namespace must already exist — the chart will not create it.
   scriptNamespace: ""
@@ -425,7 +425,7 @@ grafana:
   image:
     repository: "ghcr.io/earthly/lunar-grafana"
     pullPolicy: IfNotPresent
-    tag: "2.2.1"
+    tag: "2.3.1"
   service:
     type: ClusterIP
     port: 80
