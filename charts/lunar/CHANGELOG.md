@@ -9,6 +9,19 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [Unreleased]
+
+### Changed
+
+- Grafana: moved the static, image-coupled `GF_*` settings out of the
+  Grafana Deployment `env` and into the `lunar-grafana` image
+  (`GF_INSTALL_PLUGINS`, `GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS`,
+  `GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH`, `GF_USERS_ALLOW_SIGN_UP`,
+  `GF_USERS_DEFAULT_THEME`, `GF_FEATURE_TOGGLES_ENABLE`). They now version
+  with the image and no longer shadow it; override per-deployment via
+  `grafana.extraEnv`. Requires a `lunar-grafana` image with these baked in
+  (built from the matching `grafana/Earthfile`).
+
 ## [2.3.0] - 2026-06-05
 
 ### Added
