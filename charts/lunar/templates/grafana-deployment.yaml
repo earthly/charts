@@ -83,18 +83,11 @@ spec:
                 secretKeyRef:
                   name: {{ include "lunar.grafanaAdminSecretName" $ }}
                   key: {{ .admin.passwordKey }}
-            - name: GF_INSTALL_PLUGINS
-              value: "yesoreyeram-infinity-datasource,marcusolsson-dynamictext-panel,volkovlabs-echarts-panel"
-            - name: GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS
-              value: "earthly-json-tree-panel,earthly-text-diff-panel"
-            - name: GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH
-              value: "/etc/grafana/provisioning/dashboards/home.json"
-            - name: GF_USERS_ALLOW_SIGN_UP
-              value: "false"
-            - name: GF_USERS_DEFAULT_THEME
-              value: "tron"
-            - name: GF_FEATURE_TOGGLES_ENABLE
-              value: "grafanaconThemes"
+            # GF_INSTALL_PLUGINS, GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS,
+            # GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH, GF_USERS_ALLOW_SIGN_UP,
+            # GF_USERS_DEFAULT_THEME and GF_FEATURE_TOGGLES_ENABLE are baked into
+            # the lunar-grafana image now (they're coupled to the plugins,
+            # dashboards and theme it bundles); override via grafana.extraEnv.
             {{- with .extraEnv }}
               {{- toYaml . | nindent 12 }}
             {{- end }}
