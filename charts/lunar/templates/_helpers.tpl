@@ -123,16 +123,24 @@ Called from lunar.githubAuthCheck when apps is non-empty.
 Render the HUB_GITHUB_APPS JSON env value from hub.github.apps. Each
 entry's private_key_path is derived from <lowercase-owner>.pem under
 the Secret mountPath /secrets/github-apps. Used by hub-deployment.yaml.
+
+host and base_url are emitted only when set on the entry, so existing
+github.com / GHEC entries render byte-for-byte unchanged. Set both on a
+GHES entry so the Hub keys its components by (host, owner, name) and
+talks to that host's API endpoint.
 */}}
 {{- define "lunar.githubAppsJSON" -}}
 {{- $entries := list -}}
 {{- range .Values.hub.github.apps -}}
-{{- $entries = append $entries (dict
+{{- $entry := dict
     "owner" .owner
     "app_id" (.appId | int64)
     "private_key_path" (printf "/secrets/github-apps/%s.pem" (lower .owner))
     "install_id" (.installId | int64)
-) -}}
+-}}
+{{- if .host -}}{{- $_ := set $entry "host" .host -}}{{- end -}}
+{{- if .baseUrl -}}{{- $_ := set $entry "base_url" .baseUrl -}}{{- end -}}
+{{- $entries = append $entries $entry -}}
 {{- end -}}
 {{- $entries | toJson -}}
 {{- end }}

@@ -9,6 +9,21 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [2.4.0] - 2026-06-17
+
+### Added
+
+- `hub.github.apps[].host` and `hub.github.apps[].baseUrl` (both
+  optional) let one multi-App Hub serve GitHub Enterprise Server orgs
+  alongside github.com / GitHub Enterprise Cloud. When set, they render
+  into the matching `HUB_GITHUB_APPS` entry as `host` / `base_url`, so
+  the Hub keys that org's components by `(host, owner, name)` and calls
+  its GHES API endpoint. Both default to github.com behaviour and are
+  omitted from the rendered JSON when empty, so existing github.com-only
+  multi-App configs render byte-for-byte unchanged. The Hub-side support
+  shipped earlier in `earthly/lunar` (ENG-720); this exposes it through
+  the chart (ENG-720 Phase 11).
+
 ## [2.3.1] - 2026-06-17
 
 ### Changed
