@@ -29,3 +29,12 @@ jobs:
         uses: helm/chart-releaser-action@v1.7.0
         env:
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+
+      # chart-releaser seeds every release body with the chart description.
+      # Replace it with the matching CHANGELOG.md section. Runs in the same job
+      # (a separate `on: release` workflow would not fire — releases created
+      # with GITHUB_TOKEN don't trigger downstream workflow runs).
+      - name: Sync release notes from changelog
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./scripts/sync-release-notes.sh
