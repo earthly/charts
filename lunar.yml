@@ -3,3 +3,4 @@ codeowners:
   - dchw
 
 description: Public Helm charts for Lunar
+tags: [soc2]
