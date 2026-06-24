@@ -9,6 +9,24 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [2.4.1] - 2026-06-24
+
+### Changed
+
+- Bump the hub, snippet operator/init/sidecar, grafana, and agent images
+  to `2.4.1`. Highlights carried by the new images:
+  - **Buildkite**: PR builds are scoped to the components actually
+    changed, and webhook authentication is now durable via
+    `HUB_BUILDKITE_WEBHOOK_TOKEN`.
+  - **Operator**: runner-pod OOM kills are reported together with the
+    snippet identity that triggered them, for faster diagnosis.
+  - **Performance**: dashboard UI materialization is coalesced through a
+    dirty table and refreshed more efficiently, cutting load and update
+    lag on busy hubs.
+  - **Security**: high-severity Go dependency updates
+    (`golang.org/x/crypto`, `golang.org/x/net`, `golang.org/x/sys`,
+    `jackc/pgx`).
+
 ## [2.4.0] - 2026-06-17
 
 ### Added
