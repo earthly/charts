@@ -43,6 +43,45 @@ spec:
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      initContainers:
+        # Apply DB migrations before the hub server starts. The hub no longer
+        # migrates at boot, so this gates startup — the server never serves an
+        # un-migrated schema. The migration advisory lock means that when
+        # several hub pods start together, one migrates and the rest wait.
+        # Requires a hub image that ships /bin/lunar-hub-migrate.
+        - name: migrate
+          {{- with .Values.hub.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          image: "{{ .Values.hub.image.repository }}:{{ .Values.hub.image.tag }}"
+          imagePullPolicy: {{ .Values.hub.image.pullPolicy }}
+          command: ["/bin/lunar-hub-migrate"]
+          {{- with .Values.hub }}
+          env:
+            - name: HUB_DB_NAME
+              value: {{ .db.name | quote }}
+            - name: HUB_DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .db.user.secretName }}
+                  key: {{ .db.user.secretKey }}
+            - name: HUB_DB_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .db.pass.secretName }}
+                  key: {{ .db.pass.secretKey }}
+            - name: HUB_DB_HOST
+              value: {{ .db.host | quote }}
+            - name: HUB_DB_PORT
+              value: {{ .db.port | quote }}
+            - name: HUB_DB_WAIT_SECS
+              value: {{ .db.waitSecs | quote }}
+            - name: HUB_DB_CONNECTION_OPTIONS
+              value: {{ .db.connectionOptions | quote }}
+            - name: HUB_DB_MIGRATIONS_PATH
+              value: "/usr/share/migrations"
+          {{- end }}
       containers:
         - name: {{ .Chart.Name }}
           {{- with .Values.hub.securityContext }}

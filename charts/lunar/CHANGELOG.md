@@ -9,6 +9,23 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [2.5.0] - 2026-06-26
+
+### Changed
+
+- **Migrations now run in an init container**, not at hub boot. A `migrate`
+  init container runs `/bin/lunar-hub-migrate` before the hub server starts,
+  so a hub pod never serves an un-migrated schema. When several hub pods start
+  together, the migration advisory lock ensures one migrates and the rest wait
+  — a prerequisite for running the hub as multiple replicas.
+
+### Requires
+
+- A hub image that ships `/bin/lunar-hub-migrate` and **no longer migrates at
+  boot** (lunar ≥ the build that removes boot migration). Older hub images are
+  incompatible with this chart version (the init container's binary is absent,
+  and a matching hub image won't self-migrate).
+
 ## [2.4.1] - 2026-06-24
 
 ### Changed
