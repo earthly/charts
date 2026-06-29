@@ -21,6 +21,10 @@ history see `git log -- charts/lunar/`.
   scaled-up/restarted pods safe (they don't run the Job). This replaces the
   per-pod init-container approach and is a prerequisite for running the hub as
   multiple replicas.
+- Bump the hub, snippet operator/init/sidecar, and grafana image tags
+  `2.4.1 → 2.5.0` so a default install of this chart pulls a hub image that
+  ships `/bin/lunar-hub-migrate`. **Publish this chart version only once the
+  2.5.0 images exist** (released from lunar).
 
 ### Requires
 
