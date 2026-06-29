@@ -40,6 +40,22 @@ spec:
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      # Mirror the hub pod's scheduling so the migrate Job lands on the same
+      # nodes — otherwise a hub pinned to a tainted/dedicated node group gets an
+      # unschedulable migrate pod that burns activeDeadlineSeconds and fails the
+      # pre-rollout hook.
+      {{- with .Values.hub.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.hub.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.hub.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: migrate
           {{- with .Values.hub.securityContext }}
