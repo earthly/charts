@@ -73,4 +73,21 @@ spec:
               value: {{ .db.connectionOptions | quote }}
             - name: HUB_DB_MIGRATIONS_PATH
               value: "/usr/share/migrations"
+            # Licence carries the Elastic telemetry creds; with it, migration
+            # logs ship to the same tenant-tagged Elastic stream as the hub.
+            # Best-effort in the binary — falls back to stderr if absent.
+            - name: HUB_LICENCE_FILE
+              value: {{ .licence.filePath | quote }}
           {{- end }}
+          volumeMounts:
+            - name: hub-licence
+              mountPath: {{ .Values.hub.licence.filePath | quote }}
+              subPath: {{ base .Values.hub.licence.filePath | quote }}
+              readOnly: true
+      volumes:
+        - name: hub-licence
+          secret:
+            secretName: {{ .Values.hub.licence.secretName }}
+            items:
+              - key: {{ .Values.hub.licence.secretKey }}
+                path: {{ base .Values.hub.licence.filePath | quote }}
