@@ -9,6 +9,21 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [2.6.0] - 2026-06-29
+
+### Added
+
+- **Multi-replica baseline for the hub.** New `hub.replicaCount` (default `1`,
+  unchanged behavior), `hub.terminationGracePeriodSeconds` (default `60`),
+  `hub.topologySpreadConstraints` (default none), and an optional
+  `hub.podDisruptionBudget` (default **off** — a PDB on a single replica can
+  block voluntary node drains; enable for HA). These let the hub run at
+  `replicaCount > 1` healthily (spread across nodes/zones, drain-safe). HA also
+  requires `hub.persistence.enabled=false` (hub state lives in Postgres).
+
+> Note: sequences after 2.5.0 (the migrate pre-rollout Job, #64). If 2.5.0 has
+> not landed when this merges, reconcile the version.
+
 ## [2.4.1] - 2026-06-24
 
 ### Changed

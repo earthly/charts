@@ -11,8 +11,11 @@ metadata:
   labels:
     {{- include "lunar.labels" . | nindent 4 }}
 spec:
-  replicas: 1
+  replicas: {{ .Values.hub.replicaCount | default 1 }}
   {{- if .Values.hub.persistence.enabled }}
+  # Recreate is required while the hub mounts a RWO PVC; note it is
+  # incompatible with replicaCount > 1 (HA runs with persistence disabled,
+  # hub state lives in Postgres).
   strategy:
     type: Recreate
   {{- end }}
@@ -38,7 +41,7 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       serviceAccountName: {{ include "lunar.serviceAccountName" . }}
-      terminationGracePeriodSeconds: 60
+      terminationGracePeriodSeconds: {{ .Values.hub.terminationGracePeriodSeconds | default 60 }}
       {{- with .Values.hub.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
@@ -270,5 +273,9 @@ spec:
       {{- end }}
       {{- with .Values.hub.tolerations }}
       tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.hub.topologySpreadConstraints }}
+      topologySpreadConstraints:
         {{- toYaml . | nindent 8 }}
       {{- end }}

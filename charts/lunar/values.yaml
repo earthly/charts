@@ -40,6 +40,27 @@ hub:
   # GitHub would POST into the void.
   webhookURL: ""
   rootDir: /hub/
+  # Number of hub replicas. Keep 1 unless running the hub in HA (multi-replica)
+  # mode — HA requires persistence disabled (hub state lives in Postgres). See
+  # the HA operations runbook.
+  replicaCount: 1
+  # Grace period for the hub to drain on SIGTERM; must be >= the hub's shutdown
+  # budget.
+  terminationGracePeriodSeconds: 60
+  # PodDisruptionBudget for the hub. Off by default — a PDB on a single replica
+  # can block voluntary node drains. Enable for multi-replica deploys. Set one
+  # of maxUnavailable / minAvailable, not both.
+  podDisruptionBudget:
+    enabled: false
+    maxUnavailable: 1
+    # minAvailable: 1
+  # Spread hub replicas across nodes/zones (multi-replica). Empty = no spread.
+  # e.g. - maxSkew: 1
+  #        topologyKey: kubernetes.io/hostname
+  #        whenUnsatisfiable: ScheduleAnyway
+  #        labelSelector:
+  #          matchLabels: { app.kubernetes.io/component: hub }
+  topologySpreadConstraints: []
   # Hub licence JWT secret mount. This token is authoritative for tenant and
   # telemetry routing configuration.
   licence:
