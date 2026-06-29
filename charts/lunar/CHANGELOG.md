@@ -9,6 +9,21 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [2.9.0] - 2026-07-01
+
+### Added
+
+- **Configurable Postgres connection budget (R9).** New `hub.db.maxOpenConns`,
+  `hub.db.maxPoolConns`, and `hub.db.operatorPoolSize` render to
+  `HUB_DB_MAX_OPEN_CONNS` / `HUB_DB_MAX_POOL_CONNS` / `HUB_MAX_OPERATOR_POOL_SIZE`.
+  Defaults are the hub's existing values (`40 / 40 / 5`), so a single-replica
+  install is **unchanged** — no pool regression. The total Postgres connection
+  count is `replicaCount × (maxOpenConns + maxPoolConns + operatorPoolSize)`, so
+  **multi-replica deploys should lower `maxOpenConns`/`maxPoolConns`** to fit
+  `max_connections` (keep `maxPoolConns` ≥ peak concurrent River workers — the
+  sum of `hub.maxWorkers.*` — to avoid store-query serialization), and consider a
+  connection pooler for larger N. See the HA operations runbook.
+
 ## [2.8.1] - 2026-07-01
 
 ### Docs
@@ -98,6 +113,7 @@ history see `git log -- charts/lunar/`.
   boot migration and adds the schema assertion). Older hub images are
   incompatible with this chart version (the migrate binary is absent, and a
   matching hub image won't self-migrate).
+
 ## [2.4.1] - 2026-06-24
 
 ### Changed

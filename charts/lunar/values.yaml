@@ -73,6 +73,16 @@ hub:
     # Also consumed by the operator (OPERATOR_DB_CONNECTION_OPTIONS); both
     # components connect to the same DB so they share this value.
     connectionOptions: "sslmode=require"
+    # Per-replica Postgres connection budget. Total connections to Postgres ≈
+    # replicaCount × (maxOpenConns + maxPoolConns + operatorPoolSize). The River
+    # queue shares the pgxpool (maxPoolConns). Defaults (20/20/5 = ~45/replica)
+    # are an educated guess sized so a small HA deploy (≈3 replicas → ~135)
+    # stays well under a typical Postgres max_connections with headroom for
+    # the migrate Job, psql, and superuser-reserved slots. Tune against your
+    # Postgres max_connections (and consider a connection pooler) for larger N.
+    maxOpenConns: 20      # HUB_DB_MAX_OPEN_CONNS (database/sql store handle)
+    maxPoolConns: 20      # HUB_DB_MAX_POOL_CONNS (pgxpool, shared by River)
+    operatorPoolSize: 5   # HUB_MAX_OPERATOR_POOL_SIZE (operator_queue pool)
   github:
     baseUrl: ""
     # Single-App config. Use this for single-tenant deployments where the
