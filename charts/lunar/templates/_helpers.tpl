@@ -337,3 +337,15 @@ Usage:
 {{- toYaml $merged -}}
 {{- end -}}
 {{- end }}
+
+{{/*
+Fail fast on multi-replica + local persistence: replicas can't share the RWO
+PVC, and the Recreate strategy persistence forces is incompatible with rolling
+more than one replica. HA keeps hub state in Postgres, so persistence must be
+off at replicaCount > 1.
+*/}}
+{{- define "lunar.validateHubReplicas" -}}
+{{- if and (gt (int (.Values.hub.replicaCount | default 1)) 1) .Values.hub.persistence.enabled -}}
+{{- fail "hub.replicaCount > 1 requires hub.persistence.enabled=false: replicas can't share the RWO PVC (and the Recreate strategy it forces is incompatible with rolling multiple replicas). HA keeps hub state in Postgres — see the HA operations runbook." -}}
+{{- end -}}
+{{- end -}}

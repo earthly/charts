@@ -19,7 +19,9 @@ history see `git log -- charts/lunar/`.
   `hub.podDisruptionBudget` (default **off** — a PDB on a single replica can
   block voluntary node drains; enable for HA). These let the hub run at
   `replicaCount > 1` healthily (spread across nodes/zones, drain-safe). HA also
-  requires `hub.persistence.enabled=false` (hub state lives in Postgres).
+  requires `hub.persistence.enabled=false` (hub state lives in Postgres) — the
+  chart now **fails fast at render time** on `replicaCount > 1` with persistence
+  still enabled, instead of leaving replicas stuck contending for one RWO PVC.
 
 > Note: sequences after 2.5.0 (the migrate pre-rollout Job, #64). If 2.5.0 has
 > not landed when this merges, reconcile the version.

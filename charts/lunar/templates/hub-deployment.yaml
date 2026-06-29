@@ -2,6 +2,7 @@
 {{- include "lunar.hubLicenceCheck" . }}
 {{- include "lunar.rejectLegacyIngressShape" . }}
 {{- include "lunar.validateGrafana" . }}
+{{- include "lunar.validateHubReplicas" . }}
 {{- $webhookURL := include "lunar.webhookURL" . -}}
 {{- $grafanaURL := include "lunar.grafanaURL" . -}}
 apiVersion: apps/v1
