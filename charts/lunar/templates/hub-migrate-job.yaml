@@ -1,0 +1,76 @@
+{{- /*
+Database migration Job. Runs once per release via a Helm pre-install/pre-upgrade
+hook — before the hub Deployment is created or updated — so migrations complete
+and gate the rollout (no new hub pod serves an un-migrated schema). The hub
+server no longer migrates at boot; it asserts the schema is current and refuses
+to start if behind, which also covers scaled-up/restarted pods (they don't run
+this Job).
+
+hook-weight -5 runs it early; hook-delete-policy keeps a failed Job around for
+debugging (before-hook-creation cleans up the previous one on the next run).
+Requires a hub image that ships /bin/lunar-hub-migrate.
+*/}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "lunar.fullname" . }}-hub-migrate
+  labels:
+    {{- include "lunar.labels" . | nindent 4 }}
+    app.kubernetes.io/component: hub-migrate
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 2
+  activeDeadlineSeconds: 600
+  template:
+    metadata:
+      labels:
+        {{- include "lunar.labels" . | nindent 8 }}
+        app.kubernetes.io/component: hub-migrate
+    spec:
+      restartPolicy: Never
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "lunar.serviceAccountName" . }}
+      {{- with .Values.hub.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: migrate
+          {{- with .Values.hub.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          image: "{{ .Values.hub.image.repository }}:{{ .Values.hub.image.tag }}"
+          imagePullPolicy: {{ .Values.hub.image.pullPolicy }}
+          command: ["/bin/lunar-hub-migrate"]
+          {{- with .Values.hub }}
+          env:
+            - name: HUB_DB_NAME
+              value: {{ .db.name | quote }}
+            - name: HUB_DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .db.user.secretName }}
+                  key: {{ .db.user.secretKey }}
+            - name: HUB_DB_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .db.pass.secretName }}
+                  key: {{ .db.pass.secretKey }}
+            - name: HUB_DB_HOST
+              value: {{ .db.host | quote }}
+            - name: HUB_DB_PORT
+              value: {{ .db.port | quote }}
+            - name: HUB_DB_WAIT_SECS
+              value: {{ .db.waitSecs | quote }}
+            - name: HUB_DB_CONNECTION_OPTIONS
+              value: {{ .db.connectionOptions | quote }}
+            - name: HUB_DB_MIGRATIONS_PATH
+              value: "/usr/share/migrations"
+          {{- end }}

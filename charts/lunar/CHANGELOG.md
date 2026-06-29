@@ -13,18 +13,22 @@ history see `git log -- charts/lunar/`.
 
 ### Changed
 
-- **Migrations now run in an init container**, not at hub boot. A `migrate`
-  init container runs `/bin/lunar-hub-migrate` before the hub server starts,
-  so a hub pod never serves an un-migrated schema. When several hub pods start
-  together, the migration advisory lock ensures one migrates and the rest wait
-  — a prerequisite for running the hub as multiple replicas.
+- **Migrations now run as a pre-rollout hook Job**, not at hub boot. A
+  `hub-migrate` Job runs `/bin/lunar-hub-migrate` once per release via a Helm
+  `pre-install`/`pre-upgrade` hook — before the hub Deployment is updated — so
+  migrations complete and gate the rollout. The hub server asserts the schema
+  is current at boot and refuses to start if it's behind, which also makes
+  scaled-up/restarted pods safe (they don't run the Job). This replaces the
+  per-pod init-container approach and is a prerequisite for running the hub as
+  multiple replicas.
 
 ### Requires
 
-- A hub image that ships `/bin/lunar-hub-migrate` and **no longer migrates at
-  boot** (lunar ≥ the build that removes boot migration). Older hub images are
-  incompatible with this chart version (the init container's binary is absent,
-  and a matching hub image won't self-migrate).
+- A hub image that ships `/bin/lunar-hub-migrate`, **no longer migrates at
+  boot**, and **asserts the schema at boot** (lunar ≥ the build that removes
+  boot migration and adds the schema assertion). Older hub images are
+  incompatible with this chart version (the migrate binary is absent, and a
+  matching hub image won't self-migrate).
 
 ## [2.4.1] - 2026-06-24
 
