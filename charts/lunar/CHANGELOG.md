@@ -9,6 +9,27 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [2.8.0] - 2026-06-29
+
+### Changed
+
+- **Readiness probe now uses `/ready`** (was `/health`). The hub's `/ready`
+  reports `503` while draining or when Postgres is unreachable, so a draining
+  or DB-broken replica is taken out of rotation; `livenessProbe` stays on
+  `/health` (always 200, DB-independent) so a shared-DB blip can't restart-loop
+  the fleet. Requires a hub image with the `/ready` endpoint (lunar #1979).
+
+### Notes
+
+- On AWS ALB, also point the target-group health check at `/ready` via ingress
+  annotations (`alb.ingress.kubernetes.io/healthcheck-path: /ready`,
+  `healthcheck-port: "8002"`) — see `values.yaml`.
+- Drain on shutdown is handled in the hub (`HUB_DRAIN_DELAY`, flips `/ready` to
+  503 on SIGTERM before stopping); no chart `preStop` is needed.
+
+> Note: sequences after 2.7.0 (#66) / 2.6.0 (#65) / 2.5.0 (#64). Reconcile the
+> version if merge order differs.
+
 ## [2.4.1] - 2026-06-24
 
 ### Changed

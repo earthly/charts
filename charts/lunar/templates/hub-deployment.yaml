@@ -201,7 +201,10 @@ spec:
           {{- with .Values.hub.readinessProbe }}
           readinessProbe:
             httpGet:
-              path: /health
+              # Readiness is DB-aware and drain-aware (503 while draining or if
+              # Postgres is unreachable). Liveness stays on /health (always 200,
+              # DB-independent) so a shared-DB blip can't restart-loop the fleet.
+              path: /ready
               port: hub-health
             initialDelaySeconds: {{ .initialDelaySeconds }}
             periodSeconds: {{ .periodSeconds }}

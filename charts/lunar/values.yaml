@@ -257,6 +257,11 @@ hub:
     # unless overridden inside api.* / webhooks.* below.
     className: ""
     tls: []
+    # On AWS ALB, point the target-group health check at the hub's DB/drain-aware
+    # readiness endpoint so the ALB stops routing to a draining or DB-broken
+    # replica (the k8s readinessProbe already uses /ready):
+    #   alb.ingress.kubernetes.io/healthcheck-path: /ready
+    #   alb.ingress.kubernetes.io/healthcheck-port: "8002"
     annotations: {}
     # API ingress: gRPC + /logs. Used by lunar CLI, CI agents, and the
     # operator. Renders TWO Ingress resources (api-grpc + api-http) sharing
