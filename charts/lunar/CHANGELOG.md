@@ -27,6 +27,21 @@ history see `git log -- charts/lunar/`.
 > 2.10.0 first. The emptyDir change (charts#68) supersedes the persistence
 > fail-fast guard here.
 
+## [2.9.0] - 2026-07-01
+
+### Added
+
+- **Configurable Postgres connection budget (R9).** New `hub.db.maxOpenConns`,
+  `hub.db.maxPoolConns`, and `hub.db.operatorPoolSize` render to
+  `HUB_DB_MAX_OPEN_CONNS` / `HUB_DB_MAX_POOL_CONNS` / `HUB_MAX_OPERATOR_POOL_SIZE`.
+  Defaults are the hub's existing values (`40 / 40 / 5`), so a single-replica
+  install is **unchanged** — no pool regression. The total Postgres connection
+  count is `replicaCount × (maxOpenConns + maxPoolConns + operatorPoolSize)`, so
+  **multi-replica deploys should lower `maxOpenConns`/`maxPoolConns`** to fit
+  `max_connections` (keep `maxPoolConns` ≥ peak concurrent River workers — the
+  sum of `hub.maxWorkers.*` — to avoid store-query serialization), and consider a
+  connection pooler for larger N. See the HA operations runbook.
+
 ## [2.8.1] - 2026-07-01
 
 ### Docs
