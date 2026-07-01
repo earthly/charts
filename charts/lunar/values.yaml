@@ -159,6 +159,17 @@ hub:
     policy: 20
     cronCollect: 5
     cataloger: 1
+  # gRPC server connection-age limits (Go duration strings). Bounding a
+  # connection's lifetime makes long-lived HTTP/2 clients periodically
+  # reconnect, so they rebalance across hub replicas — and drop off a
+  # draining replica during a rollout — instead of pinning to whichever
+  # replica they first reached. maxConnectionAgeGrace should exceed the
+  # longest normal stream (the hub's idle-stream timeout is 600s, e.g.
+  # PullManifest) so streams finish inside the grace window rather than being
+  # cut. Set both to 0 to disable cycling (a single-instance hub needs none).
+  grpc:
+    maxConnectionAge: 30m
+    maxConnectionAgeGrace: 10m
   # S3-compatible object storage for script logs and resource archives.
   # The buckets must exist and be writable by the hub's AWS credentials.
   # AWS credentials themselves are intentionally out of scope for this
