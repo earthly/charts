@@ -9,6 +9,23 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [2.6.0] - 2026-07-01
+
+### Fixed
+
+- **Migrate Job now renders `hub.extraEnv`** (parity with the hub Deployment). The
+  chart supplies SQL-API credentials only through `hub.extraEnv` (there is no
+  dedicated `HUB_SQLAPI_*` value), and the 2.5.0 migrate Job omitted it — so on a
+  **fresh** database the `01_sqlapi/user.sql` migration created the `sqlapi_user`
+  role **without** a password, leaving the SQL API unable to authenticate. This
+  only affected first/greenfield installs (an already-migrated DB doesn't re-run
+  the migration), which is why it wasn't caught by an in-place upgrade. Any env you
+  already set in `hub.extraEnv` for the hub (e.g. `HUB_SQLAPI_PASSWORD`) now also
+  reaches the migrator.
+
+> Note: version sequences after 2.5.0 — reconcile if another chart PR lands a 2.6.0
+> first.
+
 ## [2.5.0] - 2026-06-26
 
 ### Changed
