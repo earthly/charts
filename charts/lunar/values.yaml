@@ -163,10 +163,14 @@ hub:
   # connection's lifetime makes long-lived HTTP/2 clients periodically
   # reconnect, so they rebalance across hub replicas — and drop off a
   # draining replica during a rollout — instead of pinning to whichever
-  # replica they first reached. maxConnectionAgeGrace should exceed the
-  # longest normal stream (the hub's idle-stream timeout is 600s, e.g.
-  # PullManifest) so streams finish inside the grace window rather than being
-  # cut. Set both to 0 to disable cycling (a single-instance hub needs none).
+  # replica they first reached. maxConnectionAgeGrace is the window in which
+  # in-flight RPCs finish after the age-GOAWAY before the connection is
+  # force-closed. Nearly all hub RPCs are short unary calls; the one long
+  # server-stream (PullManifest, held open by a 30s heartbeat during cataloger
+  # waits, so it can outlast any idle timeout) is only ever invoked by the
+  # one-shot `lunar` CLI on a freshly-dialed connection — age starts at 0, so it
+  # gets the full age+grace runway and cycling never cuts it mid-flight. Set
+  # both to 0 to disable cycling (a single-instance hub needs none).
   grpc:
     maxConnectionAge: 30m
     maxConnectionAgeGrace: 10m
