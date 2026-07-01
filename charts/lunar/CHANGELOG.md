@@ -9,6 +9,20 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [2.8.1] - 2026-07-01
+
+### Docs
+
+- Correct the `hub.grpc.maxConnectionAgeGrace` guidance. The prior note claimed
+  grace must exceed a 600s idle-stream timeout so streams finish inside the
+  window — but `PullManifest` (the one long server-stream) is kept open by a 30s
+  heartbeat and can outlast any idle timeout, so 600s was never the bound. It's a
+  non-issue in practice: `PullManifest` is only invoked by the one-shot `lunar`
+  CLI on a freshly-dialed connection (age 0 → full runway), and the long-lived
+  fetch client uses unary calls. Comment-only; no behavior change. (charts#69 nit)
+
+> Note: patch on 2.8.0 — reconcile if another chart PR lands a 2.8.1 first.
+
 ## [2.8.0] - 2026-07-01
 
 ### Added
