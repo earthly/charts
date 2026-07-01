@@ -78,6 +78,12 @@ spec:
               value: {{ .db.waitSecs | quote }}
             - name: HUB_DB_CONNECTION_OPTIONS
               value: {{ .db.connectionOptions | quote }}
+            - name: HUB_DB_MAX_OPEN_CONNS
+              value: {{ .db.maxOpenConns | quote }}
+            - name: HUB_DB_MAX_POOL_CONNS
+              value: {{ .db.maxPoolConns | quote }}
+            - name: HUB_MAX_OPERATOR_POOL_SIZE
+              value: {{ .db.operatorPoolSize | quote }}
             - name: HUB_DB_MIGRATIONS_PATH
               value: "/usr/share/migrations"
             - name: HUB_GITHUB_WEBHOOK_SECRET
