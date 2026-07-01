@@ -9,7 +9,7 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
-## [2.6.0] - 2026-06-29
+## [2.10.0] - 2026-07-01
 
 ### Added
 
@@ -23,8 +23,99 @@ history see `git log -- charts/lunar/`.
   chart now **fails fast at render time** on `replicaCount > 1` with persistence
   still enabled, instead of leaving replicas stuck contending for one RWO PVC.
 
-> Note: sequences after 2.5.0 (the migrate pre-rollout Job, #64). If 2.5.0 has
-> not landed when this merges, reconcile the version.
+> Note: version sequences after 2.8.1 — reconcile if another chart PR lands a
+> 2.10.0 first. The emptyDir change (charts#68) supersedes the persistence
+> fail-fast guard here.
+
+## [2.8.1] - 2026-07-01
+
+### Docs
+
+- Correct the `hub.grpc.maxConnectionAgeGrace` guidance. The prior note claimed
+  grace must exceed a 600s idle-stream timeout so streams finish inside the
+  window — but `PullManifest` (the one long server-stream) is kept open by a 30s
+  heartbeat and can outlast any idle timeout, so 600s was never the bound. It's a
+  non-issue in practice: `PullManifest` is only invoked by the one-shot `lunar`
+  CLI on a freshly-dialed connection (age 0 → full runway), and the long-lived
+  fetch client uses unary calls. Comment-only; no behavior change. (charts#69 nit)
+
+> Note: patch on 2.8.0 — reconcile if another chart PR lands a 2.8.1 first.
+
+## [2.8.0] - 2026-07-01
+
+### Added
+
+- **gRPC connection cycling for HA (R7).** New `hub.grpc.maxConnectionAge` and
+  `hub.grpc.maxConnectionAgeGrace` (defaults `30m` / `10m`) render to
+  `HUB_GRPC_MAX_CONNECTION_AGE` / `HUB_GRPC_MAX_CONNECTION_AGE_GRACE`. Bounding
+  connection age makes long-lived HTTP/2 clients periodically reconnect, so they
+  redistribute across hub replicas as the fleet scales and drop off a draining
+  replica during a rollout instead of pinning to the one they first reached. The
+  grace default (`10m`) exceeds the hub's 600s idle-stream timeout so a normal
+  stream (e.g. `PullManifest`) completes inside the grace window rather than
+  being cut. Requires a hub image with the knobs (earthly/lunar#1967); older
+  images ignore the env vars. Set both to `0` to disable (single-instance).
+
+> Note: additive; enabling by default is safe (clients transparently re-resolve
+> on GOAWAY).
+
+## [2.7.0] - 2026-07-01
+
+### Fixed
+
+- **Migrate Job no longer sets `serviceAccountName`.** As a pre-install hook the
+  Job runs *before* the chart's ServiceAccount is created, so referencing it made
+  the Job unschedulable on a **fresh** install (`serviceaccount "…" not found` →
+  the Job burns `activeDeadlineSeconds` → `DeadlineExceeded` → `helm install`
+  fails). The migrator makes no Kubernetes API calls (it only talks to Postgres),
+  so it now uses the namespace `default` SA. Only affected first/greenfield
+  installs — an upgrade already had the SA from the prior release. Image pulls are
+  unaffected (`imagePullSecrets` is on the pod spec).
+
+> Note: version sequences after 2.6.0 — reconcile if another chart PR lands a
+> 2.7.0 first.
+
+## [2.6.0] - 2026-07-01
+
+### Fixed
+
+- **Migrate Job now renders `hub.extraEnv`** (parity with the hub Deployment). The
+  chart supplies SQL-API credentials only through `hub.extraEnv` (there is no
+  dedicated `HUB_SQLAPI_*` value), and the 2.5.0 migrate Job omitted it — so on a
+  **fresh** database the `01_sqlapi/user.sql` migration created the `sqlapi_user`
+  role **without** a password, leaving the SQL API unable to authenticate. This
+  only affected first/greenfield installs (an already-migrated DB doesn't re-run
+  the migration), which is why it wasn't caught by an in-place upgrade. Any env you
+  already set in `hub.extraEnv` for the hub (e.g. `HUB_SQLAPI_PASSWORD`) now also
+  reaches the migrator.
+
+> Note: version sequences after 2.5.0 — reconcile if another chart PR lands a 2.6.0
+> first.
+
+## [2.5.0] - 2026-06-26
+
+### Changed
+
+- **Migrations now run as a pre-rollout hook Job**, not at hub boot. A
+  `hub-migrate` Job runs `/bin/lunar-hub-migrate` once per release via a Helm
+  `pre-install`/`pre-upgrade` hook — before the hub Deployment is updated — so
+  migrations complete and gate the rollout. The hub server asserts the schema
+  is current at boot and refuses to start if it's behind, which also makes
+  scaled-up/restarted pods safe (they don't run the Job). This replaces the
+  per-pod init-container approach and is a prerequisite for running the hub as
+  multiple replicas.
+- Bump the hub, snippet operator/init/sidecar, and grafana image tags
+  `2.4.1 → 2.5.0` so a default install of this chart pulls a hub image that
+  ships `/bin/lunar-hub-migrate`. **Publish this chart version only once the
+  2.5.0 images exist** (released from lunar).
+
+### Requires
+
+- A hub image that ships `/bin/lunar-hub-migrate`, **no longer migrates at
+  boot**, and **asserts the schema at boot** (lunar ≥ the build that removes
+  boot migration and adds the schema assertion). Older hub images are
+  incompatible with this chart version (the migrate binary is absent, and a
+  matching hub image won't self-migrate).
 
 ## [2.4.1] - 2026-06-24
 

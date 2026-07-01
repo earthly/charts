@@ -47,6 +47,9 @@ spec:
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      # DB migrations run once per release as a pre-rollout hook Job
+      # (hub-migrate-job.yaml), not here — the hub server asserts the schema is
+      # current at boot and refuses to start if it's behind.
       containers:
         - name: {{ .Chart.Name }}
           {{- with .Values.hub.securityContext }}
@@ -168,6 +171,10 @@ spec:
               value: {{ .maxWorkers.cronCollect | quote }}
             - name: HUB_MAX_WORKERS_CATALOGER
               value: {{ .maxWorkers.cataloger | quote }}
+            - name: HUB_GRPC_MAX_CONNECTION_AGE
+              value: {{ .grpc.maxConnectionAge | quote }}
+            - name: HUB_GRPC_MAX_CONNECTION_AGE_GRACE
+              value: {{ .grpc.maxConnectionAgeGrace | quote }}
             {{- with .extraEnv }}
               {{- toYaml . | nindent 12 }}
             {{- end }}

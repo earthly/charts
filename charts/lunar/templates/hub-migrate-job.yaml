@@ -1,0 +1,124 @@
+{{- /*
+Database migration Job. Runs once per release via a Helm pre-install/pre-upgrade
+hook — before the hub Deployment is created or updated — so migrations complete
+and gate the rollout (no new hub pod serves an un-migrated schema). The hub
+server no longer migrates at boot; it asserts the schema is current and refuses
+to start if behind, which also covers scaled-up/restarted pods (they don't run
+this Job).
+
+hook-weight -5 runs it early; hook-delete-policy keeps a failed Job around for
+debugging (before-hook-creation cleans up the previous one on the next run).
+Requires a hub image that ships /bin/lunar-hub-migrate.
+*/}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "lunar.fullname" . }}-hub-migrate
+  labels:
+    {{- include "lunar.labels" . | nindent 4 }}
+    app.kubernetes.io/component: hub-migrate
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 2
+  activeDeadlineSeconds: 600
+  template:
+    metadata:
+      labels:
+        {{- include "lunar.labels" . | nindent 8 }}
+        app.kubernetes.io/component: hub-migrate
+    spec:
+      restartPolicy: Never
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      # No serviceAccountName: the migrator makes no Kubernetes API calls (it
+      # only connects to Postgres), so it uses the namespace's default SA. This
+      # is deliberate — as a pre-install hook the Job runs BEFORE the chart's
+      # ServiceAccount is created, so referencing it would fail to schedule on a
+      # fresh install ("serviceaccount not found" → DeadlineExceeded). Image
+      # pulls are unaffected (imagePullSecrets is on the pod spec above).
+      {{- with .Values.hub.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      # Mirror the hub pod's scheduling so the migrate Job lands on the same
+      # nodes — otherwise a hub pinned to a tainted/dedicated node group gets an
+      # unschedulable migrate pod that burns activeDeadlineSeconds and fails the
+      # pre-rollout hook.
+      {{- with .Values.hub.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.hub.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.hub.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: migrate
+          {{- with .Values.hub.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          image: "{{ .Values.hub.image.repository }}:{{ .Values.hub.image.tag }}"
+          imagePullPolicy: {{ .Values.hub.image.pullPolicy }}
+          command: ["/bin/lunar-hub-migrate"]
+          {{- with .Values.hub }}
+          env:
+            - name: HUB_DB_NAME
+              value: {{ .db.name | quote }}
+            - name: HUB_DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .db.user.secretName }}
+                  key: {{ .db.user.secretKey }}
+            - name: HUB_DB_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .db.pass.secretName }}
+                  key: {{ .db.pass.secretKey }}
+            - name: HUB_DB_HOST
+              value: {{ .db.host | quote }}
+            - name: HUB_DB_PORT
+              value: {{ .db.port | quote }}
+            - name: HUB_DB_WAIT_SECS
+              value: {{ .db.waitSecs | quote }}
+            - name: HUB_DB_CONNECTION_OPTIONS
+              value: {{ .db.connectionOptions | quote }}
+            - name: HUB_DB_MIGRATIONS_PATH
+              value: "/usr/share/migrations"
+            # Licence carries the Elastic telemetry creds; with it, migration
+            # logs ship to the same tenant-tagged Elastic stream as the hub.
+            # Best-effort in the binary — falls back to stderr if absent.
+            - name: HUB_LICENCE_FILE
+              value: {{ .licence.filePath | quote }}
+            # Same extraEnv as the hub Deployment. Required so the migrator
+            # sees HUB_SQLAPI_PASSWORD (the chart supplies SQL-API creds only
+            # via extraEnv): 01_sqlapi/user.sql creates the sqlapi_user role,
+            # and on a *fresh* database (greenfield install) that role must be
+            # created WITH its password or the SQL API can't authenticate.
+            # (An already-migrated DB — e.g. an upgrade — doesn't re-run it, so
+            # this only bites first installs; it went unnoticed until then.)
+            {{- with .extraEnv }}
+              {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- end }}
+          volumeMounts:
+            - name: hub-licence
+              mountPath: {{ .Values.hub.licence.filePath | quote }}
+              subPath: {{ base .Values.hub.licence.filePath | quote }}
+              readOnly: true
+      volumes:
+        - name: hub-licence
+          secret:
+            secretName: {{ .Values.hub.licence.secretName }}
+            items:
+              - key: {{ .Values.hub.licence.secretKey }}
+                path: {{ base .Values.hub.licence.filePath | quote }}
