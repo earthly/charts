@@ -9,6 +9,31 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [2.5.0] - 2026-06-26
+
+### Changed
+
+- **Migrations now run as a pre-rollout hook Job**, not at hub boot. A
+  `hub-migrate` Job runs `/bin/lunar-hub-migrate` once per release via a Helm
+  `pre-install`/`pre-upgrade` hook — before the hub Deployment is updated — so
+  migrations complete and gate the rollout. The hub server asserts the schema
+  is current at boot and refuses to start if it's behind, which also makes
+  scaled-up/restarted pods safe (they don't run the Job). This replaces the
+  per-pod init-container approach and is a prerequisite for running the hub as
+  multiple replicas.
+- Bump the hub, snippet operator/init/sidecar, and grafana image tags
+  `2.4.1 → 2.5.0` so a default install of this chart pulls a hub image that
+  ships `/bin/lunar-hub-migrate`. **Publish this chart version only once the
+  2.5.0 images exist** (released from lunar).
+
+### Requires
+
+- A hub image that ships `/bin/lunar-hub-migrate`, **no longer migrates at
+  boot**, and **asserts the schema at boot** (lunar ≥ the build that removes
+  boot migration and adds the schema assertion). Older hub images are
+  incompatible with this chart version (the migrate binary is absent, and a
+  matching hub image won't self-migrate).
+
 ## [2.4.1] - 2026-06-24
 
 ### Changed

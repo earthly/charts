@@ -43,6 +43,9 @@ spec:
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      # DB migrations run once per release as a pre-rollout hook Job
+      # (hub-migrate-job.yaml), not here — the hub server asserts the schema is
+      # current at boot and refuses to start if it's behind.
       containers:
         - name: {{ .Chart.Name }}
           {{- with .Values.hub.securityContext }}
