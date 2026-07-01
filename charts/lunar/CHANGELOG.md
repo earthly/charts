@@ -9,6 +9,22 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [2.7.0] - 2026-07-01
+
+### Fixed
+
+- **Migrate Job no longer sets `serviceAccountName`.** As a pre-install hook the
+  Job runs *before* the chart's ServiceAccount is created, so referencing it made
+  the Job unschedulable on a **fresh** install (`serviceaccount "…" not found` →
+  the Job burns `activeDeadlineSeconds` → `DeadlineExceeded` → `helm install`
+  fails). The migrator makes no Kubernetes API calls (it only talks to Postgres),
+  so it now uses the namespace `default` SA. Only affected first/greenfield
+  installs — an upgrade already had the SA from the prior release. Image pulls are
+  unaffected (`imagePullSecrets` is on the pod spec).
+
+> Note: version sequences after 2.6.0 — reconcile if another chart PR lands a
+> 2.7.0 first.
+
 ## [2.6.0] - 2026-07-01
 
 ### Fixed
