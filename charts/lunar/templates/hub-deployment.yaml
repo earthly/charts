@@ -167,6 +167,10 @@ spec:
               value: {{ .maxWorkers.cronCollect | quote }}
             - name: HUB_MAX_WORKERS_CATALOGER
               value: {{ .maxWorkers.cataloger | quote }}
+            - name: HUB_GRPC_MAX_CONNECTION_AGE
+              value: {{ .grpc.maxConnectionAge | quote }}
+            - name: HUB_GRPC_MAX_CONNECTION_AGE_GRACE
+              value: {{ .grpc.maxConnectionAgeGrace | quote }}
             {{- with .extraEnv }}
               {{- toYaml . | nindent 12 }}
             {{- end }}

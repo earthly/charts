@@ -9,6 +9,24 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [2.8.0] - 2026-07-01
+
+### Added
+
+- **gRPC connection cycling for HA (R7).** New `hub.grpc.maxConnectionAge` and
+  `hub.grpc.maxConnectionAgeGrace` (defaults `30m` / `10m`) render to
+  `HUB_GRPC_MAX_CONNECTION_AGE` / `HUB_GRPC_MAX_CONNECTION_AGE_GRACE`. Bounding
+  connection age makes long-lived HTTP/2 clients periodically reconnect, so they
+  redistribute across hub replicas as the fleet scales and drop off a draining
+  replica during a rollout instead of pinning to the one they first reached. The
+  grace default (`10m`) exceeds the hub's 600s idle-stream timeout so a normal
+  stream (e.g. `PullManifest`) completes inside the grace window rather than
+  being cut. Requires a hub image with the knobs (earthly/lunar#1967); older
+  images ignore the env vars. Set both to `0` to disable (single-instance).
+
+> Note: additive; enabling by default is safe (clients transparently re-resolve
+> on GOAWAY).
+
 ## [2.7.0] - 2026-07-01
 
 ### Fixed
@@ -66,7 +84,6 @@ history see `git log -- charts/lunar/`.
   boot migration and adds the schema assertion). Older hub images are
   incompatible with this chart version (the migrate binary is absent, and a
   matching hub image won't self-migrate).
-
 ## [2.4.1] - 2026-06-24
 
 ### Changed
