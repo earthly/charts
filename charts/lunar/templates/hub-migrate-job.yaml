@@ -35,7 +35,12 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "lunar.serviceAccountName" . }}
+      # No serviceAccountName: the migrator makes no Kubernetes API calls (it
+      # only connects to Postgres), so it uses the namespace's default SA. This
+      # is deliberate — as a pre-install hook the Job runs BEFORE the chart's
+      # ServiceAccount is created, so referencing it would fail to schedule on a
+      # fresh install ("serviceaccount not found" → DeadlineExceeded). Image
+      # pulls are unaffected (imagePullSecrets is on the pod spec above).
       {{- with .Values.hub.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
