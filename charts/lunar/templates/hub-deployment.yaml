@@ -296,4 +296,19 @@ spec:
       {{- with .Values.hub.topologySpreadConstraints }}
       topologySpreadConstraints:
         {{- toYaml . | nindent 8 }}
+      {{- else }}
+      # Default: soft-spread hub replicas across nodes so a single node loss
+      # can't take down the whole hub — the PDB only guards *voluntary*
+      # disruptions (drains), not a node crash. ScheduleAnyway keeps small /
+      # single-node clusters schedulable (and is a no-op at replicaCount 1).
+      # Override hub.topologySpreadConstraints for a stricter spread (e.g. a
+      # hard zone spread with DoNotSchedule).
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              {{- include "lunar.selectorLabels" . | nindent 14 }}
+              app.kubernetes.io/component: hub
       {{- end }}

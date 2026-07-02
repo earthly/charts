@@ -48,18 +48,18 @@ hub:
   # budget.
   terminationGracePeriodSeconds: 60
   # PodDisruptionBudget for the hub. Off by default — a PDB on a single replica
-  # can block voluntary node drains. Enable for multi-replica deploys. Set one
-  # of maxUnavailable / minAvailable, not both.
+  # can block voluntary node drains. Enable for multi-replica deploys. Set
+  # exactly one of maxUnavailable / minAvailable — the chart fails fast at
+  # render time if both are set (the API server rejects a PDB with both).
   podDisruptionBudget:
     enabled: false
     maxUnavailable: 1
     # minAvailable: 1
-  # Spread hub replicas across nodes/zones (multi-replica). Empty = no spread.
-  # e.g. - maxSkew: 1
-  #        topologyKey: kubernetes.io/hostname
-  #        whenUnsatisfiable: ScheduleAnyway
-  #        labelSelector:
-  #          matchLabels: { app.kubernetes.io/component: hub }
+  # Extra pod topology-spread constraints for hub replicas. Empty is NOT
+  # "no spread" — the chart applies a soft default (maxSkew 1 across
+  # kubernetes.io/hostname, ScheduleAnyway) so multi-replica deploys survive a
+  # node loss out of the box. Set this to override with your own (e.g. a hard
+  # zone spread); it replaces the default wholesale.
   topologySpreadConstraints: []
   # Hub licence JWT secret mount. This token is authoritative for tenant and
   # telemetry routing configuration.

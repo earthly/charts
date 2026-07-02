@@ -22,6 +22,11 @@ history see `git log -- charts/lunar/`.
   requires `hub.persistence.enabled=false` (hub state lives in Postgres) — the
   chart now **fails fast at render time** on `replicaCount > 1` with persistence
   still enabled, instead of leaving replicas stuck contending for one RWO PVC.
+  A **soft node-spread is applied by default** (maxSkew 1 across
+  `kubernetes.io/hostname`, `ScheduleAnyway`) so multi-replica deploys survive a
+  node loss without extra config; override via `hub.topologySpreadConstraints`.
+  The chart also **fails fast if the PDB sets both `minAvailable` and
+  `maxUnavailable`** (the API server rejects that).
 
 > Note: version sequences after 2.10.0 — reconcile if another chart PR lands a
 > 2.11.0 first. The emptyDir change (charts#68) supersedes the persistence
