@@ -2,6 +2,7 @@
 {{- include "lunar.hubLicenceCheck" . }}
 {{- include "lunar.rejectLegacyIngressShape" . }}
 {{- include "lunar.validateGrafana" . }}
+{{- include "lunar.validateHubReplicas" . }}
 {{- $webhookURL := include "lunar.webhookURL" . -}}
 {{- $grafanaURL := include "lunar.grafanaURL" . -}}
 apiVersion: apps/v1
@@ -15,8 +16,11 @@ metadata:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
-  replicas: 1
+  replicas: {{ .Values.hub.replicaCount | default 1 }}
   {{- if .Values.hub.persistence.enabled }}
+  # Recreate is required while the hub mounts a RWO PVC; note it is
+  # incompatible with replicaCount > 1 (HA runs with persistence disabled,
+  # hub state lives in Postgres).
   strategy:
     type: Recreate
   {{- end }}
@@ -42,7 +46,7 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       serviceAccountName: {{ include "lunar.serviceAccountName" . }}
-      terminationGracePeriodSeconds: 60
+      terminationGracePeriodSeconds: {{ .Values.hub.terminationGracePeriodSeconds | default 60 }}
       {{- with .Values.hub.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
@@ -288,4 +292,23 @@ spec:
       {{- with .Values.hub.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.hub.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- else }}
+      # Default: soft-spread hub replicas across nodes so a single node loss
+      # can't take down the whole hub — the PDB only guards *voluntary*
+      # disruptions (drains), not a node crash. ScheduleAnyway keeps small /
+      # single-node clusters schedulable (and is a no-op at replicaCount 1).
+      # Override hub.topologySpreadConstraints for a stricter spread (e.g. a
+      # hard zone spread with DoNotSchedule).
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              {{- include "lunar.selectorLabels" . | nindent 14 }}
+              app.kubernetes.io/component: hub
       {{- end }}

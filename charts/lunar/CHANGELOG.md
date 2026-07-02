@@ -9,6 +9,29 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [2.11.0] - 2026-07-02
+
+### Added
+
+- **Multi-replica baseline for the hub.** New `hub.replicaCount` (default `1`,
+  unchanged behavior), `hub.terminationGracePeriodSeconds` (default `60`),
+  `hub.topologySpreadConstraints` (default none), and an optional
+  `hub.podDisruptionBudget` (default **off** — a PDB on a single replica can
+  block voluntary node drains; enable for HA). These let the hub run at
+  `replicaCount > 1` healthily (spread across nodes/zones, drain-safe). HA also
+  requires `hub.persistence.enabled=false` (hub state lives in Postgres) — the
+  chart now **fails fast at render time** on `replicaCount > 1` with persistence
+  still enabled, instead of leaving replicas stuck contending for one RWO PVC.
+  A **soft node-spread is applied by default** (maxSkew 1 across
+  `kubernetes.io/hostname`, `ScheduleAnyway`) so multi-replica deploys survive a
+  node loss without extra config; override via `hub.topologySpreadConstraints`.
+  The chart also **fails fast if the PDB sets both `minAvailable` and
+  `maxUnavailable`** (the API server rejects that).
+
+> Note: version sequences after 2.10.0 — reconcile if another chart PR lands a
+> 2.11.0 first. The emptyDir change (charts#68) supersedes the persistence
+> fail-fast guard here.
+
 ## [2.10.0] - 2026-07-02
 
 ### Added

@@ -1,0 +1,28 @@
+{{- /*
+PodDisruptionBudget for the hub. Off by default — a PDB on a single replica can
+block voluntary node drains. Enable it for multi-replica (HA) deploys so a node
+drain / rollout can't take down all hub replicas at once.
+*/}}
+{{- if .Values.hub.podDisruptionBudget.enabled }}
+{{- if and .Values.hub.podDisruptionBudget.minAvailable .Values.hub.podDisruptionBudget.maxUnavailable }}
+{{- fail "hub.podDisruptionBudget: set only one of minAvailable / maxUnavailable, not both — a PDB with both is rejected by the API server. (The default sets maxUnavailable; comment it out if you set minAvailable.)" }}
+{{- end }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "lunar.fullname" . }}-hub
+  labels:
+    {{- include "lunar.labels" . | nindent 4 }}
+    app.kubernetes.io/component: hub
+spec:
+  {{- with .Values.hub.podDisruptionBudget.minAvailable }}
+  minAvailable: {{ . }}
+  {{- end }}
+  {{- with .Values.hub.podDisruptionBudget.maxUnavailable }}
+  maxUnavailable: {{ . }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "lunar.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: hub
+{{- end }}
