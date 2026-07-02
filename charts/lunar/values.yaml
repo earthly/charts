@@ -107,9 +107,9 @@ hub:
     # sum of hub.maxWorkers.*) — the pgxpool is shared by every queue plus the
     # pgx stores, so a pool below that serializes store queries under load
     # (pgxpool queues acquisition; it won't deadlock). See the HA runbook.
-    maxOpenConns: 40      # HUB_DB_MAX_OPEN_CONNS (database/sql store handle)
-    maxPoolConns: 40      # HUB_DB_MAX_POOL_CONNS (pgxpool, shared by River)
-    operatorPoolSize: 5   # HUB_MAX_OPERATOR_POOL_SIZE (operator_queue pool)
+    maxOpenConns: 40 # HUB_DB_MAX_OPEN_CONNS (database/sql store handle)
+    maxPoolConns: 40 # HUB_DB_MAX_POOL_CONNS (pgxpool, shared by River)
+    operatorPoolSize: 5 # HUB_MAX_OPERATOR_POOL_SIZE (operator_queue pool)
   github:
     baseUrl: ""
     # Single-App config. Use this for single-tenant deployments where the
