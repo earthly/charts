@@ -10,6 +10,10 @@ metadata:
   name: {{ include "lunar.fullname" . }}-hub
   labels:
     {{- include "lunar.labels" . | nindent 4 }}
+  {{- with .Values.hub.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
   replicas: 1
   {{- if .Values.hub.persistence.enabled }}
