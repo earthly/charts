@@ -18,6 +18,13 @@ history see `git log -- charts/lunar/`.
   tool: the provisioning Job and the reconverge sidecar in the Grafana pod. The
   default renders nothing, so installs that don't set it keep an identical
   Grafana pod template and no restart on upgrade.
+- **Deployment-level `labels`** (`hub.labels`, `grafana.labels`, and the new
+  `operator.labels`; default `{}`) — merge onto each workload's Deployment
+  `metadata.labels`, alongside the chart's standard `lunar.labels` (custom keys
+  win on collision). Distinct from `podLabels`, which apply to the pod
+  template; selectors and pod labels are unchanged. `hub.labels` and
+  `grafana.labels` already existed as values but were never wired into a
+  template. Empty by default — no change for existing installs.
 
 ## [4.10.0] - Unreleased
 
