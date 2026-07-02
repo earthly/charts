@@ -9,7 +9,7 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
-## [2.10.0] - 2026-07-01
+## [2.11.0] - 2026-07-02
 
 ### Added
 
@@ -23,9 +23,20 @@ history see `git log -- charts/lunar/`.
   chart now **fails fast at render time** on `replicaCount > 1` with persistence
   still enabled, instead of leaving replicas stuck contending for one RWO PVC.
 
-> Note: version sequences after 2.8.1 — reconcile if another chart PR lands a
-> 2.10.0 first. The emptyDir change (charts#68) supersedes the persistence
+> Note: version sequences after 2.10.0 — reconcile if another chart PR lands a
+> 2.11.0 first. The emptyDir change (charts#68) supersedes the persistence
 > fail-fast guard here.
+
+## [2.10.0] - 2026-07-02
+
+### Added
+
+- **Deployment-level `annotations`.** New `hub.annotations`, `grafana.annotations`,
+  and `operator.annotations` render onto each workload's Deployment `metadata`
+  (distinct from the existing `podAnnotations`, which apply to the pod template).
+  `hub.annotations` and `grafana.annotations` already existed as chart values but
+  were never wired into a template; `operator.annotations` is new. Empty by
+  default — no behavior change for existing installs.
 
 ## [2.9.0] - 2026-07-01
 
