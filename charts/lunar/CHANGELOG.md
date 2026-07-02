@@ -9,6 +9,37 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [2.12.0] - 2026-07-02
+
+### Changed
+
+- **Hub `/var/lib/lunar` is now an ephemeral `emptyDir`, not a PVC.** The hub
+  holds no durable state on disk — only re-extracted runtimes and a rebuildable
+  snippet-code cache (code is served from S3) — so the RWO `hub-data`
+  PersistentVolumeClaim is removed in favour of an `emptyDir` with a configurable
+  `hub.stateDir.sizeLimit` (default `2Gi`). This removes the last per-instance
+  source of truth on the hub filesystem, so the hub `RollingUpdate`s at
+  `replicaCount > 1` with no shared-volume contention. Supersedes the 2.11.0
+  render-time guard that forced persistence off for HA — there is no longer a
+  persistence toggle to conflict, so both the guard and `Recreate` strategy are
+  gone.
+
+### Removed
+
+- **`hub.persistence`** (`.enabled`/`.storageClass`/`.size`/`.accessModes`) and
+  the `hub-data` PVC template — replaced by the ephemeral `emptyDir` above.
+- **`hub.rootDir`** / the `HUB_ROOT_DIR` env var — dead/legacy; no such hub
+  config field.
+
+> **Upgrade note.** The existing `<release>-hub-data` PVC carried
+> `helm.sh/resource-policy: keep`, so upgrading will not delete it — it's simply
+> orphaned; remove it manually to reclaim storage. **Sequencing:** deploy the B1
+> S3-serve stack and trigger one manifest re-pull (so the current manifest has S3
+> `bundle_key`s) *before* moving replicas onto cold-disk `emptyDir` pods.
+>
+> Note: version sequences after 2.11.0 — reconcile if another chart PR lands a
+> 2.12.0 first.
+
 ## [2.11.0] - 2026-07-02
 
 ### Added

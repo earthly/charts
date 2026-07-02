@@ -39,9 +39,8 @@ hub:
   # must equal hub.ingress.webhooks.host. The chart fails fast otherwise —
   # GitHub would POST into the void.
   webhookURL: ""
-  rootDir: /hub/
-  # Number of hub replicas. Keep 1 unless running the hub in HA (multi-replica)
-  # mode — HA requires persistence disabled (hub state lives in Postgres). See
+  # Number of hub replicas. The hub is stateless (state lives in Postgres and
+  # S3), so it runs safely at replicaCount > 1 in HA (multi-replica) mode. See
   # the HA operations runbook.
   replicaCount: 1
   # Grace period for the hub to drain on SIGTERM; must be >= the hub's shutdown
@@ -274,13 +273,11 @@ hub:
       secretName: ""
       secretKey: "secrets"
       perKey: false
-  persistence:
-    enabled: true
-    # Leave empty to use the cluster default StorageClass.
-    storageClass: ""
-    size: 10Gi
-    accessModes:
-      - ReadWriteOnce
+  # Ephemeral scratch mounted at /var/lib/lunar (re-extracted runtimes + a
+  # rebuildable snippet-code cache). No durable state lives here — snippet code
+  # is served from S3 — so it is an emptyDir, not a PVC. sizeLimit caps it.
+  stateDir:
+    sizeLimit: 2Gi
   extraEnv: []
   image:
     repository: "ghcr.io/earthly/lunar-hub"
