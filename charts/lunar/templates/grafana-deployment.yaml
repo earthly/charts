@@ -6,6 +6,9 @@ metadata:
   name: {{ include "lunar.fullname" . }}-grafana
   labels:
     {{- include "lunar.labels" . | nindent 4 }}
+    {{- with .Values.grafana.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
   {{- with .Values.grafana.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}

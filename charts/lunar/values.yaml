@@ -431,6 +431,7 @@ operator:
   scriptPodPriorityClassName: ""
   extraEnv: []
   resources: {}
+  labels: {}
   annotations: {}
   podAnnotations: {}
   podLabels: {}

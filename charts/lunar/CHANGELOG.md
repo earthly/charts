@@ -9,6 +9,19 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [2.11.0] - 2026-07-02
+
+### Added
+
+- **Deployment-level `labels`.** New `hub.labels`, `grafana.labels`, and
+  `operator.labels` merge onto each workload's Deployment `metadata.labels`,
+  alongside the chart's standard `lunar.labels` (custom keys win on collision).
+  Distinct from the existing `podLabels`, which apply to the pod template.
+  `hub.labels` and `grafana.labels` already existed as chart values but were
+  never wired into a template; `operator.labels` is new. Empty by default —
+  no behavior change for existing installs. Companion to the `annotations`
+  values wired in 2.10.0.
+
 ## [2.10.0] - 2026-07-02
 
 ### Added
