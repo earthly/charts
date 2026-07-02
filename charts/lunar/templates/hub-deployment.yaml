@@ -2,7 +2,6 @@
 {{- include "lunar.hubLicenceCheck" . }}
 {{- include "lunar.rejectLegacyIngressShape" . }}
 {{- include "lunar.validateGrafana" . }}
-{{- include "lunar.validateHubReplicas" . }}
 {{- $webhookURL := include "lunar.webhookURL" . -}}
 {{- $grafanaURL := include "lunar.grafanaURL" . -}}
 apiVersion: apps/v1
@@ -17,13 +16,6 @@ metadata:
   {{- end }}
 spec:
   replicas: {{ .Values.hub.replicaCount | default 1 }}
-  {{- if .Values.hub.persistence.enabled }}
-  # Recreate is required while the hub mounts a RWO PVC; note it is
-  # incompatible with replicaCount > 1 (HA runs with persistence disabled,
-  # hub state lives in Postgres).
-  strategy:
-    type: Recreate
-  {{- end }}
   selector:
     matchLabels:
       {{- include "lunar.selectorLabels" . | nindent 6 }}
@@ -64,8 +56,6 @@ spec:
           imagePullPolicy: {{ .Values.hub.image.pullPolicy }}
           {{- with .Values.hub }}
           env:
-            - name: HUB_ROOT_DIR
-              value: {{ .rootDir | quote }}
             - name: HUB_DB_NAME
               value: {{ .db.name | quote }}
             - name: HUB_DB_USER
@@ -244,10 +234,8 @@ spec:
             {{- toYaml . | nindent 12 }}
           {{- end }}
           volumeMounts:
-            {{- if .Values.hub.persistence.enabled }}
             - name: hub-data
               mountPath: /var/lib/lunar
-            {{- end }}
             - name: hub-licence
               mountPath: {{ .Values.hub.licence.filePath | quote }}
               subPath: {{ base .Values.hub.licence.filePath | quote }}
@@ -262,11 +250,13 @@ spec:
             {{- end }}
 
       volumes:
-        {{- if .Values.hub.persistence.enabled }}
+        # /var/lib/lunar holds no durable state — re-extracted runtimes and a
+        # rebuildable snippet-code cache (code is served from S3, B1) — so it's
+        # an ephemeral emptyDir, not a PVC. This lets the hub run N>1 replicas
+        # with a RollingUpdate (no shared RWO PVC to contend for).
         - name: hub-data
-          persistentVolumeClaim:
-            claimName: {{ include "lunar.fullname" . }}-hub-data
-        {{- end }}
+          emptyDir:
+            sizeLimit: {{ .Values.hub.stateDir.sizeLimit }}
         - name: hub-licence
           secret:
             secretName: {{ .Values.hub.licence.secretName }}
