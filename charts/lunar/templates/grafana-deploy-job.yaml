@@ -1,18 +1,16 @@
 {{/*
 Grafana content deploy hook. Runs the lunar-dashboards image (deploy.sh) as a
-post-install/post-upgrade hook so plugins/datasources/dashboards are installed on
-every Hub install/upgrade — into our stock Grafana pod (GRAFANA_URL points at the
-in-cluster Service) or a customer Grafana (endpoint resolved from the Hub).
+post-install/post-upgrade hook so plugins/datasources/dashboards are (re)installed
+into the Grafana pod on every Hub install/upgrade. GRAFANA_URL points at the
+in-cluster Service (its kiosk proxy forwards /api to Grafana with basic-auth
+intact); everything else deploy.sh resolves from the Hub over gRPC.
 
-Non-blocking by default (dashboardsDeploy.blocking=false): a failed deploy is
-logged but exits 0 so it never fails/rolls back the Hub upgrade — the Hub is the
-product; dashboards are a convenience. The reconverge sidecar on the Grafana pod
-and the next upgrade both re-converge. Set blocking=true to gate the release.
-
-hook-weight 5 runs it after the hub Deployment; deploy.sh talks to the Hub over
-gRPC, so backoffLimit covers the hub not being Ready the instant the hook fires.
+Non-blocking: a failed deploy is logged but exits 0 so it never fails/rolls back
+the Hub upgrade — the Hub is the product, dashboards are a convenience, and the
+reconverge sidecar + next upgrade re-converge. hook-weight 5 runs it after the hub
+Deployment; a fixed backoffLimit covers the hub not being Ready when the hook fires.
 */}}
-{{- if and .Values.grafana.dashboardsDeploy.enabled (or .Values.grafana.enabled .Values.grafana.externalURL) -}}
+{{- if and .Values.grafana.enabled .Values.grafana.dashboardsDeploy.enabled -}}
 {{- $img := printf "%s:%s" .Values.grafana.dashboardsDeploy.image.repository (.Values.grafana.dashboardsDeploy.image.tag | default .Values.hub.image.tag) -}}
 apiVersion: batch/v1
 kind: Job
@@ -26,7 +24,7 @@ metadata:
     "helm.sh/hook-weight": "5"
     "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 spec:
-  backoffLimit: {{ .Values.grafana.dashboardsDeploy.backoffLimit }}
+  backoffLimit: 6
   activeDeadlineSeconds: 600
   template:
     metadata:
@@ -51,7 +49,6 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- if .Values.grafana.enabled }}
       initContainers:
         - name: wait-for-grafana
           image: {{ $img | quote }}
@@ -59,7 +56,6 @@ spec:
           command: ["/bin/sh", "-c"]
           args:
             - until curl -fsS "http://{{ include "lunar.fullname" . }}-grafana:{{ .Values.grafana.service.port }}/api/health" >/dev/null 2>&1; do echo "waiting for grafana..."; sleep 2; done
-      {{- end }}
       containers:
         - name: deploy
           image: {{ $img | quote }}
@@ -68,19 +64,15 @@ spec:
           args:
             - |
               if /deploy.sh; then exit 0; fi
+              # Non-blocking: log but exit 0 so a failed deploy never fails/rolls
+              # back the Hub upgrade; the sidecar + next upgrade re-converge.
               echo "grafana dashboard deploy failed" >&2
-              {{- if .Values.grafana.dashboardsDeploy.blocking }}
-              exit 1
-              {{- else }}
               exit 0
-              {{- end }}
           env:
-            {{- if .Values.grafana.enabled }}
-            # Our in-cluster pod: the Hub's grafana URL is the external PR-link URL,
-            # so target the in-cluster Service instead (its kiosk proxy forwards
-            # /api to Grafana with basic-auth intact).
+            # Target the in-cluster Service (its kiosk proxy forwards /api to
+            # Grafana with basic-auth intact); the Hub's grafana URL is the
+            # external PR-link URL, not the in-cluster address.
             - name: GRAFANA_URL
               value: "http://{{ include "lunar.fullname" . }}-grafana:{{ .Values.grafana.service.port }}"
-            {{- end }}
             {{- include "lunar.grafanaDeployHubEnv" . | nindent 12 }}
 {{- end }}

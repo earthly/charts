@@ -501,21 +501,11 @@ grafana:
   # lunar-dashboards deploy tool: a run-to-completion image (entrypoint deploy.sh)
   # that installs plugins/datasources/dashboards over the Grafana API. It resolves
   # the Grafana endpoint + a read-only DB connection from the Hub over gRPC, so it
-  # needs no Grafana/DB args here. Runs as a post-install/upgrade hook Job and as a
-  # reconverge sidecar on the Grafana pod. Also drives customer-owned Grafana
-  # (set grafana.enabled=false + grafana.externalURL and configure the Hub).
+  # needs no Grafana/DB args here. Runs as a post-install/post-upgrade hook Job and
+  # as a reconverge sidecar on the Grafana pod (re-applies on every pod start, so a
+  # recreated pod self-heals without waiting for the next Hub upgrade).
   dashboardsDeploy:
     enabled: true
-    # blocking=false: a failed dashboard deploy is logged but never fails/rolls
-    # back the Hub upgrade (the Hub is the product; dashboards are a convenience —
-    # the reconverge sidecar and next upgrade re-converge). Set true to gate the
-    # release on a successful deploy.
-    blocking: false
-    # reconvergeSidecar: re-apply content on every Grafana pod start, so a
-    # recreated pod / lost volume self-heals without waiting for the next Hub
-    # upgrade. Makes grafana.persistence unnecessary for correctness.
-    reconvergeSidecar: true
-    backoffLimit: 6
     image:
       repository: "ghcr.io/earthly/lunar-dashboards"
       pullPolicy: IfNotPresent
@@ -528,15 +518,6 @@ grafana:
     dbPassword:
       secretName: ""
       passwordKey: "password"
-  # Optional PVC for Grafana's data dir (/var/lib/grafana). NOT required — the
-  # reconverge sidecar re-applies API-installed content on every pod start. Enable
-  # only to avoid re-installing plugins on each restart.
-  persistence:
-    enabled: false
-    accessModes:
-      - ReadWriteOnce
-    storageClass: ""
-    size: 2Gi
   service:
     type: ClusterIP
     port: 80

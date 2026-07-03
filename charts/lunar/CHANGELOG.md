@@ -27,20 +27,18 @@ history see `git log -- charts/lunar/`.
 
 ### Added
 
-- **`grafana.dashboardsDeploy`** — deploy-tool config: `enabled`, `blocking`
-  (non-blocking by default: a failed deploy is logged but never fails/rolls back
-  the Hub upgrade), `reconvergeSidecar`, `backoffLimit`, `image.*`, `dbPassword.*`.
+- **`grafana.dashboardsDeploy`** — deploy-tool config: `enabled`, `image.*`,
+  `dbPassword.*`.
 - **Grafana content deploy hook** (`grafana-deploy-job.yaml`) — a
   `post-install`/`post-upgrade` Job that runs the deploy tool on every Hub
-  install/upgrade.
+  install/upgrade. Non-blocking: a failed deploy is logged but never fails/rolls
+  back the Hub upgrade.
 - **Reconverge sidecar** on the Grafana pod — re-applies content on every pod
-  start so the pod is stateless / self-healing.
+  start so the pod is stateless / self-healing (no PVC needed).
 - **Read-only `grafana_user` DB role** — chart-generated password secret
   (`<release>-grafana-db`, `helm.sh/resource-policy: keep`), wired into the Hub
   (`HUB_GRAFANA_USER` / `HUB_GRAFANA_PASSWORD` / `HUB_GRAFANA_DB_PASSWORD`) and the
   migrate Job (creates the role WITH its password on a fresh DB).
-- **`grafana.persistence`** — optional PVC for `/var/lib/grafana` (off by
-  default; the reconverge sidecar makes it unnecessary for correctness).
 
 > **Upgrade note.** Requires a Hub image with the `GetGrafanaConnectionString`
 > RPC + the `02_grafana` `grafana_user` migration, and the `lunar-dashboards`
