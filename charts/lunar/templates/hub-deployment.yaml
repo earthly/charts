@@ -212,12 +212,22 @@ spec:
           {{- with .Values.hub.readinessProbe }}
           readinessProbe:
             httpGet:
-              path: /health
+              path: /ready
               port: hub-health
             initialDelaySeconds: {{ .initialDelaySeconds }}
             periodSeconds: {{ .periodSeconds }}
             failureThreshold: {{ .failureThreshold }}
           {{- end }}
+          {{- end }}
+          {{- if gt (int .Values.hub.preStopSleepSeconds) 0 }}
+          # Sleep before SIGTERM so k8s deregisters this pod from the Service
+          # (endpoint removal on deletion) before the hub starts draining —
+          # graceful shutdown, R4. Must leave room under
+          # terminationGracePeriodSeconds for the hub's own drain.
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sleep", "{{ .Values.hub.preStopSleepSeconds }}"]
           {{- end }}
           ports:
             - name: hub-grpc

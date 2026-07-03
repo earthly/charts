@@ -43,9 +43,13 @@ hub:
   # S3), so it runs safely at replicaCount > 1 in HA (multi-replica) mode. See
   # the HA operations runbook.
   replicaCount: 1
-  # Grace period for the hub to drain on SIGTERM; must be >= the hub's shutdown
-  # budget.
+  # Grace period for the hub to drain on SIGTERM; must be >= preStopSleepSeconds
+  # plus the hub's shutdown budget (HUB_SHUTDOWN_TIMEOUT, default 45s).
   terminationGracePeriodSeconds: 60
+  # Seconds the container sleeps in its preStop hook, before SIGTERM, giving k8s
+  # time to deregister this pod from the Service so new requests stop arriving
+  # before the hub drains (graceful shutdown, R4). Set 0 to disable.
+  preStopSleepSeconds: 10
   # PodDisruptionBudget for the hub. Off by default — a PDB on a single replica
   # can block voluntary node drains. Enable for multi-replica deploys. Set
   # exactly one of maxUnavailable / minAvailable — the chart fails fast at
@@ -282,7 +286,7 @@ hub:
   image:
     repository: "ghcr.io/earthly/lunar-hub"
     pullPolicy: IfNotPresent
-    tag: "2.5.0"
+    tag: "2.6.0"
   service:
     type: ClusterIP
     ports:
@@ -354,7 +358,7 @@ hub:
     enabled: true
     initialDelaySeconds: 0
     periodSeconds: 5
-    failureThreshold: 3
+    failureThreshold: 1
   livenessProbe:
     enabled: true
     initialDelaySeconds: 0
@@ -376,15 +380,15 @@ operator:
   image:
     repository: "ghcr.io/earthly/lunar-snippet-operator"
     pullPolicy: IfNotPresent
-    tag: "2.5.0"
+    tag: "2.6.0"
   initImage:
     repository: "ghcr.io/earthly/lunar-snippet-init"
     pullPolicy: IfNotPresent
-    tag: "2.5.0"
+    tag: "2.6.0"
   sidecarImage:
     repository: "ghcr.io/earthly/lunar-snippet-sidecar"
     pullPolicy: IfNotPresent
-    tag: "2.5.0"
+    tag: "2.6.0"
   # Namespace where script pods are created. Defaults to the release namespace.
   # If set, the namespace must already exist — the chart will not create it.
   scriptNamespace: ""
@@ -493,7 +497,7 @@ grafana:
   image:
     repository: "ghcr.io/earthly/lunar-grafana"
     pullPolicy: IfNotPresent
-    tag: "2.5.0"
+    tag: "2.6.0"
   service:
     type: ClusterIP
     port: 80
