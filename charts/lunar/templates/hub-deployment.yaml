@@ -212,7 +212,7 @@ spec:
           {{- with .Values.hub.readinessProbe }}
           readinessProbe:
             httpGet:
-              path: /health
+              path: /ready
               port: hub-health
             initialDelaySeconds: {{ .initialDelaySeconds }}
             periodSeconds: {{ .periodSeconds }}

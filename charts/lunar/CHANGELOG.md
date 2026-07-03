@@ -9,6 +9,18 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [2.13.0] - 2026-07-03
+
+### Changed
+
+- **hub**: the readiness probe now targets `/ready` (was `/health`) with
+  `failureThreshold: 1`, so the pod reports not-ready as soon as the hub begins
+  graceful shutdown (Hub HA R4, ENG-1120) and k8s deregisters it from the
+  Service before it drains. Liveness still targets `/health` (process-only, so a
+  draining or DB-blipped pod is never restarted). Requires a hub image that
+  serves `/ready` (lunar-hub with ENG-1120); `terminationGracePeriodSeconds` (60)
+  already covers the hub's readiness delay + shutdown timeout.
+
 ## [2.12.0] - 2026-07-02
 
 ### Changed
