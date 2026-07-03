@@ -43,9 +43,13 @@ hub:
   # S3), so it runs safely at replicaCount > 1 in HA (multi-replica) mode. See
   # the HA operations runbook.
   replicaCount: 1
-  # Grace period for the hub to drain on SIGTERM; must be >= the hub's shutdown
-  # budget.
+  # Grace period for the hub to drain on SIGTERM; must be >= preStopSleepSeconds
+  # plus the hub's shutdown budget (HUB_SHUTDOWN_TIMEOUT, default 45s).
   terminationGracePeriodSeconds: 60
+  # Seconds the container sleeps in its preStop hook, before SIGTERM, giving k8s
+  # time to deregister this pod from the Service so new requests stop arriving
+  # before the hub drains (graceful shutdown, R4). Set 0 to disable.
+  preStopSleepSeconds: 10
   # PodDisruptionBudget for the hub. Off by default — a PDB on a single replica
   # can block voluntary node drains. Enable for multi-replica deploys. Set
   # exactly one of maxUnavailable / minAvailable — the chart fails fast at

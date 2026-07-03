@@ -13,13 +13,16 @@ history see `git log -- charts/lunar/`.
 
 ### Changed
 
+- **hub**: added a `preStop` hook (`hub.preStopSleepSeconds`, default 10s) that
+  sleeps before SIGTERM, giving k8s time to deregister the pod from the Service
+  so new requests stop arriving before the hub drains (graceful shutdown, Hub HA
+  R4, ENG-1120). `terminationGracePeriodSeconds` (60) covers this plus the hub's
+  shutdown budget (`HUB_SHUTDOWN_TIMEOUT`, 45s).
 - **hub**: the readiness probe now targets `/ready` (was `/health`) with
   `failureThreshold: 1`, so the pod reports not-ready as soon as the hub begins
-  graceful shutdown (Hub HA R4, ENG-1120) and k8s deregisters it from the
-  Service before it drains. Liveness still targets `/health` (process-only, so a
-  draining or DB-blipped pod is never restarted). Requires a hub image that
-  serves `/ready` (lunar-hub with ENG-1120); `terminationGracePeriodSeconds` (60)
-  already covers the hub's readiness delay + shutdown timeout.
+  graceful shutdown and k8s deregisters it. Liveness still targets `/health`
+  (process-only, so a draining or DB-blipped pod is never restarted). Requires a
+  hub image that serves `/ready` (lunar-hub with ENG-1120).
 
 ## [2.12.0] - 2026-07-02
 
