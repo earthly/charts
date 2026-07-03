@@ -35,16 +35,20 @@ history see `git log -- charts/lunar/`.
   back the Hub upgrade.
 - **Reconverge sidecar** on the Grafana pod — re-applies content on every pod
   start so the pod is stateless / self-healing (no PVC needed).
-- **Read-only `grafana_user` DB role** — chart-generated password secret
-  (`<release>-grafana-db`, `helm.sh/resource-policy: keep`), wired into the Hub
-  (`HUB_GRAFANA_USER` / `HUB_GRAFANA_PASSWORD` / `HUB_GRAFANA_DB_PASSWORD`) and the
-  migrate Job (creates the role WITH its password on a fresh DB).
-
-> **Upgrade note.** Requires a Hub image with the `GetGrafanaConnectionString`
-> RPC + the `02_grafana` `grafana_user` migration, and the `lunar-dashboards`
-> image at a matching tag. The chart now pulls stock `grafana/grafana` — if you
-> mirror images into a private registry, mirror `grafana/grafana:13.1.0` and
-> `ghcr.io/earthly/lunar-dashboards` too. Version sequences after 2.12.0.
+- **hub**: added a `preStop` hook (`hub.preStopSleepSeconds`, default 10s) that
+  sleeps before SIGTERM, giving k8s time to deregister the pod from the Service
+  so new requests stop arriving before the hub drains (graceful shutdown, Hub HA
+  R4, ENG-1120). `terminationGracePeriodSeconds` (60) covers this plus the hub's
+  shutdown budget (`HUB_SHUTDOWN_TIMEOUT`, 45s).
+- **hub**: the readiness probe now targets `/ready` (was `/health`) with
+  `failureThreshold: 1`, so the pod reports not-ready as soon as the hub begins
+  graceful shutdown and k8s deregisters it. Liveness still targets `/health`
+  (process-only, so a draining or DB-blipped pod is never restarted). Requires a
+  hub image that serves `/ready` (lunar-hub with ENG-1120).
+- **images**: default image tags (hub, operator, init, sidecar, grafana) bumped
+  to `2.6.0` — the first hub release that serves `/ready` — in lockstep with the
+  readiness-probe change above, so the chart default never points at an image
+  that 404s the probe.
 
 ## [2.12.0] - 2026-07-02
 
