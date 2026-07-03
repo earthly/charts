@@ -1,0 +1,26 @@
+{{/*
+Optional PVC for Grafana's data dir (/var/lib/grafana). NOT required for
+correctness: the reconverge sidecar re-applies API-installed plugins/datasources/
+dashboards on every pod start. Enable it purely to avoid re-installing plugins on
+each restart. Modeled on hub-pvc.yaml.
+*/}}
+{{- if and .Values.grafana.enabled .Values.grafana.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "lunar.fullname" . }}-grafana-data
+  annotations:
+    helm.sh/resource-policy: keep
+  labels:
+    {{- include "lunar.labels" . | nindent 4 }}
+    app.kubernetes.io/component: grafana
+spec:
+  accessModes:
+    {{- toYaml .Values.grafana.persistence.accessModes | nindent 4 }}
+  {{- if .Values.grafana.persistence.storageClass }}
+  storageClassName: {{ .Values.grafana.persistence.storageClass | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.grafana.persistence.size }}
+{{- end }}

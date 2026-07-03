@@ -9,6 +9,45 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [2.13.0] - 2026-07-03
+
+### Changed
+
+- **Grafana is now stock upstream `grafana/grafana` (default `13.0.3`), not a
+  Lunar-built image.** Plugins, datasources and dashboards are installed over the
+  Grafana HTTP API by the new **`lunar-dashboards`** deploy tool
+  (`grafana.dashboardsDeploy`) instead of being baked into a derived image —
+  removing the AGPL / maintenance burden of shipping a modified Grafana. The tool
+  resolves the Grafana endpoint + a read-only DB connection from the Hub over
+  gRPC, so the same image drives our pod and customer-owned Grafana.
+  - `grafana.image` now defaults to `grafana/grafana:13.0.3`.
+  - The Grafana pod runs stock Grafana with only `GF_SERVER_ROOT_URL`,
+    `GF_SECURITY_ADMIN_*` and `GF_USERS_ALLOW_SIGN_UP` set (was: baked plugins /
+    dashboards / theme + `POSTGRES_*` / `LUNAR_HUB_*` for the old entrypoint).
+
+### Added
+
+- **`grafana.dashboardsDeploy`** — deploy-tool config: `enabled`, `blocking`
+  (non-blocking by default: a failed deploy is logged but never fails/rolls back
+  the Hub upgrade), `reconvergeSidecar`, `backoffLimit`, `image.*`, `dbPassword.*`.
+- **Grafana content deploy hook** (`grafana-deploy-job.yaml`) — a
+  `post-install`/`post-upgrade` Job that runs the deploy tool on every Hub
+  install/upgrade.
+- **Reconverge sidecar** on the Grafana pod — re-applies content on every pod
+  start so the pod is stateless / self-healing.
+- **Read-only `grafana_user` DB role** — chart-generated password secret
+  (`<release>-grafana-db`, `helm.sh/resource-policy: keep`), wired into the Hub
+  (`HUB_GRAFANA_USER` / `HUB_GRAFANA_PASSWORD` / `HUB_GRAFANA_DB_PASSWORD`) and the
+  migrate Job (creates the role WITH its password on a fresh DB).
+- **`grafana.persistence`** — optional PVC for `/var/lib/grafana` (off by
+  default; the reconverge sidecar makes it unnecessary for correctness).
+
+> **Upgrade note.** Requires a Hub image with the `GetGrafanaConnectionString`
+> RPC + the `02_grafana` `grafana_user` migration, and the `lunar-dashboards`
+> image at a matching tag. The chart now pulls stock `grafana/grafana` — if you
+> mirror images into a private registry, mirror `grafana/grafana:13.0.3` and
+> `ghcr.io/earthly/lunar-dashboards` too. Version sequences after 2.12.0.
+
 ## [2.12.0] - 2026-07-02
 
 ### Changed

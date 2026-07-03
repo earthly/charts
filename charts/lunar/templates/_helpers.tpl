@@ -183,6 +183,35 @@ Resolved name for the chart-managed Grafana admin secret.
 {{- end }}
 
 {{/*
+Resolved name for the chart-managed read-only Grafana DB-role (grafana_user)
+password secret, used by the lunar-dashboards deploy tool's datasource.
+*/}}
+{{- define "lunar.grafanaDBSecretName" -}}
+{{- .Values.grafana.dashboardsDeploy.dbPassword.secretName | default (printf "%s-grafana-db" (include "lunar.fullname" .)) -}}
+{{- end }}
+
+{{/*
+LUNAR_HUB_* env for the lunar-dashboards deploy tool (the deploy hook Job and the
+reconverge sidecar). deploy.sh uses it to resolve the Grafana endpoint + a
+read-only DB connection from the Hub over gRPC. Only LUNAR_HUB_TOKEN is sensitive.
+*/}}
+{{- define "lunar.grafanaDeployHubEnv" -}}
+- name: LUNAR_HUB_HOST
+  value: {{ include "lunar.hubHost" . | quote }}
+- name: LUNAR_HUB_GRPC_PORT
+  value: {{ .Values.hub.service.ports.server | quote }}
+- name: LUNAR_HUB_HTTP_PORT
+  value: {{ .Values.hub.service.ports.http | quote }}
+- name: LUNAR_HUB_INSECURE
+  value: "true"
+- name: LUNAR_HUB_TOKEN
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "lunar.hubAuthSecretName" . }}
+      key: {{ .Values.hub.auth.secretKey }}
+{{- end }}
+
+{{/*
 In-cluster DNS name for the Hub service, in `<svc>.<ns>.svc.<clusterDomain>`
 form so it resolves from any namespace (the operator's scriptNamespace, in
 particular). Callers that need to honor a per-component override should do

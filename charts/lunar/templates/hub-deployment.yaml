@@ -161,6 +161,29 @@ spec:
             - name: HUB_GRAFANA_URL_BASE
               value: {{ . | quote }}
             {{- end }}
+            {{- if $.Values.grafana.enabled }}
+            # Grafana admin creds the Hub vends to the lunar-dashboards deploy tool
+            # via GetGrafanaEndpoint (basic auth, for our stock Grafana pod).
+            - name: HUB_GRAFANA_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "lunar.grafanaAdminSecretName" $ }}
+                  key: {{ $.Values.grafana.admin.userKey }}
+            - name: HUB_GRAFANA_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "lunar.grafanaAdminSecretName" $ }}
+                  key: {{ $.Values.grafana.admin.passwordKey }}
+            {{- if $.Values.grafana.dashboardsDeploy.enabled }}
+            # Read-only grafana_user password: the Hub builds the datasource
+            # connection string GetGrafanaConnectionString vends to the deploy tool.
+            - name: HUB_GRAFANA_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "lunar.grafanaDBSecretName" $ }}
+                  key: {{ $.Values.grafana.dashboardsDeploy.dbPassword.passwordKey }}
+            {{- end }}
+            {{- end }}
             - name: HUB_K8S_EXECUTION_ENABLED
               value: "true"
             - name: HUB_MAX_WORKERS_COLLECT

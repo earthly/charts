@@ -99,6 +99,16 @@ spec:
             # Best-effort in the binary — falls back to stderr if absent.
             - name: HUB_LICENCE_FILE
               value: {{ .licence.filePath | quote }}
+            {{- if and $.Values.grafana.enabled $.Values.grafana.dashboardsDeploy.enabled }}
+            # grafana_user (02_grafana/user.sql) is created WITH its password on a
+            # fresh DB, same as sqlapi_user — the read-only role the lunar-dashboards
+            # deploy tool uses for the Grafana datasource.
+            - name: HUB_GRAFANA_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "lunar.grafanaDBSecretName" $ }}
+                  key: {{ $.Values.grafana.dashboardsDeploy.dbPassword.passwordKey }}
+            {{- end }}
             # Same extraEnv as the hub Deployment. Required so the migrator
             # sees HUB_SQLAPI_PASSWORD (the chart supplies SQL-API creds only
             # via extraEnv): 01_sqlapi/user.sql creates the sqlapi_user role,
