@@ -23,6 +23,10 @@ history see `git log -- charts/lunar/`.
   graceful shutdown and k8s deregisters it. Liveness still targets `/health`
   (process-only, so a draining or DB-blipped pod is never restarted). Requires a
   hub image that serves `/ready` (lunar-hub with ENG-1120).
+- **images**: default image tags (hub, operator, init, sidecar, grafana) bumped
+  to `2.6.0` — the first hub release that serves `/ready` — in lockstep with the
+  readiness-probe change above, so the chart default never points at an image
+  that 404s the probe.
 
 ## [2.12.0] - 2026-07-02
 
