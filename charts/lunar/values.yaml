@@ -497,7 +497,7 @@ grafana:
   image:
     repository: "grafana/grafana"
     pullPolicy: IfNotPresent
-    tag: "13.0.3"
+    tag: "13.1.0"
   # lunar-dashboards deploy tool: a run-to-completion image (entrypoint deploy.sh)
   # that installs plugins/datasources/dashboards over the Grafana API. It resolves
   # the Grafana endpoint + a read-only DB connection from the Hub over gRPC, so it

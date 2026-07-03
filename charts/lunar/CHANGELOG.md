@@ -13,14 +13,14 @@ history see `git log -- charts/lunar/`.
 
 ### Changed
 
-- **Grafana is now stock upstream `grafana/grafana` (default `13.0.3`), not a
+- **Grafana is now stock upstream `grafana/grafana` (default `13.1.0`), not a
   Lunar-built image.** Plugins, datasources and dashboards are installed over the
   Grafana HTTP API by the new **`lunar-dashboards`** deploy tool
   (`grafana.dashboardsDeploy`) instead of being baked into a derived image —
   removing the AGPL / maintenance burden of shipping a modified Grafana. The tool
   resolves the Grafana endpoint + a read-only DB connection from the Hub over
   gRPC, so the same image drives our pod and customer-owned Grafana.
-  - `grafana.image` now defaults to `grafana/grafana:13.0.3`.
+  - `grafana.image` now defaults to `grafana/grafana:13.1.0`.
   - The Grafana pod runs stock Grafana with only `GF_SERVER_ROOT_URL`,
     `GF_SECURITY_ADMIN_*` and `GF_USERS_ALLOW_SIGN_UP` set (was: baked plugins /
     dashboards / theme + `POSTGRES_*` / `LUNAR_HUB_*` for the old entrypoint).
@@ -43,7 +43,7 @@ history see `git log -- charts/lunar/`.
 > **Upgrade note.** Requires a Hub image with the `GetGrafanaConnectionString`
 > RPC + the `02_grafana` `grafana_user` migration, and the `lunar-dashboards`
 > image at a matching tag. The chart now pulls stock `grafana/grafana` — if you
-> mirror images into a private registry, mirror `grafana/grafana:13.0.3` and
+> mirror images into a private registry, mirror `grafana/grafana:13.1.0` and
 > `ghcr.io/earthly/lunar-dashboards` too. Version sequences after 2.12.0.
 
 ## [2.12.0] - 2026-07-02
