@@ -504,16 +504,27 @@ grafana:
     tag: "13.1.0"
   # lunar-dashboards deploy tool: a run-to-completion image (entrypoint deploy.sh)
   # that installs plugins/datasources/dashboards over the Grafana API. It resolves
-  # the Grafana endpoint + a read-only DB connection from the Hub over gRPC, so it
-  # needs no Grafana/DB args here. Runs as a post-install/post-upgrade hook Job and
-  # as a reconverge sidecar on the Grafana pod (re-applies on every pod start, so a
-  # recreated pod self-heals without waiting for the next Hub upgrade).
+  # the target Grafana endpoint + a read-only DB connection from the Hub over gRPC,
+  # so it needs no Grafana/DB args here.
   #
-  # When enabled, set HUB_GRAFANA_DB_PASSWORD in hub.extraEnv — the password for
-  # the read-only grafana_user DB role the deploy tool's datasource uses. It's
-  # operator-supplied the same way HUB_SQLAPI_PASSWORD is (no dedicated value):
-  # the migrate Job creates the role WITH it, and the Hub vends it to the deploy
-  # tool via GetGrafanaConnectionString. Keep it stable across upgrades.
+  # The deploy Job runs on every Hub install/upgrade whenever dashboardsDeploy is
+  # enabled, for either target:
+  #   - the chart's own Grafana pod (grafana.enabled): deployed directly via the
+  #     in-cluster Service; admin auth is auto-wired from the grafana-admin secret.
+  #     A reconverge sidecar on the pod also re-applies on every pod start, so a
+  #     recreated pod self-heals without waiting for the next Hub upgrade.
+  #   - an external/customer Grafana (grafana.enabled=false): the endpoint is
+  #     resolved from the Hub, so the Hub must be configured for it — set
+  #     grafana.externalURL (-> HUB_GRAFANA_URL_BASE) and, via hub.extraEnv,
+  #     HUB_GRAFANA_TOKEN (or HUB_GRAFANA_USER + HUB_GRAFANA_PASSWORD). The external
+  #     Grafana must also be able to reach the Hub's Postgres for the datasource.
+  #
+  # Either way, set HUB_GRAFANA_DB_PASSWORD in hub.extraEnv — the password for the
+  # read-only grafana_user DB role the deploy tool's datasource uses. It's operator-
+  # supplied the same way HUB_SQLAPI_PASSWORD is (no dedicated value): the migrate
+  # Job creates the role WITH it, and the Hub vends it to the deploy tool via
+  # GetGrafanaConnectionString. Keep it stable across upgrades. Set enabled=false
+  # to skip deploying dashboards entirely.
   dashboardsDeploy:
     enabled: true
     image:

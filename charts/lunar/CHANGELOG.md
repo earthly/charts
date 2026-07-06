@@ -29,10 +29,13 @@ history see `git log -- charts/lunar/`.
 
 - **`grafana.dashboardsDeploy`** — deploy-tool config: `enabled` and `image.*`.
 - **Grafana content deploy hook** (`grafana-deploy-job.yaml`) — a
-  `post-install`/`post-upgrade` Job that runs the deploy tool on every Hub
-  install/upgrade. Non-blocking: a failed deploy is logged but never fails/rolls
-  back the Hub upgrade. An init container waits for both Grafana's API and the
-  Hub's gRPC before deploying, so it doesn't race the hub becoming Ready on a
+  `post-install`/`post-upgrade` Job (gated on `dashboardsDeploy.enabled`) that runs
+  the deploy tool on every Hub install/upgrade, targeting either the chart's own
+  Grafana pod (deployed directly via the in-cluster Service) or a customer-owned
+  external Grafana (`grafana.enabled=false`; endpoint + auth resolved from the Hub).
+  Non-blocking: a failed deploy is logged but never fails/rolls back the Hub
+  upgrade. An init container waits for the Hub's gRPC (and, for the chart pod,
+  Grafana's API) before deploying, so it doesn't race the hub becoming Ready on a
   fresh install.
 - **Reconverge sidecar** on the Grafana pod — re-applies content on every pod
   start so the pod is stateless / self-healing (no PVC needed); it waits for the

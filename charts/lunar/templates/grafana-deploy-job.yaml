@@ -1,17 +1,20 @@
 {{/*
 Grafana content deploy hook. Runs the lunar-dashboards image (deploy.sh) as a
 post-install/post-upgrade hook so plugins/datasources/dashboards are (re)installed
-into the Grafana pod on every Hub install/upgrade. GRAFANA_URL points at the
-in-cluster Service (its kiosk proxy forwards /api to Grafana with basic-auth
-intact); everything else deploy.sh resolves from the Hub over gRPC.
+on every Hub install/upgrade — into the chart's own Grafana pod or a customer-owned
+external Grafana. When grafana.enabled, GRAFANA_URL points at the in-cluster Service
+(the direct route; its kiosk proxy passes /api through with basic-auth intact); for
+an external Grafana it is omitted and deploy.sh resolves the endpoint (URL + auth)
+from the Hub over gRPC. The read-only DB connection is always resolved from the Hub.
 
 Non-blocking: a failed deploy is logged but exits 0 so it never fails/rolls back
 the Hub upgrade — the Hub is the product, dashboards are a convenience, and the
-reconverge sidecar + next upgrade re-converge. hook-weight 5 runs it after the hub
-Deployment; an init container waits for both Grafana's API and the Hub's gRPC before
-deploy.sh runs, so it doesn't race the hub becoming Ready on a fresh install.
+reconverge sidecar (chart pod) + next upgrade re-converge. hook-weight 5 runs it
+after the hub Deployment; an init container waits for the Hub's gRPC (and, for the
+chart pod, Grafana's API) before deploy.sh runs, so it doesn't race the hub becoming
+Ready on a fresh install.
 */}}
-{{- if and .Values.grafana.enabled .Values.grafana.dashboardsDeploy.enabled -}}
+{{- if .Values.grafana.dashboardsDeploy.enabled -}}
 {{- $img := printf "%s:%s" .Values.grafana.dashboardsDeploy.image.repository (.Values.grafana.dashboardsDeploy.image.tag | default .Values.hub.image.tag) -}}
 apiVersion: batch/v1
 kind: Job
@@ -51,19 +54,22 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       initContainers:
-        # Gate deploy.sh on both dependencies: Grafana's API and the Hub's gRPC.
-        # deploy.sh makes a single Hub gRPC call with no internal retry, so without
-        # this it would race the Hub becoming Ready on a fresh install and the
-        # dashboards would silently not install until the next upgrade.
+        # deploy.sh makes a single Hub gRPC call with no internal retry, so wait for
+        # the Hub's gRPC before running it — otherwise it races the Hub becoming
+        # Ready on a fresh install and dashboards silently don't install until the
+        # next upgrade. For the chart's own pod, also wait for Grafana's API (the
+        # direct target); for an external Grafana, deploy.sh preflights it itself.
         - name: wait-for-deps
           image: {{ $img | quote }}
           imagePullPolicy: {{ .Values.grafana.dashboardsDeploy.image.pullPolicy }}
           command: ["/bin/sh", "-c"]
           args:
             - |
+              {{- if .Values.grafana.enabled }}
               until curl -fsS "http://{{ include "lunar.fullname" . }}-grafana:{{ .Values.grafana.service.port }}/api/health" >/dev/null 2>&1; do
                 echo "waiting for grafana..."; sleep 2;
               done
+              {{- end }}
               until grpcurl -plaintext -connect-timeout 5 -H "Authorization: Bearer $LUNAR_HUB_TOKEN" "$LUNAR_HUB_HOST:$LUNAR_HUB_GRPC_PORT" list >/dev/null 2>&1; do
                 echo "waiting for hub..."; sleep 2;
               done
@@ -82,10 +88,14 @@ spec:
               echo "grafana dashboard deploy failed" >&2
               exit 0
           env:
-            # Target the in-cluster Service (its kiosk proxy forwards /api to
-            # Grafana with basic-auth intact); the Hub's grafana URL is the
-            # external PR-link URL, not the in-cluster address.
+            {{- if .Values.grafana.enabled }}
+            # Chart's own pod (direct route): target the in-cluster Service (its
+            # kiosk proxy passes /api through with basic-auth intact). The Hub's
+            # grafana URL is the external browser/PR-link URL, not the in-cluster
+            # address, so we set the in-cluster URL explicitly. For an external
+            # Grafana this is omitted and deploy.sh resolves the URL from the Hub.
             - name: GRAFANA_URL
               value: "http://{{ include "lunar.fullname" . }}-grafana:{{ .Values.grafana.service.port }}"
+            {{- end }}
             {{- include "lunar.grafanaDeployHubEnv" . | nindent 12 }}
 {{- end }}
