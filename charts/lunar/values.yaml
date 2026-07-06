@@ -513,7 +513,7 @@ grafana:
   # the read-only grafana_user DB role the deploy tool's datasource uses. It's
   # operator-supplied the same way HUB_SQLAPI_PASSWORD is (no dedicated value):
   # the migrate Job creates the role WITH it, and the Hub vends it to the deploy
-  # tool via GetGrafanaDBConfig. Keep it stable across upgrades.
+  # tool via GetGrafanaConnectionString. Keep it stable across upgrades.
   dashboardsDeploy:
     enabled: true
     image:

@@ -39,7 +39,7 @@ history see `git log -- charts/lunar/`.
   Hub's gRPC before each (re)deploy.
 - **Read-only `grafana_user` DB role** for the deploy tool's datasource — the
   migrate Job creates it WITH its password on a fresh DB and the Hub vends the
-  connection to the deploy tool via `GetGrafanaDBConfig` (it also vends the
+  connection to the deploy tool via `GetGrafanaConnectionString` (it also vends the
   Grafana admin login, `HUB_GRAFANA_USER` / `HUB_GRAFANA_PASSWORD`). Its password
   is operator-supplied as `HUB_GRAFANA_DB_PASSWORD` via `hub.extraEnv`, the same
   way as `HUB_SQLAPI_PASSWORD` — the chart does not generate it.
@@ -58,7 +58,7 @@ history see `git log -- charts/lunar/`.
   readiness-probe change above, so the chart default never points at an image
   that 404s the probe.
 
-> **Upgrade note.** Requires a Hub image with the `GetGrafanaDBConfig`
+> **Upgrade note.** Requires a Hub image with the `GetGrafanaConnectionString`
 > RPC + the `02_grafana` `grafana_user` migration, and the `lunar-dashboards`
 > image at a matching tag. The chart now pulls stock `grafana/grafana` — if you
 > mirror images into a private registry, mirror `grafana/grafana:13.1.0` and
