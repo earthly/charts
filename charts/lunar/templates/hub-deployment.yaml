@@ -174,12 +174,18 @@ spec:
                 secretKeyRef:
                   name: {{ include "lunar.grafanaAdminSecretName" $ }}
                   key: {{ $.Values.grafana.admin.passwordKey }}
-            # Read-only grafana_user password (HUB_GRAFANA_DB_PASSWORD): the Hub
-            # embeds it in the read-only Postgres connection string
-            # GetGrafanaConnectionString vends to the deploy tool. Supplied
-            # operator-side via hub.extraEnv (below), like HUB_SQLAPI_PASSWORD,
-            # when grafana.dashboardsDeploy is enabled — the chart doesn't
-            # generate it.
+            {{- end }}
+            {{- if $.Values.grafana.dashboardsDeploy.enabled }}
+            # Read-only grafana_user password: the Hub embeds it in the read-only
+            # Postgres connection string GetGrafanaConnectionString vends to the
+            # deploy tool. Chart-generated (grafana-db secret); needed whenever
+            # dashboardsDeploy is enabled, including external Grafana
+            # (grafana.enabled=false).
+            - name: HUB_GRAFANA_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "lunar.grafanaDBSecretName" $ }}
+                  key: {{ $.Values.grafana.dashboardsDeploy.dbPassword.passwordKey }}
             {{- end }}
             - name: HUB_K8S_EXECUTION_ENABLED
               value: "true"

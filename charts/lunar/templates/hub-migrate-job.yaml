@@ -99,15 +99,24 @@ spec:
             # Best-effort in the binary — falls back to stderr if absent.
             - name: HUB_LICENCE_FILE
               value: {{ .licence.filePath | quote }}
+            {{- if $.Values.grafana.dashboardsDeploy.enabled }}
+            # grafana_user (02_grafana/user.sql) is created WITH its password on a
+            # fresh DB — the read-only role the lunar-dashboards deploy tool uses for
+            # the Grafana datasource. Chart-generated (grafana-db secret); needed
+            # whenever dashboardsDeploy is enabled (incl. external Grafana).
+            - name: HUB_GRAFANA_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "lunar.grafanaDBSecretName" $ }}
+                  key: {{ $.Values.grafana.dashboardsDeploy.dbPassword.passwordKey }}
+            {{- end }}
             # Same extraEnv as the hub Deployment. Required so the migrator sees
-            # the read-only DB-role passwords the chart supplies only via extraEnv:
-            #   - HUB_SQLAPI_PASSWORD     — 01_sqlapi/user.sql creates sqlapi_user
-            #   - HUB_GRAFANA_DB_PASSWORD — 02_grafana/user.sql creates grafana_user
-            #     (set this in hub.extraEnv when grafana.dashboardsDeploy is enabled)
-            # On a *fresh* database (greenfield install) each role must be created
-            # WITH its password or that consumer can't authenticate. (An already-
-            # migrated DB — e.g. an upgrade — doesn't re-run it, so this only bites
-            # first installs; it went unnoticed until then.)
+            # HUB_SQLAPI_PASSWORD (the chart supplies SQL-API creds only via
+            # extraEnv): 01_sqlapi/user.sql creates the sqlapi_user role, and on a
+            # *fresh* database (greenfield install) that role must be created WITH
+            # its password or the SQL API can't authenticate. (An already-migrated
+            # DB — e.g. an upgrade — doesn't re-run it, so this only bites first
+            # installs; it went unnoticed until then.)
             {{- with .extraEnv }}
               {{- toYaml . | nindent 12 }}
             {{- end }}

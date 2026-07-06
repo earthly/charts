@@ -43,9 +43,10 @@ history see `git log -- charts/lunar/`.
 - **Read-only `grafana_user` DB role** for the deploy tool's datasource — the
   migrate Job creates it WITH its password on a fresh DB and the Hub vends the
   connection to the deploy tool via `GetGrafanaConnectionString` (it also vends the
-  Grafana admin login, `HUB_GRAFANA_USER` / `HUB_GRAFANA_PASSWORD`). Its password
-  is operator-supplied as `HUB_GRAFANA_DB_PASSWORD` via `hub.extraEnv`, the same
-  way as `HUB_SQLAPI_PASSWORD` — the chart does not generate it.
+  Grafana admin login, `HUB_GRAFANA_USER` / `HUB_GRAFANA_PASSWORD`). Its password is
+  chart-generated — a `pre-install`/`pre-upgrade` hook secret weighted before the
+  migrate Job (`helm.sh/resource-policy: keep`); set
+  `grafana.dashboardsDeploy.dbPassword.secretName` to bring your own.
 - **hub**: added a `preStop` hook (`hub.preStopSleepSeconds`, default 10s) that
   sleeps before SIGTERM, giving k8s time to deregister the pod from the Service
   so new requests stop arriving before the hub drains (graceful shutdown, Hub HA

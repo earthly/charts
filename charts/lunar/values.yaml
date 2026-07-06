@@ -519,12 +519,8 @@ grafana:
   #     HUB_GRAFANA_TOKEN (or HUB_GRAFANA_USER + HUB_GRAFANA_PASSWORD). The external
   #     Grafana must also be able to reach the Hub's Postgres for the datasource.
   #
-  # Either way, set HUB_GRAFANA_DB_PASSWORD in hub.extraEnv — the password for the
-  # read-only grafana_user DB role the deploy tool's datasource uses. It's operator-
-  # supplied the same way HUB_SQLAPI_PASSWORD is (no dedicated value): the migrate
-  # Job creates the role WITH it, and the Hub vends it to the deploy tool via
-  # GetGrafanaConnectionString. Keep it stable across upgrades. Set enabled=false
-  # to skip deploying dashboards entirely.
+  # The read-only grafana_user DB password (dbPassword below) is chart-generated —
+  # no operator config needed. Set enabled=false to skip deploying dashboards.
   dashboardsDeploy:
     enabled: true
     image:
@@ -533,6 +529,14 @@ grafana:
       # Defaults to the hub image tag (hub.image.tag) so dashboards match the
       # running Hub's schema. Override to pin a specific deploy-tool version.
       tag: ""
+    # Password for the read-only grafana_user DB role the deploy tool's datasource
+    # uses (the Hub vends the connection to the tool; it's never user-facing). Leave
+    # secretName empty to have the chart generate it — a pre-install/pre-upgrade hook
+    # secret, persisted across upgrades (helm.sh/resource-policy: keep). Set
+    # secretName to bring your own (recommended for GitOps; see grafana.admin note).
+    dbPassword:
+      secretName: ""
+      passwordKey: "password"
   service:
     type: ClusterIP
     port: 80
