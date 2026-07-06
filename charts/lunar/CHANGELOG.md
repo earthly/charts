@@ -47,6 +47,11 @@ history see `git log -- charts/lunar/`.
   chart-generated — a `pre-install`/`pre-upgrade` hook secret weighted before the
   migrate Job (`helm.sh/resource-policy: keep`); set
   `grafana.dashboardsDeploy.dbPassword.secretName` to bring your own.
+- **`hub.db.connectionOptions` now also drives the SQL API and Grafana datasource
+  connections** — `HUB_SQLAPI_CONNECTION_OPTIONS` and
+  `HUB_GRAFANA_DB_CONNECTION_OPTIONS` are set from it (like
+  `OPERATOR_DB_CONNECTION_OPTIONS`), since all roles connect to the same Postgres —
+  instead of the Hub's `sslmode=disable` default for those two.
 - **hub**: added a `preStop` hook (`hub.preStopSleepSeconds`, default 10s) that
   sleeps before SIGTERM, giving k8s time to deregister the pod from the Service
   so new requests stop arriving before the hub drains (graceful shutdown, Hub HA

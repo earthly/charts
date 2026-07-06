@@ -94,8 +94,10 @@ hub:
     # Footgun: overriding REPLACES the whole string — the default is not
     # merged in. If you pass additional options, include sslmode= yourself.
     #
-    # Also consumed by the operator (OPERATOR_DB_CONNECTION_OPTIONS); both
-    # components connect to the same DB so they share this value.
+    # Also consumed by the operator (OPERATOR_DB_CONNECTION_OPTIONS), the SQL API
+    # (HUB_SQLAPI_CONNECTION_OPTIONS) and the Grafana datasource
+    # (HUB_GRAFANA_DB_CONNECTION_OPTIONS) — they all connect to the same DB, so
+    # they share this value.
     connectionOptions: "sslmode=require"
     # Per-replica Postgres connection budget. Total connections to Postgres ≈
     # replicaCount × (maxOpenConns + maxPoolConns + operatorPoolSize).
