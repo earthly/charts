@@ -508,6 +508,12 @@ grafana:
   # needs no Grafana/DB args here. Runs as a post-install/post-upgrade hook Job and
   # as a reconverge sidecar on the Grafana pod (re-applies on every pod start, so a
   # recreated pod self-heals without waiting for the next Hub upgrade).
+  #
+  # When enabled, set HUB_GRAFANA_DB_PASSWORD in hub.extraEnv — the password for
+  # the read-only grafana_user DB role the deploy tool's datasource uses. It's
+  # operator-supplied the same way HUB_SQLAPI_PASSWORD is (no dedicated value):
+  # the migrate Job creates the role WITH it, and the Hub vends it to the deploy
+  # tool via GetGrafanaDBConfig. Keep it stable across upgrades.
   dashboardsDeploy:
     enabled: true
     image:
@@ -516,12 +522,6 @@ grafana:
       # Defaults to the hub image tag (hub.image.tag) so dashboards match the
       # running Hub's schema. Override to pin a specific deploy-tool version.
       tag: ""
-    # Password for the read-only grafana_user DB role the deploy tool uses for the
-    # Grafana datasource. Leave secretName empty to have the chart generate it
-    # (persisted across upgrades). Consumed by the Hub + the migrate Job.
-    dbPassword:
-      secretName: ""
-      passwordKey: "password"
   service:
     type: ClusterIP
     port: 80

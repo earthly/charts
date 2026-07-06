@@ -8,7 +8,8 @@ intact); everything else deploy.sh resolves from the Hub over gRPC.
 Non-blocking: a failed deploy is logged but exits 0 so it never fails/rolls back
 the Hub upgrade — the Hub is the product, dashboards are a convenience, and the
 reconverge sidecar + next upgrade re-converge. hook-weight 5 runs it after the hub
-Deployment; a fixed backoffLimit covers the hub not being Ready when the hook fires.
+Deployment; an init container waits for both Grafana's API and the Hub's gRPC before
+deploy.sh runs, so it doesn't race the hub becoming Ready on a fresh install.
 */}}
 {{- if and .Values.grafana.enabled .Values.grafana.dashboardsDeploy.enabled -}}
 {{- $img := printf "%s:%s" .Values.grafana.dashboardsDeploy.image.repository (.Values.grafana.dashboardsDeploy.image.tag | default .Values.hub.image.tag) -}}
@@ -50,12 +51,24 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       initContainers:
-        - name: wait-for-grafana
+        # Gate deploy.sh on both dependencies: Grafana's API and the Hub's gRPC.
+        # deploy.sh makes a single Hub gRPC call with no internal retry, so without
+        # this it would race the Hub becoming Ready on a fresh install and the
+        # dashboards would silently not install until the next upgrade.
+        - name: wait-for-deps
           image: {{ $img | quote }}
           imagePullPolicy: {{ .Values.grafana.dashboardsDeploy.image.pullPolicy }}
           command: ["/bin/sh", "-c"]
           args:
-            - until curl -fsS "http://{{ include "lunar.fullname" . }}-grafana:{{ .Values.grafana.service.port }}/api/health" >/dev/null 2>&1; do echo "waiting for grafana..."; sleep 2; done
+            - |
+              until curl -fsS "http://{{ include "lunar.fullname" . }}-grafana:{{ .Values.grafana.service.port }}/api/health" >/dev/null 2>&1; do
+                echo "waiting for grafana..."; sleep 2;
+              done
+              until grpcurl -plaintext -connect-timeout 5 -H "Authorization: Bearer $LUNAR_HUB_TOKEN" "$LUNAR_HUB_HOST:$LUNAR_HUB_GRPC_PORT" list >/dev/null 2>&1; do
+                echo "waiting for hub..."; sleep 2;
+              done
+          env:
+            {{- include "lunar.grafanaDeployHubEnv" . | nindent 12 }}
       containers:
         - name: deploy
           image: {{ $img | quote }}

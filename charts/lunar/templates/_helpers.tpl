@@ -183,14 +183,6 @@ Resolved name for the chart-managed Grafana admin secret.
 {{- end }}
 
 {{/*
-Resolved name for the chart-managed read-only Grafana DB-role (grafana_user)
-password secret, used by the lunar-dashboards deploy tool's datasource.
-*/}}
-{{- define "lunar.grafanaDBSecretName" -}}
-{{- .Values.grafana.dashboardsDeploy.dbPassword.secretName | default (printf "%s-grafana-db" (include "lunar.fullname" .)) -}}
-{{- end }}
-
-{{/*
 LUNAR_HUB_* env for the lunar-dashboards deploy tool (the deploy hook Job and the
 reconverge sidecar). deploy.sh uses it to resolve the Grafana endpoint + a
 read-only DB connection from the Hub over gRPC. Only LUNAR_HUB_TOKEN is sensitive.

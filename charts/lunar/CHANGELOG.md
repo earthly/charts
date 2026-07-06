@@ -27,14 +27,22 @@ history see `git log -- charts/lunar/`.
 
 ### Added
 
-- **`grafana.dashboardsDeploy`** — deploy-tool config: `enabled`, `image.*`,
-  `dbPassword.*`.
+- **`grafana.dashboardsDeploy`** — deploy-tool config: `enabled` and `image.*`.
 - **Grafana content deploy hook** (`grafana-deploy-job.yaml`) — a
   `post-install`/`post-upgrade` Job that runs the deploy tool on every Hub
   install/upgrade. Non-blocking: a failed deploy is logged but never fails/rolls
-  back the Hub upgrade.
+  back the Hub upgrade. An init container waits for both Grafana's API and the
+  Hub's gRPC before deploying, so it doesn't race the hub becoming Ready on a
+  fresh install.
 - **Reconverge sidecar** on the Grafana pod — re-applies content on every pod
-  start so the pod is stateless / self-healing (no PVC needed).
+  start so the pod is stateless / self-healing (no PVC needed); it waits for the
+  Hub's gRPC before each (re)deploy.
+- **Read-only `grafana_user` DB role** for the deploy tool's datasource — the
+  migrate Job creates it WITH its password on a fresh DB and the Hub vends the
+  connection to the deploy tool via `GetGrafanaDBConfig` (it also vends the
+  Grafana admin login, `HUB_GRAFANA_USER` / `HUB_GRAFANA_PASSWORD`). Its password
+  is operator-supplied as `HUB_GRAFANA_DB_PASSWORD` via `hub.extraEnv`, the same
+  way as `HUB_SQLAPI_PASSWORD` — the chart does not generate it.
 - **hub**: added a `preStop` hook (`hub.preStopSleepSeconds`, default 10s) that
   sleeps before SIGTERM, giving k8s time to deregister the pod from the Service
   so new requests stop arriving before the hub drains (graceful shutdown, Hub HA
@@ -49,6 +57,12 @@ history see `git log -- charts/lunar/`.
   to `2.6.0` — the first hub release that serves `/ready` — in lockstep with the
   readiness-probe change above, so the chart default never points at an image
   that 404s the probe.
+
+> **Upgrade note.** Requires a Hub image with the `GetGrafanaDBConfig`
+> RPC + the `02_grafana` `grafana_user` migration, and the `lunar-dashboards`
+> image at a matching tag. The chart now pulls stock `grafana/grafana` — if you
+> mirror images into a private registry, mirror `grafana/grafana:13.1.0` and
+> `ghcr.io/earthly/lunar-dashboards` too. Version sequences after 2.12.0.
 
 ## [2.12.0] - 2026-07-02
 

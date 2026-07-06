@@ -108,6 +108,9 @@ spec:
               until curl -fsS "$GRAFANA_URL/api/health" >/dev/null 2>&1; do
                 echo "waiting for grafana..."; sleep 2;
               done
+              until grpcurl -plaintext -connect-timeout 5 -H "Authorization: Bearer $LUNAR_HUB_TOKEN" "$LUNAR_HUB_HOST:$LUNAR_HUB_GRPC_PORT" list >/dev/null 2>&1; do
+                echo "waiting for hub..."; sleep 2;
+              done
               /deploy.sh || echo "dashboards reconverge failed" >&2
               # Idle so the Deployment treats this as a long-lived sidecar; it
               # re-applies on the next pod (re)start.
