@@ -9,6 +9,17 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [2.15.0] - 2026-07-08
+
+### Changed
+
+- **images**: default image tags (hub, operator, init, sidecar, grafana) bumped
+  to `2.7.0` — the lunar-hub 2.7.0 release. This is the multi-replica HA hub:
+  `replicaCount >= 2` support with a PodDisruptionBudget, cross-replica secret-cache
+  and doneness-cache invalidation, advisory-lock dedup of PR comments and check-runs,
+  readiness-gated S3 bundle backfill at boot, and reduced GitHub API pressure at
+  `N >= 2`. Image-tag bump only — no chart template changes.
+
 ## [2.13.0] - 2026-07-03
 
 ### Changed
