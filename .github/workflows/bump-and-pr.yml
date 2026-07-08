@@ -1,11 +1,11 @@
 name: Bump Version
-run-name: "Bump to ${{ inputs.version }}"
+run-name: "Bump chart for lunar-hub ${{ inputs.version }}"
 
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to release (e.g. "2.2.0")'
+        description: 'lunar-hub image version to deploy (e.g. "2.4.1"). The chart''s own version auto-bumps its patch — it is independent of this.'
         required: true
         type: string
 
@@ -22,19 +22,35 @@ jobs:
           fetch-depth: 0
 
       - name: Update versions
+        id: versions
         env:
-          VERSION: ${{ inputs.version }}
+          HUB_VERSION: ${{ inputs.version }}
         run: |
-          yq -i ".version = \"${VERSION}\"" charts/lunar/Chart.yaml
-          yq -i ".hub.image.tag = \"${VERSION}\"" charts/lunar/values.yaml
-          yq -i ".operator.image.tag = \"${VERSION}\"" charts/lunar/values.yaml
-          yq -i ".operator.initImage.tag = \"${VERSION}\"" charts/lunar/values.yaml
-          yq -i ".operator.sidecarImage.tag = \"${VERSION}\"" charts/lunar/values.yaml
-          yq -i ".grafana.image.tag = \"${VERSION}\"" charts/lunar/values.yaml
+          # Image tags track the lunar-hub release being deployed.
+          yq -i ".hub.image.tag = \"${HUB_VERSION}\"" charts/lunar/values.yaml
+          yq -i ".operator.image.tag = \"${HUB_VERSION}\"" charts/lunar/values.yaml
+          yq -i ".operator.initImage.tag = \"${HUB_VERSION}\"" charts/lunar/values.yaml
+          yq -i ".operator.sidecarImage.tag = \"${HUB_VERSION}\"" charts/lunar/values.yaml
+          yq -i ".grafana.image.tag = \"${HUB_VERSION}\"" charts/lunar/values.yaml
+
+          # The chart versions INDEPENDENTLY of the hub. A bump that only re-points the
+          # deployed hub image is, by definition, a chart patch — so auto-increment the
+          # chart's own patch. Chart and hub versions are never coupled, and a chart that
+          # happens to share a hub version no longer blocks the hub release.
+          CUR=$(yq '.version' charts/lunar/Chart.yaml)
+          if [[ ! "$CUR" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::current chart version '$CUR' is not X.Y.Z — bump it manually" >&2
+            exit 1
+          fi
+          CHART_VERSION=$(echo "$CUR" | awk -F. '{print $1"."$2"."$3+1}')
+          yq -i ".version = \"${CHART_VERSION}\"" charts/lunar/Chart.yaml
+          echo "chart_version=${CHART_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Chart ${CUR} -> ${CHART_VERSION}; image tags -> lunar-hub ${HUB_VERSION}"
 
       - name: Push release branch and open PR
         env:
-          VERSION: ${{ inputs.version }}
+          HUB_VERSION: ${{ inputs.version }}
+          CHART_VERSION: ${{ steps.versions.outputs.chart_version }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config user.name "github-actions[bot]"
@@ -44,13 +60,13 @@ jobs:
             echo "No changes to commit"
             exit 0
           fi
-          BRANCH="release/${VERSION}"
+          BRANCH="release/chart-${CHART_VERSION}"
           git checkout -b "${BRANCH}"
-          git commit -m "Release ${VERSION}"
+          git commit -m "Release chart ${CHART_VERSION} (lunar-hub ${HUB_VERSION})"
           git push -u origin "${BRANCH}"
           gh pr create \
             --base main \
             --head "${BRANCH}" \
-            --title "Release ${VERSION}" \
-            --body "Automated bump from \`lunar-hub-v${VERSION}\` release. Updates \`Chart.yaml\` version and all image tags in \`charts/lunar/values.yaml\` to \`${VERSION}\`. The chart release itself is published by \`release.yml\` on merge to \`main\`."
+            --title "Release chart ${CHART_VERSION} (lunar-hub ${HUB_VERSION})" \
+            --body "Automated bump from the \`lunar-hub-v${HUB_VERSION}\` release. Sets the deployed image tags in \`charts/lunar/values.yaml\` to \`${HUB_VERSION}\`, and auto-bumps the chart's own \`Chart.yaml\` version to \`${CHART_VERSION}\` — chart and hub versions are independent. The chart release is published by \`release.yml\` on merge to \`main\`."
           gh pr merge --auto --squash "${BRANCH}"
