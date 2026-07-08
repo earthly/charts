@@ -387,6 +387,14 @@ hub:
   tolerations: []
   affinity: {}
 operator:
+  # Number of operator replicas. Safe at N>1 on the leader-elected image (>= the
+  # release that adds operator Manager leader election): snippet execution stays
+  # active-active (River workers), while exactly one replica runs the pod-GC
+  # reconciler via the leader-election Lease (RBAC in operator-rbac.yaml). On a
+  # pre-LE image, N>1 is still safe but runs N duplicate (idempotent) GC passes.
+  # Operator Postgres connections scale with replicaCount. Keep at 1 unless you
+  # want operator failover / throughput.
+  replicaCount: 1
   image:
     repository: "ghcr.io/earthly/lunar-snippet-operator"
     pullPolicy: IfNotPresent
