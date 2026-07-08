@@ -9,6 +9,19 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [2.16.0] - 2026-07-08
+
+### Added
+
+- `operator.replicaCount` (default `1`) — run the snippet operator at N≥2. Safe
+  at N>1 on an operator image with Manager leader election (lunar ENG-1136):
+  snippet execution stays active-active (River workers) while exactly one replica
+  runs the pod-GC reconciler via a leader-election `Lease`. On a pre-LE image, N>1
+  is still safe but runs N duplicate (idempotent) GC passes.
+- Leader-election RBAC on the operator `Role`: `coordination.k8s.io/leases` (the
+  `events` grant already existed). Required when `operator.replicaCount > 1` on
+  the leader-elected image.
+
 ## [2.15.0] - 2026-07-08
 
 ### Changed

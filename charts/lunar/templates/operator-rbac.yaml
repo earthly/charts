@@ -13,6 +13,12 @@ rules:
   - apiGroups: [""]
     resources: ["events"]
     verbs: ["create", "patch"]
+  # Leader election for multi-replica operators (controller-runtime Manager LE).
+  # The Lease lives in OPERATOR_NAMESPACE, which is this Role's namespace
+  # (scriptNamespace); whichever replica holds it runs the pod-GC reconciler.
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
