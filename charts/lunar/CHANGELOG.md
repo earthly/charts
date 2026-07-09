@@ -82,6 +82,41 @@ history see `git log -- charts/lunar/`.
   `HUB_GRAFANA_DB_CONNECTION_OPTIONS` are set from it (like
   `OPERATOR_DB_CONNECTION_OPTIONS`), since all roles connect to the same Postgres —
   instead of the Hub's `sslmode=disable` default for those two.
+
+> **Upgrade note.** Requires a Hub image with the `GetGrafanaConnectionString`
+> RPC + the `02_grafana` `grafana_user` migration, and the `lunar-dashboards`
+> image at a matching tag. The chart now pulls stock `grafana/grafana` — if you
+> mirror images into a private registry, mirror `grafana/grafana:13.1.0` and
+> `ghcr.io/earthly/lunar-dashboards` too. Version sequences after 2.16.0.
+
+## [2.16.0] - 2026-07-08
+
+### Added
+
+- `operator.replicaCount` (default `1`) — run the snippet operator at N≥2. Safe
+  at N>1 on an operator image with Manager leader election (lunar ENG-1136):
+  snippet execution stays active-active (River workers) while exactly one replica
+  runs the pod-GC reconciler via a leader-election `Lease`. On a pre-LE image, N>1
+  is still safe but runs N duplicate (idempotent) GC passes.
+- Leader-election RBAC on the operator `Role`: `coordination.k8s.io/leases` (the
+  `events` grant already existed). Required when `operator.replicaCount > 1` on
+  the leader-elected image.
+
+## [2.15.0] - 2026-07-08
+
+### Changed
+
+- **images**: default image tags (hub, operator, init, sidecar, grafana) bumped
+  to `2.7.0` — the lunar-hub 2.7.0 release. This is the multi-replica HA hub:
+  `replicaCount >= 2` support with a PodDisruptionBudget, cross-replica secret-cache
+  and doneness-cache invalidation, advisory-lock dedup of PR comments and check-runs,
+  readiness-gated S3 bundle backfill at boot, and reduced GitHub API pressure at
+  `N >= 2`. Image-tag bump only — no chart template changes.
+
+## [2.13.0] - 2026-07-03
+
+### Changed
+
 - **hub**: added a `preStop` hook (`hub.preStopSleepSeconds`, default 10s) that
   sleeps before SIGTERM, giving k8s time to deregister the pod from the Service
   so new requests stop arriving before the hub drains (graceful shutdown, Hub HA
@@ -96,12 +131,6 @@ history see `git log -- charts/lunar/`.
   to `2.6.0` — the first hub release that serves `/ready` — in lockstep with the
   readiness-probe change above, so the chart default never points at an image
   that 404s the probe.
-
-> **Upgrade note.** Requires a Hub image with the `GetGrafanaConnectionString`
-> RPC + the `02_grafana` `grafana_user` migration, and the `lunar-dashboards`
-> image at a matching tag. The chart now pulls stock `grafana/grafana` — if you
-> mirror images into a private registry, mirror `grafana/grafana:13.1.0` and
-> `ghcr.io/earthly/lunar-dashboards` too. Version sequences after 2.12.0.
 
 ## [2.12.0] - 2026-07-02
 
