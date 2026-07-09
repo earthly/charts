@@ -464,81 +464,93 @@ operator:
   tolerations: []
   affinity: {}
 grafana:
-  enabled: true
-  # External URL where Grafana is reachable. Used for two distinct purposes:
-  #   - GF_SERVER_ROOT_URL — Grafana's own self-knowledge (drives absolute
-  #     link generation, OIDC redirect_uri, etc). Critical to get right when
-  #     Grafana fronts third-party auth (Google, Okta, GitHub OIDC, ...).
-  #   - HUB_GRAFANA_URL_BASE — base for hub's [More Details] links in PR
-  #     comments. The hub consumes this; it doesn't own it.
-  #
-  # Defaults to https://<grafana.ingress.hosts[0].host> when chart-managed
-  # Grafana ingress is enabled — most installs just turn that on and leave
-  # this empty. Empty otherwise — the chart deliberately does NOT guess at
-  # a Grafana URL when it doesn't control the routing (no fallback to
-  # hub.webhookURL or api.host — wrong trust boundary, wrong host).
-  #
-  # Set explicitly when Grafana is reachable via external routing the chart
-  # doesn't manage (Caddy / mesh / shared LB with path routing). Required
-  # for OIDC to work in that topology. The chart fails fast at install time
-  # if grafana.enabled is true and no URL can be determined.
-  externalURL: ""
-  # Admin credentials. Leave secretName empty to have the chart generate them
-  # (recommended for fresh installs): username defaults to "admin", password
-  # is a 32-char alphanumeric. The chart-managed secret persists across
-  # upgrade and uninstall (helm.sh/resource-policy: keep). Retrieve:
-  #   kubectl get secret <release>-grafana-admin \
-  #     -o jsonpath='{.data.password}' | base64 -d
-  #
+  # How Grafana is provided. One of:
+  #   chart    — the chart runs a bundled stock Grafana pod and provisions the
+  #              Lunar dashboards into it (default).
+  #   external — no bundled pod; the chart provisions the Lunar dashboards into a
+  #              bring-your-own Grafana. Point the Hub at it via grafana.url +
+  #              grafana.auth (below) — the chart wires them to the Hub for you (no
+  #              hub.extraEnv plumbing). The external Grafana must also reach the
+  #              Hub's Postgres for the read-only datasource.
+  #   off      — no Grafana and no dashboard provisioning.
+  # Replaces the chart <3.0.0 grafana.enabled + grafana.provisioning.enabled toggles
+  # (grafana.enabled=true -> chart; =false -> external or off).
+  mode: chart
+  # URL where Grafana is reachable (was grafana.externalURL). Drives Grafana's own
+  # GF_SERVER_ROOT_URL (OIDC redirect_uri, absolute links) and the Hub's
+  # HUB_GRAFANA_URL_BASE ([More Details] PR-comment links).
+  #   chart mode    — optional: derived from grafana.ingress.hosts[0].host when
+  #                   chart-managed Grafana ingress is enabled; otherwise required —
+  #                   the chart won't guess a URL it doesn't route to (wrong host =
+  #                   silently broken OIDC). mode=chart fails fast if none is set.
+  #   external mode — required: the base URL of your Grafana. The Hub vends it (+
+  #                   auth below) to the provisioning tool.
+  url: ""
+  # Credentials the chart/Hub use to reach Grafana (was grafana.admin).
+  #   chart mode    — basic admin login for the bundled pod. Leave secretName empty
+  #                   to have the chart generate it (username "admin", 32-char
+  #                   password; persisted across upgrade/uninstall via
+  #                   helm.sh/resource-policy: keep) or set it to bring your own. It
+  #                   seeds the pod's GF_SECURITY_ADMIN_* and is vended to the
+  #                   provisioning tool as HUB_GRAFANA_USER/PASSWORD. Retrieve:
+  #                     kubectl get secret <release>-grafana-admin \
+  #                       -o jsonpath='{.data.password}' | base64 -d
+  #   external mode — REQUIRED (the chart can't generate credentials for a Grafana
+  #                   it doesn't own): the secret the Hub authenticates to your
+  #                   Grafana with. Basic (userKey + passwordKey) or, when tokenKey
+  #                   is set, a service-account token (Grafana Cloud/Enterprise).
+  # tokenKey is external-only — the bundled pod uses basic admin auth.
   # GitOps users (ArgoCD/Flux): see README "GitOps note".
-  admin:
+  auth:
     secretName: ""
     userKey: "username"
     passwordKey: "password"
+    tokenKey: ""
   extraEnv: []
   # Stock upstream Grafana — no Lunar-built/derived image (avoids the AGPL
   # implications and maintenance of shipping a modified Grafana). Plugins,
   # datasources and dashboards are installed over the API by the lunar-dashboards
-  # deploy tool (grafana.dashboardsDeploy below).
+  # provisioning tool (grafana.provisioning below).
   image:
     repository: "grafana/grafana"
     pullPolicy: IfNotPresent
     tag: "13.1.0"
-  # lunar-dashboards deploy tool: a run-to-completion image (entrypoint deploy.sh)
-  # that installs plugins/datasources/dashboards over the Grafana API. It resolves
-  # the target Grafana endpoint + a read-only DB connection from the Hub over gRPC,
-  # so it needs no Grafana/DB args here.
+  # lunar-dashboards provisioning tool: a run-to-completion image (entrypoint
+  # deploy.sh) that installs plugins/datasources/dashboards over the Grafana API.
+  # It resolves the target Grafana endpoint + a read-only DB connection from the
+  # Hub over gRPC, so it needs no Grafana/DB args here.
   #
-  # The deploy Job runs on every Hub install/upgrade whenever dashboardsDeploy is
-  # enabled, for either target:
-  #   - the chart's own Grafana pod (grafana.enabled): deployed directly via the
-  #     in-cluster Service; admin auth is auto-wired from the grafana-admin secret.
-  #     A reconverge sidecar on the pod also re-applies on every pod start, so a
-  #     recreated pod self-heals without waiting for the next Hub upgrade.
-  #   - an external/customer Grafana (grafana.enabled=false): the endpoint is
-  #     resolved from the Hub, so the Hub must be configured for it — set
-  #     grafana.externalURL (-> HUB_GRAFANA_URL_BASE) and, via hub.extraEnv,
-  #     HUB_GRAFANA_TOKEN (or HUB_GRAFANA_USER + HUB_GRAFANA_PASSWORD). The external
-  #     Grafana must also be able to reach the Hub's Postgres for the datasource.
-  #
-  # The read-only grafana_user DB password (dbPassword below) is chart-generated —
-  # no operator config needed. Set enabled=false to skip deploying dashboards.
-  dashboardsDeploy:
-    enabled: true
+  # Runs on every Hub install/upgrade whenever grafana.mode != off, targeting the
+  # chart's own Grafana pod (mode=chart: provisioned directly via the in-cluster
+  # Service, admin auth auto-wired from the grafana-admin secret; a reconverge
+  # sidecar on the pod also re-applies on every pod start, so a recreated pod
+  # self-heals without waiting for the next Hub upgrade) or an external Grafana
+  # (mode=external: endpoint resolved from the Hub). The read-only grafana_user DB
+  # password (dbPassword below) is chart-generated — no operator config needed.
+  provisioning:
     image:
       repository: "ghcr.io/earthly/lunar-dashboards"
       pullPolicy: IfNotPresent
       # Defaults to the hub image tag (hub.image.tag) so dashboards match the
-      # running Hub's schema. Override to pin a specific deploy-tool version.
+      # running Hub's schema. Override to pin a specific tool version.
       tag: ""
-    # Password for the read-only grafana_user DB role the deploy tool's datasource
-    # uses (the Hub vends the connection to the tool; it's never user-facing). Leave
-    # secretName empty to have the chart generate it — a pre-install/pre-upgrade hook
-    # secret, persisted across upgrades (helm.sh/resource-policy: keep). Set
-    # secretName to bring your own (recommended for GitOps; see grafana.admin note).
+    # Password for the read-only grafana_user DB role the provisioning tool's
+    # datasource uses (the Hub vends the connection to the tool; it's never
+    # user-facing). Leave secretName empty to have the chart generate it — a
+    # pre-install/pre-upgrade hook secret, persisted across upgrades
+    # (helm.sh/resource-policy: keep). Set secretName to bring your own
+    # (recommended for GitOps; see grafana.auth note).
     dbPassword:
       secretName: ""
       passwordKey: "password"
+    # securityContext / resources for the provisioning workloads — the provisioning
+    # Job's containers and the reconverge sidecar. Separate from the grafana.* knobs
+    # (which size the Grafana server) since this runs the lunar-dashboards tool.
+    # podSecurityContext applies to the provisioning Job pod; the reconverge sidecar
+    # shares the Grafana pod's grafana.podSecurityContext.
+    podSecurityContext: {}
+    securityContext: {}
+    resources: {}
   service:
     type: ClusterIP
     port: 80

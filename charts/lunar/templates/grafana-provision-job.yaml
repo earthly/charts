@@ -1,44 +1,48 @@
 {{/*
-Grafana content deploy hook. Runs the lunar-dashboards image (deploy.sh) as a
+Grafana content provisioning hook. Runs the lunar-dashboards image (deploy.sh) as a
 post-install/post-upgrade hook so plugins/datasources/dashboards are (re)installed
 on every Hub install/upgrade — into the chart's own Grafana pod or a customer-owned
-external Grafana. When grafana.enabled, GRAFANA_URL points at the in-cluster Service
+external Grafana. When mode is chart, GRAFANA_URL points at the in-cluster Service
 (the direct route; its kiosk proxy passes /api through with basic-auth intact); for
 an external Grafana it is omitted and deploy.sh resolves the endpoint (URL + auth)
 from the Hub over gRPC. The read-only DB connection is always resolved from the Hub.
 
-Non-blocking: a failed deploy is logged but exits 0 so it never fails/rolls back
+Non-blocking: a failed provision is logged but exits 0 so it never fails/rolls back
 the Hub upgrade — the Hub is the product, dashboards are a convenience, and the
 reconverge sidecar (chart pod) + next upgrade re-converge. hook-weight 5 runs it
 after the hub Deployment; an init container waits for the Hub's gRPC (and, for the
 chart pod, Grafana's API) before deploy.sh runs, so it doesn't race the hub becoming
 Ready on a fresh install.
 */}}
-{{- if .Values.grafana.dashboardsDeploy.enabled -}}
-{{- $img := printf "%s:%s" .Values.grafana.dashboardsDeploy.image.repository (.Values.grafana.dashboardsDeploy.image.tag | default .Values.hub.image.tag) -}}
+{{- if ne .Values.grafana.mode "off" -}}
+{{- $img := include "lunar.provisioningImage" . -}}
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "lunar.fullname" . }}-grafana-deploy
+  name: {{ include "lunar.fullname" . }}-grafana-provision
   labels:
     {{- include "lunar.labels" . | nindent 4 }}
-    app.kubernetes.io/component: grafana-deploy
+    app.kubernetes.io/component: grafana-provision
   annotations:
     "helm.sh/hook": post-install,post-upgrade
     "helm.sh/hook-weight": "5"
     "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 spec:
-  backoffLimit: 6
+  backoffLimit: 2
   activeDeadlineSeconds: 600
   template:
     metadata:
       labels:
         {{- include "lunar.labels" . | nindent 8 }}
-        app.kubernetes.io/component: grafana-deploy
+        app.kubernetes.io/component: grafana-provision
     spec:
       restartPolicy: Never
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.grafana.provisioning.podSecurityContext }}
+      securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       {{- with .Values.grafana.nodeSelector }}
@@ -61,34 +65,46 @@ spec:
         # direct target); for an external Grafana, deploy.sh preflights it itself.
         - name: wait-for-deps
           image: {{ $img | quote }}
-          imagePullPolicy: {{ .Values.grafana.dashboardsDeploy.image.pullPolicy }}
+          imagePullPolicy: {{ .Values.grafana.provisioning.image.pullPolicy }}
+          {{- with .Values.grafana.provisioning.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           command: ["/bin/sh", "-c"]
           args:
             - |
-              {{- if .Values.grafana.enabled }}
-              until curl -fsS "http://{{ include "lunar.fullname" . }}-grafana:{{ .Values.grafana.service.port }}/api/health" >/dev/null 2>&1; do
-                echo "waiting for grafana..."; sleep 2;
-              done
+              {{- if eq .Values.grafana.mode "chart" }}
+              {{- include "lunar.waitForGrafana" . | nindent 14 }}
               {{- end }}
-              until grpcurl -plaintext -connect-timeout 5 -H "Authorization: Bearer $LUNAR_HUB_TOKEN" "$LUNAR_HUB_HOST:$LUNAR_HUB_GRPC_PORT" list >/dev/null 2>&1; do
-                echo "waiting for hub..."; sleep 2;
-              done
+              {{- include "lunar.waitForHub" . | nindent 14 }}
           env:
-            {{- include "lunar.grafanaDeployHubEnv" . | nindent 12 }}
+            {{- if eq .Values.grafana.mode "chart" }}
+            - name: GRAFANA_URL
+              value: "http://{{ include "lunar.fullname" . }}-grafana:{{ .Values.grafana.service.port }}"
+            {{- end }}
+            {{- include "lunar.grafanaProvisionHubEnv" . | nindent 12 }}
+          {{- with .Values.grafana.provisioning.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
       containers:
-        - name: deploy
+        - name: provision
           image: {{ $img | quote }}
-          imagePullPolicy: {{ .Values.grafana.dashboardsDeploy.image.pullPolicy }}
+          imagePullPolicy: {{ .Values.grafana.provisioning.image.pullPolicy }}
+          {{- with .Values.grafana.provisioning.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           command: ["/bin/sh", "-c"]
           args:
             - |
               if /deploy.sh; then exit 0; fi
-              # Non-blocking: log but exit 0 so a failed deploy never fails/rolls
+              # Non-blocking: log but exit 0 so a failed provision never fails/rolls
               # back the Hub upgrade; the sidecar + next upgrade re-converge.
-              echo "grafana dashboard deploy failed" >&2
+              echo "grafana dashboard provisioning failed" >&2
               exit 0
           env:
-            {{- if .Values.grafana.enabled }}
+            {{- if eq .Values.grafana.mode "chart" }}
             # Chart's own pod (direct route): target the in-cluster Service (its
             # kiosk proxy passes /api through with basic-auth intact). The Hub's
             # grafana URL is the external browser/PR-link URL, not the in-cluster
@@ -97,5 +113,9 @@ spec:
             - name: GRAFANA_URL
               value: "http://{{ include "lunar.fullname" . }}-grafana:{{ .Values.grafana.service.port }}"
             {{- end }}
-            {{- include "lunar.grafanaDeployHubEnv" . | nindent 12 }}
+            {{- include "lunar.grafanaProvisionHubEnv" . | nindent 12 }}
+          {{- with .Values.grafana.provisioning.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
 {{- end }}

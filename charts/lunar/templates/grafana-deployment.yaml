@@ -1,4 +1,4 @@
-{{- if .Values.grafana.enabled -}}
+{{- if eq .Values.grafana.mode "chart" -}}
 {{- $grafanaURL := include "lunar.grafanaURL" . -}}
 apiVersion: apps/v1
 kind: Deployment
@@ -55,17 +55,17 @@ spec:
             - name: GF_SECURITY_ADMIN_USER
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "lunar.grafanaAdminSecretName" $ }}
-                  key: {{ .admin.userKey }}
+                  name: {{ include "lunar.grafanaAuthSecretName" $ }}
+                  key: {{ .auth.userKey }}
             - name: GF_SECURITY_ADMIN_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "lunar.grafanaAdminSecretName" $ }}
-                  key: {{ .admin.passwordKey }}
+                  name: {{ include "lunar.grafanaAuthSecretName" $ }}
+                  key: {{ .auth.passwordKey }}
             # Stock upstream Grafana: plugins, datasources and dashboards are
-            # installed over the API by the lunar-dashboards deploy tool (the
-            # deploy hook Job + reconverge sidecar), not baked into the image, so
-            # the only server-level knob we set is sign-up. Override via extraEnv.
+            # installed over the API by the lunar-dashboards provisioning tool (the
+            # provisioning hook Job + reconverge sidecar), not baked into the image,
+            # so the only server-level knob we set is sign-up. Override via extraEnv.
             - name: GF_USERS_ALLOW_SIGN_UP
               value: "false"
             {{- with .extraEnv }}
@@ -86,6 +86,10 @@ spec:
           {{- end }}
         - name: kiosk
           image: nginx:1-alpine
+          {{- with .Values.grafana.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           ports:
             - name: kiosk
               containerPort: 8080
@@ -93,24 +97,25 @@ spec:
           volumeMounts:
             - name: kiosk-config
               mountPath: /etc/nginx/conf.d
-        {{- if .Values.grafana.dashboardsDeploy.enabled }}
-        - name: dashboards-reconverge
+        # Reconverge sidecar — present in mode=chart (the only mode with a bundled
+        # pod); chart mode always provisions, so it has no separate toggle.
+        - name: provision-reconverge
           # Re-applies plugins/datasources/dashboards on every pod start so the
           # Grafana pod is stateless/self-healing — a recreated pod (or lost
           # volume) converges back without waiting for the next Hub upgrade.
           # deploy.sh resolves the Grafana endpoint + read-only DB connection from
           # the Hub; GRAFANA_URL points at the Grafana container in this pod.
-          image: "{{ .Values.grafana.dashboardsDeploy.image.repository }}:{{ .Values.grafana.dashboardsDeploy.image.tag | default .Values.hub.image.tag }}"
-          imagePullPolicy: {{ .Values.grafana.dashboardsDeploy.image.pullPolicy }}
+          image: {{ include "lunar.provisioningImage" . | quote }}
+          imagePullPolicy: {{ .Values.grafana.provisioning.image.pullPolicy }}
+          {{- with .Values.grafana.provisioning.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           command: ["/bin/sh", "-c"]
           args:
             - |
-              until curl -fsS "$GRAFANA_URL/api/health" >/dev/null 2>&1; do
-                echo "waiting for grafana..."; sleep 2;
-              done
-              until grpcurl -plaintext -connect-timeout 5 -H "Authorization: Bearer $LUNAR_HUB_TOKEN" "$LUNAR_HUB_HOST:$LUNAR_HUB_GRPC_PORT" list >/dev/null 2>&1; do
-                echo "waiting for hub..."; sleep 2;
-              done
+              {{- include "lunar.waitForGrafana" . | nindent 14 }}
+              {{- include "lunar.waitForHub" . | nindent 14 }}
               /deploy.sh || echo "dashboards reconverge failed" >&2
               # Idle so the Deployment treats this as a long-lived sidecar; it
               # re-applies on the next pod (re)start.
@@ -118,8 +123,11 @@ spec:
           env:
             - name: GRAFANA_URL
               value: "http://localhost:3000"
-            {{- include "lunar.grafanaDeployHubEnv" . | nindent 12 }}
-        {{- end }}
+            {{- include "lunar.grafanaProvisionHubEnv" . | nindent 12 }}
+          {{- with .Values.grafana.provisioning.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
       {{- range .Values.grafana.volumes }}
       {{- if eq .name "kiosk-config" }}
       {{- fail "Values.grafana.volumes contains reserved name 'kiosk-config'" }}

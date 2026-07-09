@@ -165,31 +165,52 @@ spec:
             - name: HUB_GRAFANA_URL_BASE
               value: {{ . | quote }}
             {{- end }}
-            {{- if $.Values.grafana.enabled }}
-            # Grafana admin creds the Hub vends to the lunar-dashboards deploy tool
-            # via GetGrafanaEndpoint (basic auth, for our stock Grafana pod).
+            {{- if eq $.Values.grafana.mode "chart" }}
+            # Bundled pod: basic admin creds (generated or BYO) the Hub vends to the
+            # lunar-dashboards provisioning tool via GetGrafanaEndpoint.
             - name: HUB_GRAFANA_USER
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "lunar.grafanaAdminSecretName" $ }}
-                  key: {{ $.Values.grafana.admin.userKey }}
+                  name: {{ include "lunar.grafanaAuthSecretName" $ }}
+                  key: {{ $.Values.grafana.auth.userKey }}
             - name: HUB_GRAFANA_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "lunar.grafanaAdminSecretName" $ }}
-                  key: {{ $.Values.grafana.admin.passwordKey }}
+                  name: {{ include "lunar.grafanaAuthSecretName" $ }}
+                  key: {{ $.Values.grafana.auth.passwordKey }}
+            {{- else if eq $.Values.grafana.mode "external" }}
+            # External Grafana: operator-supplied creds (grafana.auth.secretName) the
+            # Hub authenticates with — a service-account token (auth.tokenKey, for
+            # Grafana Cloud/Enterprise) or basic user/password (OSS).
+            {{- if $.Values.grafana.auth.tokenKey }}
+            - name: HUB_GRAFANA_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "lunar.grafanaAuthSecretName" $ }}
+                  key: {{ $.Values.grafana.auth.tokenKey }}
+            {{- else }}
+            - name: HUB_GRAFANA_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "lunar.grafanaAuthSecretName" $ }}
+                  key: {{ $.Values.grafana.auth.userKey }}
+            - name: HUB_GRAFANA_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "lunar.grafanaAuthSecretName" $ }}
+                  key: {{ $.Values.grafana.auth.passwordKey }}
             {{- end }}
-            {{- if $.Values.grafana.dashboardsDeploy.enabled }}
+            {{- end }}
+            {{- if ne $.Values.grafana.mode "off" }}
             # Read-only grafana_user password: the Hub embeds it in the read-only
             # Postgres connection string GetGrafanaConnectionString vends to the
-            # deploy tool. Chart-generated (grafana-db secret); needed whenever
-            # dashboardsDeploy is enabled, including external Grafana
-            # (grafana.enabled=false).
+            # provisioning tool. Chart-generated (grafana-db secret); needed whenever
+            # grafana.mode != off, including external Grafana (mode=external).
             - name: HUB_GRAFANA_DB_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: {{ include "lunar.grafanaDBSecretName" $ }}
-                  key: {{ $.Values.grafana.dashboardsDeploy.dbPassword.passwordKey }}
+                  key: {{ $.Values.grafana.provisioning.dbPassword.passwordKey }}
             # grafana_user connects to the same DB as the hub, so the datasource
             # connection string shares the hub's connection options (SSL mode, etc.).
             - name: HUB_GRAFANA_DB_CONNECTION_OPTIONS

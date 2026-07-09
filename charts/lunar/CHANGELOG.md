@@ -9,14 +9,41 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
-## [2.13.0] - 2026-07-03
+## [3.0.0] - 2026-07-09
+
+### Breaking
+
+- **`grafana.enabled` + `grafana.provisioning.enabled` are replaced by a single
+  `grafana.mode`** — `chart` (bundled Grafana pod + dashboards; the default, was
+  `grafana.enabled=true`), `external` (bring-your-own Grafana + dashboards; was
+  `grafana.enabled=false` + provisioning), or `off` (neither). Grafana infra renders
+  only in `chart` mode; dashboards are provisioned whenever `mode != off`. The chart
+  fails fast at render time if either removed key is still set.
+- **`grafana.externalURL` → `grafana.url`; `grafana.admin` → `grafana.auth`.** One
+  URL + auth shape for both modes instead of per-mode plumbing. `auth` keeps
+  `secretName` / `userKey` / `passwordKey` and adds an optional `tokenKey` for a
+  service-account token (Grafana Cloud/Enterprise). In `external` mode the chart now
+  wires `grafana.url` + `grafana.auth` straight into the Hub (`HUB_GRAFANA_URL_BASE`
+  and `HUB_GRAFANA_TOKEN` or `HUB_GRAFANA_USER`/`HUB_GRAFANA_PASSWORD`) — no more
+  hand-plumbing them through `hub.extraEnv`. `tokenKey` is external-only; `chart` mode
+  still auto-generates a basic admin login when `auth.secretName` is empty, and
+  `external` mode requires `url` + `auth.secretName`. The chart fails fast if the
+  removed keys are still set.
+- **Coordinated upgrade with the Hub.** This release swaps the bundled Grafana for
+  stock upstream `grafana/grafana` and moves plugin/datasource/dashboard install to
+  the new **`lunar-dashboards`** provisioning tool, which calls Hub RPCs that only
+  exist in a matching Hub build. It requires a Hub image with the `GetGrafanaEndpoint`
+  / `GetGrafanaConnectionString` RPCs and the `02_grafana` `grafana_user` migration,
+  plus a published `ghcr.io/earthly/lunar-dashboards` at a matching tag. Pin
+  `hub.image.tag` (and, if overridden, `grafana.provisioning.image.tag`) to that
+  release, and do not publish this chart before those images exist.
 
 ### Changed
 
 - **Grafana is now stock upstream `grafana/grafana` (default `13.1.0`), not a
   Lunar-built image.** Plugins, datasources and dashboards are installed over the
-  Grafana HTTP API by the new **`lunar-dashboards`** deploy tool
-  (`grafana.dashboardsDeploy`) instead of being baked into a derived image —
+  Grafana HTTP API by the new **`lunar-dashboards`** provisioning tool
+  (`grafana.provisioning`) instead of being baked into a derived image —
   removing the AGPL / maintenance burden of shipping a modified Grafana. The tool
   resolves the Grafana endpoint + a read-only DB connection from the Hub over
   gRPC, so the same image drives our pod and customer-owned Grafana.
@@ -27,26 +54,29 @@ history see `git log -- charts/lunar/`.
 
 ### Added
 
-- **`grafana.dashboardsDeploy`** — deploy-tool config: `enabled` and `image.*`.
-- **Grafana content deploy hook** (`grafana-deploy-job.yaml`) — a
-  `post-install`/`post-upgrade` Job (gated on `dashboardsDeploy.enabled`) that runs
-  the deploy tool on every Hub install/upgrade, targeting either the chart's own
-  Grafana pod (deployed directly via the in-cluster Service) or a customer-owned
-  external Grafana (`grafana.enabled=false`; endpoint + auth resolved from the Hub).
-  Non-blocking: a failed deploy is logged but never fails/rolls back the Hub
+- **`grafana.provisioning`** — provisioning-tool config: `image.*`, `dbPassword.*`,
+  and `podSecurityContext` / `securityContext` / `resources` for the provisioning
+  workloads (the provisioning Job's containers and the reconverge sidecar). Activation
+  is via `grafana.mode` (above), not a per-tool toggle.
+- **Grafana content provisioning hook** (`grafana-provision-job.yaml`) — a
+  `post-install`/`post-upgrade` Job (gated on `grafana.mode != off`) that runs
+  the provisioning tool on every Hub install/upgrade, targeting either the chart's
+  own Grafana pod (`mode=chart`, provisioned directly via the in-cluster Service) or a
+  customer-owned external Grafana (`mode=external`; endpoint + auth resolved from the Hub).
+  Non-blocking: a failed provision is logged but never fails/rolls back the Hub
   upgrade. An init container waits for the Hub's gRPC (and, for the chart pod,
-  Grafana's API) before deploying, so it doesn't race the hub becoming Ready on a
+  Grafana's API) before provisioning, so it doesn't race the hub becoming Ready on a
   fresh install.
-- **Reconverge sidecar** on the Grafana pod — re-applies content on every pod
-  start so the pod is stateless / self-healing (no PVC needed); it waits for the
-  Hub's gRPC before each (re)deploy.
-- **Read-only `grafana_user` DB role** for the deploy tool's datasource — the
+- **Reconverge sidecar** (`provision-reconverge`) on the Grafana pod — re-applies
+  content on every pod start so the pod is stateless / self-healing (no PVC needed);
+  it waits for the Hub's gRPC before each (re)provision.
+- **Read-only `grafana_user` DB role** for the provisioning tool's datasource — the
   migrate Job creates it WITH its password on a fresh DB and the Hub vends the
-  connection to the deploy tool via `GetGrafanaConnectionString` (it also vends the
-  Grafana admin login, `HUB_GRAFANA_USER` / `HUB_GRAFANA_PASSWORD`). Its password is
-  chart-generated — a `pre-install`/`pre-upgrade` hook secret weighted before the
+  connection to the provisioning tool via `GetGrafanaConnectionString` (it also vends
+  the Grafana admin login, `HUB_GRAFANA_USER` / `HUB_GRAFANA_PASSWORD`). Its password
+  is chart-generated — a `pre-install`/`pre-upgrade` hook secret weighted before the
   migrate Job (`helm.sh/resource-policy: keep`); set
-  `grafana.dashboardsDeploy.dbPassword.secretName` to bring your own.
+  `grafana.provisioning.dbPassword.secretName` to bring your own.
 - **`hub.db.connectionOptions` now also drives the SQL API and Grafana datasource
   connections** — `HUB_SQLAPI_CONNECTION_OPTIONS` and
   `HUB_GRAFANA_DB_CONNECTION_OPTIONS` are set from it (like
