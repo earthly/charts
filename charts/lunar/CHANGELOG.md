@@ -9,6 +9,24 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [2.17.0] - 2026-07-09
+
+### Changed
+
+- **images**: default image tags (hub, operator, init, sidecar, grafana) bumped
+  to `2.8.0` — the lunar-hub 2.8.0 release. Highlights: operator Manager leader
+  election (active-active snippet execution with single-leader pod GC at
+  `operator.replicaCount >= 2`, completing the RBAC/`replicaCount` support added
+  in 2.16.0), pre-merge `lunar-config.yml` validation (`hub pull --dry-run` +
+  JSON Schema), and `LUNAR_COMPONENT_META` surfacing catalog component metadata
+  to collectors and policies. Image-tag bump only — no chart template changes.
+
+### Security
+
+- Patches `golang.org/x/net` and OpenSSL CVEs across all published images (hub,
+  grafana, operator, init, sidecar): `yq` bumped to 4.53.3 and the Alpine base
+  to 3.23.5. Upgrading the chart pulls the patched images.
+
 ## [2.16.0] - 2026-07-08
 
 ### Added
