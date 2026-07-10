@@ -54,40 +54,8 @@ history see `git log -- charts/lunar/`.
 
 ### Added
 
-- **`grafana.provisioning`** — provisioning-tool config: `image.*`, `dbPassword.*`,
-  and `podSecurityContext` / `securityContext` / `resources` for the provisioning
-  workloads (the provisioning Job's containers and the reconverge sidecar). Activation
-  is via `grafana.mode` (above), not a per-tool toggle.
-- **Grafana content provisioning hook** (`grafana-provision-job.yaml`) — a
-  `post-install`/`post-upgrade` Job (gated on `grafana.mode != off`) that runs
-  the provisioning tool on every Hub install/upgrade, targeting either the chart's
-  own Grafana pod (`mode=chart`, provisioned directly via the in-cluster Service) or a
-  customer-owned external Grafana (`mode=external`; endpoint + auth resolved from the Hub).
-  Non-blocking: a failed provision is logged but never fails/rolls back the Hub
-  upgrade. An init container waits for the Hub's gRPC (and, for the chart pod,
-  Grafana's API) before provisioning, so it doesn't race the hub becoming Ready on a
-  fresh install.
-- **Reconverge sidecar** (`provision-reconverge`) on the Grafana pod — re-applies
-  content on every pod start so the pod is stateless / self-healing (no PVC needed);
-  it waits for the Hub's gRPC before each (re)provision.
-- **Read-only `grafana_user` DB role** for the provisioning tool's datasource — the
-  migrate Job creates it WITH its password on a fresh DB and the Hub vends the
-  connection to the provisioning tool via `GetGrafanaConnectionString` (it also vends
-  the Grafana admin login, `HUB_GRAFANA_USER` / `HUB_GRAFANA_PASSWORD`). Its password
-  is chart-generated — a `pre-install`/`pre-upgrade` hook secret weighted before the
-  migrate Job (`helm.sh/resource-policy: keep`); set
-  `grafana.provisioning.dbPassword.secretName` to bring your own.
-- **`hub.db.connectionOptions` now also drives the SQL API and Grafana datasource
-  connections** — `HUB_SQLAPI_CONNECTION_OPTIONS` and
-  `HUB_GRAFANA_DB_CONNECTION_OPTIONS` are set from it (like
-  `OPERATOR_DB_CONNECTION_OPTIONS`), since all roles connect to the same Postgres —
-  instead of the Hub's `sslmode=disable` default for those two.
-
-> **Upgrade note.** Requires a Hub image with the `GetGrafanaConnectionString`
-> RPC + the `02_grafana` `grafana_user` migration, and the `lunar-dashboards`
-> image at a matching tag. The chart now pulls stock `grafana/grafana` — if you
-> mirror images into a private registry, mirror `grafana/grafana:13.1.0` and
-> `ghcr.io/earthly/lunar-dashboards` too. Version sequences after 2.17.0.
+- **Three Grafana modes (`grafana.mode`)** — `chart` (the chart deploys a Grafana pod and provisions it; default), `external` (provision dashboards into your own Grafana, addressed via `grafana.url` + `grafana.auth`), or `off` (no Grafana and no dashboards).
+- **Provisioning is configured under `grafana.provisioning`** — whenever `mode != off`, the `lunar-dashboards` deploy image installs dashboards/datasources/plugins on every install/upgrade of hub
 
 ## [2.17.0] - 2026-07-09
 
