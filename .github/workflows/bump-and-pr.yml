@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to release (e.g. "2.2.0")'
+        description: 'Version to release (e.g. "3.0.0"). Sets both Chart.yaml version and the lunar image tags — chart and hub versions are kept in lockstep.'
         required: true
         type: string
 
@@ -30,7 +30,10 @@ jobs:
           yq -i ".operator.image.tag = \"${VERSION}\"" charts/lunar/values.yaml
           yq -i ".operator.initImage.tag = \"${VERSION}\"" charts/lunar/values.yaml
           yq -i ".operator.sidecarImage.tag = \"${VERSION}\"" charts/lunar/values.yaml
-          yq -i ".grafana.image.tag = \"${VERSION}\"" charts/lunar/values.yaml
+          # NOTE: grafana.image is intentionally NOT bumped — the chart runs stock
+          # upstream grafana/grafana (its own version, e.g. 13.1.0), not a
+          # lunar-tagged image. Dashboards/datasources/plugins are installed by the
+          # lunar-dashboards provisioning tool, whose tag follows hub.image.tag.
 
       - name: Push release branch and open PR
         env:
@@ -52,5 +55,5 @@ jobs:
             --base main \
             --head "${BRANCH}" \
             --title "Release ${VERSION}" \
-            --body "Automated bump from \`lunar-hub-v${VERSION}\` release. Updates \`Chart.yaml\` version and all image tags in \`charts/lunar/values.yaml\` to \`${VERSION}\`. The chart release itself is published by \`release.yml\` on merge to \`main\`."
+            --body "Automated bump from the \`lunar-hub-v${VERSION}\` release. Sets \`Chart.yaml\` version and the hub/operator/init/sidecar image tags in \`charts/lunar/values.yaml\` to \`${VERSION}\` (chart and hub versions stay in lockstep). Grafana runs stock \`grafana/grafana\` and is not retagged. The chart release is published by \`release.yml\` on merge to \`main\`."
           gh pr merge --auto --squash "${BRANCH}"
