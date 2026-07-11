@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+  # Manual lever: a release-PR merged by GITHUB_TOKEN (e.g. bump-and-pr's
+  # auto-merge) does NOT fire the push trigger, so dispatch this to publish.
+  workflow_dispatch: {}
 
 jobs:
   release:
@@ -27,6 +30,11 @@ jobs:
 
       - name: Run chart-releaser
         uses: helm/chart-releaser-action@v1.7.0
+        with:
+          # No-op on versions that already have a release, so a merge that
+          # doesn't bump Chart.yaml (templates/values-only) skips instead of
+          # failing with a 422 "release already exists".
+          skip_existing: true
         env:
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
 
