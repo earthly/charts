@@ -122,9 +122,9 @@ hub:
     # pooler helps only at large N — and a transaction-mode pooler breaks the
     # hub's session advisory locks and LISTEN/NOTIFY, so it must not front them
     # (use a direct connection for those). See the HA runbook.
-    maxOpenConns: 40      # HUB_DB_MAX_OPEN_CONNS (database/sql store handle)
-    maxPoolConns: 40      # HUB_DB_MAX_POOL_CONNS (pgxpool, shared by River)
-    operatorPoolSize: 5   # HUB_MAX_OPERATOR_POOL_SIZE (operator_queue pool)
+    maxOpenConns: 40 # HUB_DB_MAX_OPEN_CONNS (database/sql store handle)
+    maxPoolConns: 40 # HUB_DB_MAX_POOL_CONNS (pgxpool, shared by River)
+    operatorPoolSize: 5 # HUB_MAX_OPERATOR_POOL_SIZE (operator_queue pool)
   github:
     baseUrl: ""
     # Single-App config. Use this for single-tenant deployments where the
@@ -298,7 +298,7 @@ hub:
   image:
     repository: "ghcr.io/earthly/lunar-hub"
     pullPolicy: IfNotPresent
-    tag: "2.8.0"
+    tag: "3.0.0"
   service:
     type: ClusterIP
     ports:
@@ -400,15 +400,15 @@ operator:
   image:
     repository: "ghcr.io/earthly/lunar-snippet-operator"
     pullPolicy: IfNotPresent
-    tag: "2.8.0"
+    tag: "3.0.0"
   initImage:
     repository: "ghcr.io/earthly/lunar-snippet-init"
     pullPolicy: IfNotPresent
-    tag: "2.8.0"
+    tag: "3.0.0"
   sidecarImage:
     repository: "ghcr.io/earthly/lunar-snippet-sidecar"
     pullPolicy: IfNotPresent
-    tag: "2.8.0"
+    tag: "3.0.0"
   # Namespace where script pods are created. Defaults to the release namespace.
   # If set, the namespace must already exist — the chart will not create it.
   scriptNamespace: ""
