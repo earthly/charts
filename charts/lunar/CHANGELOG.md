@@ -37,6 +37,10 @@ history see `git log -- charts/lunar/`.
   plus a published `ghcr.io/earthly/lunar-dashboards` at a matching tag. Pin
   `hub.image.tag` (and, if overridden, `grafana.provisioning.image.tag`) to that
   release, and do not publish this chart before those images exist.
+- **Manifests with duplicate snippet names are now rejected.** If a manifest
+  imports the same policy or collector more than once and they resolve to the
+  same name, loading it now fails — give each import a unique `name:` to
+  disambiguate. Manifests that previously loaded this way must be updated.
 
 ### Changed
 
@@ -51,11 +55,28 @@ history see `git log -- charts/lunar/`.
   - The Grafana pod runs stock Grafana with only `GF_SERVER_ROOT_URL`,
     `GF_SECURITY_ADMIN_*` and `GF_USERS_ALLOW_SIGN_UP` set (was: baked plugins /
     dashboards / theme + `POSTGRES_*` / `LUNAR_HUB_*` for the old entrypoint).
+- **`block-release` checks are no longer shown on pull requests.** PR comments
+  and commit statuses now surface only the checks that gate the PR (`block-pr`
+  and `block-pr-and-release`); release-time `block-release` checks are hidden on
+  PRs.
+- **Check dashboards and the SQL API `checks` views now show one row per applying
+  import.** When the same policy applies through multiple imports, rows are no
+  longer duplicated or fanned out. Update any custom queries that relied on the
+  previous grain.
 
 ### Added
 
 - **Three Grafana modes (`grafana.mode`)** — `chart` (the chart deploys a Grafana pod and provisions it; default), `external` (provision dashboards into your own Grafana, addressed via `grafana.url` + `grafana.auth`), or `off` (no Grafana and no dashboards).
 - **Provisioning is configured under `grafana.provisioning`** — whenever `mode != off`, the `lunar-dashboards` deploy image installs dashboards/datasources/plugins on every install/upgrade of hub
+
+### Fixed
+
+- **Closed and merged pull requests no longer appear as "Active"** in dashboards
+  and the SQL API.
+
+### Security
+
+- **The snippet execution base image was updated** to clear known curl CVEs.
 
 ## [2.17.0] - 2026-07-09
 
