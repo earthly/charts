@@ -9,6 +9,53 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [3.0.0] - 2026-07-11
+
+### Breaking
+
+- **`grafana.enabled` + `grafana.provisioning.enabled` are replaced by a single
+  `grafana.mode`** — `chart` (bundled Grafana pod + dashboards; the default),
+  `external` (dashboards provisioned into your own Grafana), or `off` (neither).
+  The chart fails fast if either removed key is still set.
+- **`grafana.externalURL` → `grafana.url`; `grafana.admin` → `grafana.auth`.**
+  `auth` keeps `secretName` / `userKey` / `passwordKey` and adds an optional
+  `tokenKey` for a service-account token (Grafana Cloud/Enterprise). `external`
+  mode requires `url` + `auth.secretName`.
+- **Coordinated upgrade with the Hub.** Grafana provisioning now requires a
+  matching Hub — pin `hub.image.tag` to this release and upgrade them together.
+- **Manifests with duplicate snippet names are now rejected.** If a manifest
+  imports the same policy or collector more than once and they resolve to the
+  same name, loading now fails — give each import a unique `name:`. Manifests
+  that previously loaded this way must be updated.
+
+### Changed
+
+- **Grafana is now stock upstream `grafana/grafana` (default `13.1.0`), not a
+  Lunar-built image.** Dashboards, datasources and plugins are installed over the
+  Grafana API instead of baked into the image.
+- **`block-release` checks are no longer shown on pull requests.** PR comments and
+  commit statuses now show only the checks that gate the PR (`block-pr` and
+  `block-pr-and-release`).
+
+### Added
+
+- **Provision dashboards into a bring-your-own Grafana (`grafana.mode: external`),
+  or disable Grafana entirely (`off`).**
+
+### Fixed
+
+- **Closed and merged pull requests no longer appear as "Active"** in dashboards
+  and the SQL API.
+
+- **Check dashboards and the SQL API `checks` views now show one row per applying
+  import** — results are no longer duplicated when the same policy applies through
+  multiple imports. Update any custom queries that relied on the previous grain.
+
+### Security
+
+- **The snippet execution base image was updated** to clear known curl CVEs.
+
+
 ## [2.17.0] - 2026-07-09
 
 ### Changed
