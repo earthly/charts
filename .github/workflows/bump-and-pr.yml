@@ -1,11 +1,11 @@
 name: Bump Version
-run-name: "Bump to ${{ inputs.version }}"
+run-name: "Release chart for hub ${{ inputs.version }}"
 
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to release (e.g. "3.0.0"). Sets both Chart.yaml version and the lunar image tags — chart and hub versions are kept in lockstep.'
+        description: "Hub app version to release (e.g. 3.1.0). Sets Chart.appVersion + the lunar image tags to it; the chart's own version auto-bumps a patch, so chart and hub versions are decoupled."
         required: true
         type: string
 
@@ -23,21 +23,31 @@ jobs:
 
       - name: Update versions
         env:
-          VERSION: ${{ inputs.version }}
+          APP_VERSION: ${{ inputs.version }}
         run: |
-          yq -i ".version = \"${VERSION}\"" charts/lunar/Chart.yaml
-          yq -i ".hub.image.tag = \"${VERSION}\"" charts/lunar/values.yaml
-          yq -i ".operator.image.tag = \"${VERSION}\"" charts/lunar/values.yaml
-          yq -i ".operator.initImage.tag = \"${VERSION}\"" charts/lunar/values.yaml
-          yq -i ".operator.sidecarImage.tag = \"${VERSION}\"" charts/lunar/values.yaml
+          # Decoupled versioning: appVersion tracks the hub app version being
+          # released; the chart's own `version` is independent and auto-bumps a
+          # patch each release so a new chart publishes. A chart-only change bumps
+          # `version` in a normal PR. Keeping `version` off the hub number line
+          # stops a chart-only patch from colliding with a future hub of the same
+          # number (which chart-releaser would then skip).
+          CHART_VERSION="$(yq '.version' charts/lunar/Chart.yaml)"
+          NEXT_CHART_VERSION="$(echo "$CHART_VERSION" | awk -F. -v OFS=. '{$3++; print}')"
+          yq -i ".version = \"${NEXT_CHART_VERSION}\"" charts/lunar/Chart.yaml
+          yq -i ".appVersion = \"${APP_VERSION}\"" charts/lunar/Chart.yaml
+          yq -i ".hub.image.tag = \"${APP_VERSION}\"" charts/lunar/values.yaml
+          yq -i ".operator.image.tag = \"${APP_VERSION}\"" charts/lunar/values.yaml
+          yq -i ".operator.initImage.tag = \"${APP_VERSION}\"" charts/lunar/values.yaml
+          yq -i ".operator.sidecarImage.tag = \"${APP_VERSION}\"" charts/lunar/values.yaml
           # NOTE: grafana.image is intentionally NOT bumped — the chart runs stock
           # upstream grafana/grafana (its own version, e.g. 13.1.0), not a
           # lunar-tagged image. Dashboards/datasources/plugins are installed by the
           # lunar-dashboards provisioning tool, whose tag follows hub.image.tag.
+          echo "CHART_VERSION=${NEXT_CHART_VERSION}" >> "$GITHUB_ENV"
 
       - name: Push release branch and open PR
         env:
-          VERSION: ${{ inputs.version }}
+          APP_VERSION: ${{ inputs.version }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config user.name "github-actions[bot]"
@@ -47,13 +57,13 @@ jobs:
             echo "No changes to commit"
             exit 0
           fi
-          BRANCH="release/${VERSION}"
+          BRANCH="release/chart-${CHART_VERSION}"
           git checkout -b "${BRANCH}"
-          git commit -m "Release ${VERSION}"
+          git commit -m "Release chart ${CHART_VERSION} (hub ${APP_VERSION})"
           git push -u origin "${BRANCH}"
           gh pr create \
             --base main \
             --head "${BRANCH}" \
-            --title "Release ${VERSION}" \
-            --body "Automated bump from the \`lunar-hub-v${VERSION}\` release. Sets \`Chart.yaml\` version and the hub/operator/init/sidecar image tags in \`charts/lunar/values.yaml\` to \`${VERSION}\` (chart and hub versions stay in lockstep). Grafana runs stock \`grafana/grafana\` and is not retagged. The chart release is published by \`release.yml\` on merge to \`main\`."
+            --title "Release chart ${CHART_VERSION} (hub ${APP_VERSION})" \
+            --body "Automated bump from the \`lunar-hub-v${APP_VERSION}\` release. Sets \`Chart.yaml\` \`appVersion\` and the hub/operator/init/sidecar image tags in \`charts/lunar/values.yaml\` to \`${APP_VERSION}\`, and bumps the chart's own \`version\` to \`${CHART_VERSION}\`. Chart \`version\` is independent of the hub app version (\`appVersion\`). Grafana runs stock \`grafana/grafana\` and is not retagged. Published by \`release.yml\` on merge to \`main\`."
           gh pr merge --auto --squash "${BRANCH}"
