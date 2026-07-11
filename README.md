@@ -65,7 +65,7 @@ Helm's `lookup` function — used by the chart to persist auto-generated secrets
 
 Two options if you use GitOps:
 
-1. **Bring-your-own-secrets** — set `hub.auth.secretName`, `hub.github.webhookSecret.secretName`, and `grafana.admin.secretName` to secrets you manage with External Secrets Operator, Sealed Secrets, Vault, etc. The chart will reference them and skip auto-generation entirely.
+1. **Bring-your-own-secrets** — set `hub.auth.secretName`, `hub.github.webhookSecret.secretName`, and `grafana.auth.secretName` to secrets you manage with External Secrets Operator, Sealed Secrets, Vault, etc. The chart will reference them and skip auto-generation entirely.
 2. **Tell your GitOps tool to ignore the generated fields** — example for ArgoCD:
 
    ```yaml
@@ -105,10 +105,10 @@ Plus two URL prerequisites the chart needs to wire correctly:
 
 1. **Hub webhook URL** — for GitHub webhook registration to work, the hub needs an externally-reachable URL. The simplest path is to let the chart manage your ingress and set `hub.ingress.webhooks.host` — see [Ingress](#ingress) below. When `hub.ingress.enabled: true`, the chart derives `https://<webhooks.host>` automatically. BYO-ingress installs (`hub.ingress.enabled: false`) must set `hub.webhookURL` explicitly — the chart will not guess a URL it doesn't route to.
 
-2. **Grafana URL** (when `grafana.enabled: true`, which is the default) — Grafana needs to know its own external URL for OIDC `redirect_uri` and absolute link rendering. Pick one:
+2. **Grafana URL** (when `grafana.mode: chart`, the default) — Grafana needs to know its own external URL for OIDC `redirect_uri` and absolute link rendering. Pick one:
    - `grafana.ingress.enabled: true` with `grafana.ingress.hosts[0].host` set — chart derives the URL automatically.
-   - `grafana.externalURL: "https://grafana.example.com"` — explicit override, for BYO ingress / Caddy / shared LB with path routing.
-   - `grafana.enabled: false` — skip Grafana entirely.
+   - `grafana.url: "https://grafana.example.com"` — explicit override, for BYO ingress / Caddy / shared LB with path routing.
+   - `grafana.mode: off` — skip Grafana entirely (or `grafana.mode: external` to install the dashboards into a bring-your-own Grafana).
 
    The chart fails fast at install time if none of these are set (it deliberately won't guess at a URL it doesn't route to — wrong host means broken OIDC, silently).
 
@@ -199,7 +199,7 @@ kubectl -n lunar create secret generic lunar-collector-secrets --from-literal=se
 kubectl -n lunar create secret generic lunar-cataloger-secrets --from-literal=secrets='GH_TOKEN:ghp_xxx'
 kubectl -n lunar create secret generic lunar-policy-secrets    --from-literal=secrets='SLACK_WEBHOOK_URL:https://hooks.slack.com/services/...'
 
-# Grafana admin (only if you set grafana.admin.secretName instead of letting
+# Grafana admin (only if you set grafana.auth.secretName instead of letting
 # the chart auto-generate; both username and password live in one secret)
 kubectl -n lunar create secret generic my-grafana-admin \
   --from-literal=username='admin' \
@@ -322,8 +322,8 @@ The ingress shape changed in chart 2.0.0:
 - `hub.ingress.host` moved to `hub.ingress.api.host` **and** `hub.ingress.webhooks.host` (set both to the same value for a single-host install).
 - `hub.ingress.grpcAnnotations` / `httpAnnotations` moved under `hub.ingress.api.*`.
 - `hub.ingress.api.grpcAnnotations` no longer defaults to NGINX's `backend-protocol: "GRPC"`. NGINX users must set it explicitly (see [Ingress](#ingress) examples); other controllers set their equivalent.
-- `hub.grafanaURLBase` was renamed to `grafana.externalURL`. It's a Grafana property — Hub consumes it as `HUB_GRAFANA_URL_BASE`, Grafana consumes it as `GF_SERVER_ROOT_URL`. Lives under `grafana.*` now, where it belongs.
-- **Grafana URL derivation changed.** In 1.x, `HUB_GRAFANA_URL_BASE` and Grafana's own `GF_SERVER_ROOT_URL` defaulted to `publicBaseURL`. 2.0.0 only derives a Grafana URL when the chart actually controls Grafana's routing (chart-managed `grafana.ingress` or explicit `grafana.externalURL`). **If you used a single hostname with `grafana.ingress.enabled: false` and external path-routing (Caddy / nginx-ingress with split paths / similar), set `grafana.externalURL` to that same URL explicitly** — otherwise Grafana's OIDC `redirect_uri` and absolute links break after upgrade. The chart fails fast at install time when `grafana.enabled: true` and no Grafana URL can be determined.
+- `hub.grafanaURLBase` was renamed (`grafana.externalURL` in 2.0.0, now `grafana.url` in 3.0.0). It's a Grafana property — Hub consumes it as `HUB_GRAFANA_URL_BASE`, Grafana consumes it as `GF_SERVER_ROOT_URL`. Lives under `grafana.*` now, where it belongs.
+- **Grafana URL derivation changed.** In 1.x, `HUB_GRAFANA_URL_BASE` and Grafana's own `GF_SERVER_ROOT_URL` defaulted to `publicBaseURL`. 2.0.0 only derives a Grafana URL when the chart actually controls Grafana's routing (chart-managed `grafana.ingress` or explicit `grafana.url`). **If you used a single hostname with `grafana.ingress.enabled: false` and external path-routing (Caddy / nginx-ingress with split paths / similar), set `grafana.url` to that same URL explicitly** — otherwise Grafana's OIDC `redirect_uri` and absolute links break after upgrade. The chart fails fast at install time when `grafana.mode: chart` and no Grafana URL can be determined.
 
 The chart fails fast at install time when it sees the old shape.
 
@@ -373,10 +373,10 @@ hub:
   ingress:
     enabled: false
 grafana:
-  # Required when grafana.enabled is true and the chart isn't managing
+  # Required when grafana.mode is chart and the chart isn't managing
   # Grafana's ingress — otherwise the install fails fast at template time
   # (GF_SERVER_ROOT_URL empty → OIDC redirect_uris break).
-  externalURL: "https://grafana.example.com"
+  url: "https://grafana.example.com"
 ```
 
 ## Post-install
@@ -465,7 +465,7 @@ The central gRPC/HTTP server. Stores metadata, evaluates policies, and serves th
 |-----|-------------|---------|
 | `hub.webhookURL` | External URL where GitHub posts webhooks. Chart registers `<webhookURL>/webhooks/github` with the GitHub App at boot. Defaults to `https://<hub.ingress.webhooks.host>` **only when `hub.ingress.enabled: true`** — the chart only derives a URL when it actually routes the traffic. Set explicitly when ingress is disabled (BYO) or you need a non-default scheme/port/path. When set explicitly alongside chart-managed ingress, the host portion must equal `hub.ingress.webhooks.host` — install fails fast otherwise. | `""` (derived) |
 
-See also `grafana.externalURL` (under [Grafana](#grafana)) for the Grafana-side equivalent — drives both `HUB_GRAFANA_URL_BASE` (consumed by Hub) and `GF_SERVER_ROOT_URL` (consumed by Grafana).
+See also `grafana.url` (under [Grafana](#grafana)) for the Grafana-side equivalent — drives both `HUB_GRAFANA_URL_BASE` (consumed by Hub) and `GF_SERVER_ROOT_URL` (consumed by Grafana).
 
 **Licence**
 
@@ -695,17 +695,18 @@ Operator logging uses the top-level global `logging.*` values. Tenant and teleme
 <details>
 <summary><strong>Grafana</strong></summary>
 
-Pre-built Grafana instance with dashboards for policy results, component health, and collection activity. Deployed by default; set `grafana.enabled: false` to opt out.
+Pre-built Grafana instance with dashboards for policy results, component health, and collection activity. Deployed by default; set `grafana.mode: off` to opt out.
 
 | Key | Description | Default |
 |-----|-------------|---------|
-| `grafana.enabled` | Deploy the pre-built Grafana instance | `true` |
-| `grafana.externalURL` | External URL where Grafana is reachable. Drives `GF_SERVER_ROOT_URL` (Grafana's self-knowledge — used for OIDC `redirect_uri`, absolute link rendering, etc) and `HUB_GRAFANA_URL_BASE` (`[More Details]` links in PR comments). Defaults to `https://<grafana.ingress.hosts[0].host>` when chart-managed Grafana ingress is enabled. Empty otherwise — the chart only derives a URL when it actually controls the routing (no fallback to `hub.webhookURL` or `hub.ingress.api.host` — wrong trust boundary). Installs with externally-managed Grafana routing **must** set this explicitly; otherwise install fails fast. | `""` (derived) |
+| `grafana.mode` | How Grafana is provided: `chart` (bundled pod + dashboards), `external` (bring-your-own Grafana + dashboards), or `off` (neither) | `chart` |
+| `grafana.url` | URL where Grafana is reachable (was `grafana.externalURL`). Drives `GF_SERVER_ROOT_URL` (Grafana's self-knowledge — used for OIDC `redirect_uri`, absolute link rendering, etc) and `HUB_GRAFANA_URL_BASE` (`[More Details]` links in PR comments). In `chart` mode defaults to `https://<grafana.ingress.hosts[0].host>` when chart-managed Grafana ingress is enabled (else required); in `external` mode it's required (the external target). Install fails fast if unset when required. | `""` (derived) |
 | `grafana.image.repository` | Grafana image | `ghcr.io/earthly/lunar-grafana` |
 | `grafana.image.tag` | Image tag | `2.1.1` |
-| `grafana.admin.secretName` | Secret containing both admin credentials. Empty = chart auto-generates `<release>-grafana-admin` (kept across uninstall) | `""` |
-| `grafana.admin.userKey` | Key within the secret holding the username | `username` |
-| `grafana.admin.passwordKey` | Key within the secret holding the password | `password` |
+| `grafana.auth.secretName` | Grafana credentials (was `grafana.admin`). `chart` mode: admin login — empty = chart auto-generates `<release>-grafana-admin` (kept across uninstall). `external` mode: **required** — the secret the Hub authenticates to your Grafana with | `""` |
+| `grafana.auth.userKey` | Key within the secret holding the username (basic auth) | `username` |
+| `grafana.auth.passwordKey` | Key within the secret holding the password (basic auth) | `password` |
+| `grafana.auth.tokenKey` | Key holding a service-account token; when set (external mode only), the Hub uses token auth instead of basic user/password | `""` |
 | `grafana.service.type` | Service type | `ClusterIP` |
 | `grafana.service.port` | Service port | `80` |
 | `grafana.ingress.*` | Same structure as `hub.ingress.*` | disabled |

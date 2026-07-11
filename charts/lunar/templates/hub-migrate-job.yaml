@@ -99,13 +99,24 @@ spec:
             # Best-effort in the binary — falls back to stderr if absent.
             - name: HUB_LICENCE_FILE
               value: {{ .licence.filePath | quote }}
-            # Same extraEnv as the hub Deployment. Required so the migrator
-            # sees HUB_SQLAPI_PASSWORD (the chart supplies SQL-API creds only
-            # via extraEnv): 01_sqlapi/user.sql creates the sqlapi_user role,
-            # and on a *fresh* database (greenfield install) that role must be
-            # created WITH its password or the SQL API can't authenticate.
-            # (An already-migrated DB — e.g. an upgrade — doesn't re-run it, so
-            # this only bites first installs; it went unnoticed until then.)
+            {{- if ne $.Values.grafana.mode "off" }}
+            # grafana_user (02_grafana/user.sql) is created WITH its password on a
+            # fresh DB — the read-only role the lunar-dashboards provisioning tool uses
+            # for the Grafana datasource. Chart-generated (grafana-db secret); needed
+            # whenever provisioning is enabled (incl. external Grafana).
+            - name: HUB_GRAFANA_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "lunar.grafanaDBSecretName" $ }}
+                  key: {{ $.Values.grafana.provisioning.dbPassword.passwordKey }}
+            {{- end }}
+            # Same extraEnv as the hub Deployment. Required so the migrator sees
+            # HUB_SQLAPI_PASSWORD (the chart supplies SQL-API creds only via
+            # extraEnv): 01_sqlapi/user.sql creates the sqlapi_user role, and on a
+            # *fresh* database (greenfield install) that role must be created WITH
+            # its password or the SQL API can't authenticate. (An already-migrated
+            # DB — e.g. an upgrade — doesn't re-run it, so this only bites first
+            # installs; it went unnoticed until then.)
             {{- with .extraEnv }}
               {{- toYaml . | nindent 12 }}
             {{- end }}

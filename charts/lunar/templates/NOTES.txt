@@ -15,8 +15,8 @@ User-managed (you must create these before pods start):
 {{- if .Values.hub.github.webhookSecret.secretName }}
   {{ printf "%-40s" .Values.hub.github.webhookSecret.secretName }}  key: {{ .Values.hub.github.webhookSecret.secretKey }}
 {{- end }}
-{{- if and .Values.grafana.enabled .Values.grafana.admin.secretName }}
-  {{ printf "%-40s" .Values.grafana.admin.secretName }}  keys: {{ .Values.grafana.admin.userKey }}, {{ .Values.grafana.admin.passwordKey }}
+{{- if and (ne .Values.grafana.mode "off") .Values.grafana.auth.secretName }}
+  {{ printf "%-40s" .Values.grafana.auth.secretName }}  keys: {{ if .Values.grafana.auth.tokenKey }}{{ .Values.grafana.auth.tokenKey }}{{ else }}{{ .Values.grafana.auth.userKey }}, {{ .Values.grafana.auth.passwordKey }}{{ end }}
 {{- end }}
 {{- if or .Values.hub.secrets.collector.secretName .Values.hub.secrets.cataloger.secretName .Values.hub.secrets.policy.secretName }}
 
@@ -39,8 +39,8 @@ Runtime secrets (optional; only when the corresponding secretName is set):
 {{- if not .Values.hub.github.webhookSecret.secretName -}}
 {{- $chartManaged = append $chartManaged (printf "%s (GitHub webhook)" (include "lunar.hubWebhookSecretName" .)) -}}
 {{- end -}}
-{{- if and .Values.grafana.enabled (not .Values.grafana.admin.secretName) -}}
-{{- $chartManaged = append $chartManaged (printf "%s (Grafana admin)" (include "lunar.grafanaAdminSecretName" .)) -}}
+{{- if and (eq .Values.grafana.mode "chart") (not .Values.grafana.auth.secretName) -}}
+{{- $chartManaged = append $chartManaged (printf "%s (Grafana admin)" (include "lunar.grafanaAuthSecretName" .)) -}}
 {{- end -}}
 {{- if $chartManaged }}
 
@@ -67,7 +67,7 @@ URLs wired by the chart:
                          auto-registration. BYO-ingress installs should
                          set hub.webhookURL.)
 {{- end }}
-{{- if .Values.grafana.enabled }}
+{{- if eq .Values.grafana.mode "chart" }}
 {{- if $grafanaURL }}
   HUB_GRAFANA_URL_BASE   {{ $grafanaURL }}
   GF_SERVER_ROOT_URL     {{ $grafanaURL }}

@@ -1,4 +1,4 @@
-{{- if .Values.grafana.enabled -}}
+{{- if eq .Values.grafana.mode "chart" -}}
 {{- $grafanaURL := include "lunar.grafanaURL" . -}}
 apiVersion: apps/v1
 kind: Deployment
@@ -48,50 +48,26 @@ spec:
           imagePullPolicy: {{ .Values.grafana.image.pullPolicy }}
           {{- with .Values.grafana }}
           env:
-            - name: POSTGRES_HOST
-              value: {{ $.Values.hub.db.host | quote }}
-            - name: POSTGRES_PORT
-              value: {{ $.Values.hub.db.port | quote }}
-            - name: POSTGRES_USER
-              valueFrom:
-                secretKeyRef:
-                  name: {{ $.Values.hub.db.user.secretName }}
-                  key: {{ $.Values.hub.db.user.secretKey }}
-            - name: POSTGRES_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: {{ $.Values.hub.db.pass.secretName }}
-                  key: {{ $.Values.hub.db.pass.secretKey }}
-            - name: POSTGRES_DB
-              value: {{ $.Values.hub.db.name | quote }}
-            - name: LUNAR_HUB_HOST
-              value: {{ include "lunar.hubHost" $ | quote }}
-            - name: LUNAR_HUB_HTTP_PORT
-              value: {{ $.Values.hub.service.ports.http | quote }}
             {{- with $grafanaURL }}
             - name: GF_SERVER_ROOT_URL
               value: {{ . | quote }}
             {{- end }}
-            - name: LUNAR_HUB_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "lunar.hubAuthSecretName" $ }}
-                  key: {{ $.Values.hub.auth.secretKey }}
             - name: GF_SECURITY_ADMIN_USER
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "lunar.grafanaAdminSecretName" $ }}
-                  key: {{ .admin.userKey }}
+                  name: {{ include "lunar.grafanaAuthSecretName" $ }}
+                  key: {{ .auth.userKey }}
             - name: GF_SECURITY_ADMIN_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "lunar.grafanaAdminSecretName" $ }}
-                  key: {{ .admin.passwordKey }}
-            # GF_INSTALL_PLUGINS, GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS,
-            # GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH, GF_USERS_ALLOW_SIGN_UP,
-            # GF_USERS_DEFAULT_THEME and GF_FEATURE_TOGGLES_ENABLE are baked into
-            # the lunar-grafana image now (they're coupled to the plugins,
-            # dashboards and theme it bundles); override via grafana.extraEnv.
+                  name: {{ include "lunar.grafanaAuthSecretName" $ }}
+                  key: {{ .auth.passwordKey }}
+            # Stock upstream Grafana: plugins, datasources and dashboards are
+            # installed over the API by the lunar-dashboards provisioning tool (the
+            # provisioning hook Job + reconverge sidecar), not baked into the image,
+            # so the only server-level knob we set is sign-up. Override via extraEnv.
+            - name: GF_USERS_ALLOW_SIGN_UP
+              value: "false"
             {{- with .extraEnv }}
               {{- toYaml . | nindent 12 }}
             {{- end }}
@@ -110,6 +86,10 @@ spec:
           {{- end }}
         - name: kiosk
           image: nginx:1-alpine
+          {{- with .Values.grafana.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           ports:
             - name: kiosk
               containerPort: 8080
@@ -117,6 +97,37 @@ spec:
           volumeMounts:
             - name: kiosk-config
               mountPath: /etc/nginx/conf.d
+        # Reconverge sidecar — present in mode=chart (the only mode with a bundled
+        # pod); chart mode always provisions, so it has no separate toggle.
+        - name: provision-reconverge
+          # Re-applies plugins/datasources/dashboards on every pod start so the
+          # Grafana pod is stateless/self-healing — a recreated pod (or lost
+          # volume) converges back without waiting for the next Hub upgrade.
+          # deploy.sh resolves the Grafana endpoint + read-only DB connection from
+          # the Hub; GRAFANA_URL points at the Grafana container in this pod.
+          image: {{ include "lunar.provisioningImage" . | quote }}
+          imagePullPolicy: {{ .Values.grafana.provisioning.image.pullPolicy }}
+          {{- with .Values.grafana.provisioning.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              {{- include "lunar.waitForGrafana" . | nindent 14 }}
+              {{- include "lunar.waitForHub" . | nindent 14 }}
+              /deploy.sh || echo "dashboards reconverge failed" >&2
+              # Idle so the Deployment treats this as a long-lived sidecar; it
+              # re-applies on the next pod (re)start.
+              tail -f /dev/null
+          env:
+            - name: GRAFANA_URL
+              value: "http://localhost:3000"
+            {{- include "lunar.grafanaProvisionHubEnv" . | nindent 12 }}
+          {{- with .Values.grafana.provisioning.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
       {{- range .Values.grafana.volumes }}
       {{- if eq .name "kiosk-config" }}
       {{- fail "Values.grafana.volumes contains reserved name 'kiosk-config'" }}

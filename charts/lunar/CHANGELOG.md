@@ -9,6 +9,54 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [3.0.0] - 2026-07-09
+
+### Breaking
+
+- **`grafana.enabled` + `grafana.provisioning.enabled` are replaced by a single
+  `grafana.mode`** — `chart` (bundled Grafana pod + dashboards; the default, was
+  `grafana.enabled=true`), `external` (bring-your-own Grafana + dashboards; was
+  `grafana.enabled=false` + provisioning), or `off` (neither). Grafana infra renders
+  only in `chart` mode; dashboards are provisioned whenever `mode != off`. The chart
+  fails fast at render time if either removed key is still set.
+- **`grafana.externalURL` → `grafana.url`; `grafana.admin` → `grafana.auth`.** One
+  URL + auth shape for both modes instead of per-mode plumbing. `auth` keeps
+  `secretName` / `userKey` / `passwordKey` and adds an optional `tokenKey` for a
+  service-account token (Grafana Cloud/Enterprise). In `external` mode the chart now
+  wires `grafana.url` + `grafana.auth` straight into the Hub (`HUB_GRAFANA_URL_BASE`
+  and `HUB_GRAFANA_TOKEN` or `HUB_GRAFANA_USER`/`HUB_GRAFANA_PASSWORD`) — no more
+  hand-plumbing them through `hub.extraEnv`. `tokenKey` is external-only; `chart` mode
+  still auto-generates a basic admin login when `auth.secretName` is empty, and
+  `external` mode requires `url` + `auth.secretName`. The chart fails fast if the
+  removed keys are still set.
+- **Coordinated upgrade with the Hub.** This release swaps the bundled Grafana for
+  stock upstream `grafana/grafana` and moves plugin/datasource/dashboard install to
+  the new **`lunar-dashboards`** provisioning tool, which calls Hub RPCs that only
+  exist in a matching Hub build. It requires a Hub image with the `GetGrafanaEndpoint`
+  / `GetGrafanaConnectionString` RPCs and the `02_grafana` `grafana_user` migration,
+  plus a published `ghcr.io/earthly/lunar-dashboards` at a matching tag. Pin
+  `hub.image.tag` (and, if overridden, `grafana.provisioning.image.tag`) to that
+  release, and do not publish this chart before those images exist.
+
+### Changed
+
+- **Grafana is now stock upstream `grafana/grafana` (default `13.1.0`), not a
+  Lunar-built image.** Plugins, datasources and dashboards are installed over the
+  Grafana HTTP API by the new **`lunar-dashboards`** provisioning tool
+  (`grafana.provisioning`) instead of being baked into a derived image —
+  removing the AGPL / maintenance burden of shipping a modified Grafana. The tool
+  resolves the Grafana endpoint + a read-only DB connection from the Hub over
+  gRPC, so the same image drives our pod and customer-owned Grafana.
+  - `grafana.image` now defaults to `grafana/grafana:13.1.0`.
+  - The Grafana pod runs stock Grafana with only `GF_SERVER_ROOT_URL`,
+    `GF_SECURITY_ADMIN_*` and `GF_USERS_ALLOW_SIGN_UP` set (was: baked plugins /
+    dashboards / theme + `POSTGRES_*` / `LUNAR_HUB_*` for the old entrypoint).
+
+### Added
+
+- **Three Grafana modes (`grafana.mode`)** — `chart` (the chart deploys a Grafana pod and provisions it; default), `external` (provision dashboards into your own Grafana, addressed via `grafana.url` + `grafana.auth`), or `off` (no Grafana and no dashboards).
+- **Provisioning is configured under `grafana.provisioning`** — whenever `mode != off`, the `lunar-dashboards` deploy image installs dashboards/datasources/plugins on every install/upgrade of hub
+
 ## [2.17.0] - 2026-07-09
 
 ### Changed

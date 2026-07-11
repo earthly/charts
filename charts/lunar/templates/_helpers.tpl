@@ -176,10 +176,72 @@ Resolved name for the chart-managed GitHub webhook secret.
 {{- end }}
 
 {{/*
-Resolved name for the chart-managed Grafana admin secret.
+Resolved name for the Grafana auth secret. In chart mode this is the chart-managed
+admin secret (generated as <release>-grafana-admin when grafana.auth.secretName is
+empty); in external mode it's the operator-supplied secret. Name kept as
+"-grafana-admin" for continuity.
 */}}
-{{- define "lunar.grafanaAdminSecretName" -}}
-{{- .Values.grafana.admin.secretName | default (printf "%s-grafana-admin" (include "lunar.fullname" .)) -}}
+{{- define "lunar.grafanaAuthSecretName" -}}
+{{- .Values.grafana.auth.secretName | default (printf "%s-grafana-admin" (include "lunar.fullname" .)) -}}
+{{- end }}
+
+{{/*
+Resolved name for the chart-managed read-only Grafana DB-role (grafana_user)
+password secret, used by the lunar-dashboards provisioning tool's datasource.
+*/}}
+{{- define "lunar.grafanaDBSecretName" -}}
+{{- .Values.grafana.provisioning.dbPassword.secretName | default (printf "%s-grafana-db" (include "lunar.fullname" .)) -}}
+{{- end }}
+
+{{/*
+lunar-dashboards provisioning image ref (repository:tag). The tag defaults to the
+hub image tag so dashboards match the running Hub's schema. Shared by the
+provisioning Job and the reconverge sidecar.
+*/}}
+{{- define "lunar.provisioningImage" -}}
+{{- printf "%s:%s" .Values.grafana.provisioning.image.repository (.Values.grafana.provisioning.image.tag | default .Values.hub.image.tag) -}}
+{{- end }}
+
+{{/*
+Shell snippet: block until the Hub's gRPC answers (reflection `list`). deploy.sh
+makes a single Hub gRPC call with no internal retry, so both the provisioning Job's
+init container and the reconverge sidecar wait for the Hub before invoking it.
+*/}}
+{{- define "lunar.waitForHub" -}}
+until grpcurl -plaintext -connect-timeout 5 -H "Authorization: Bearer $LUNAR_HUB_TOKEN" "$LUNAR_HUB_HOST:$LUNAR_HUB_GRPC_PORT" list >/dev/null 2>&1; do
+  echo "waiting for hub..."; sleep 2;
+done
+{{- end }}
+
+{{/*
+Shell snippet: block until Grafana's API answers at $GRAFANA_URL. Shared by the
+provisioning Job's init container (chart pod) and the reconverge sidecar.
+*/}}
+{{- define "lunar.waitForGrafana" -}}
+until curl -fsS "$GRAFANA_URL/api/health" >/dev/null 2>&1; do
+  echo "waiting for grafana..."; sleep 2;
+done
+{{- end }}
+
+{{/*
+LUNAR_HUB_* env for the lunar-dashboards provisioning tool (the provisioning hook
+Job and the reconverge sidecar). deploy.sh uses it to resolve the Grafana endpoint
++ a read-only DB connection from the Hub over gRPC. Only LUNAR_HUB_TOKEN is sensitive.
+*/}}
+{{- define "lunar.grafanaProvisionHubEnv" -}}
+- name: LUNAR_HUB_HOST
+  value: {{ include "lunar.hubHost" . | quote }}
+- name: LUNAR_HUB_GRPC_PORT
+  value: {{ .Values.hub.service.ports.server | quote }}
+- name: LUNAR_HUB_HTTP_PORT
+  value: {{ .Values.hub.service.ports.http | quote }}
+- name: LUNAR_HUB_INSECURE
+  value: "true"
+- name: LUNAR_HUB_TOKEN
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "lunar.hubAuthSecretName" . }}
+      key: {{ .Values.hub.auth.secretKey }}
 {{- end }}
 
 {{/*
@@ -203,7 +265,7 @@ cryptic render error or, worse, silently end up with no ingress at all.
 {{- fail "hub.publicBaseURL was renamed to hub.webhookURL in chart 2.0.0 (and is now optional — defaults to https://<hub.ingress.webhooks.host>). See README \"Migrating from chart 1.x\"." -}}
 {{- end -}}
 {{- if hasKey $h "grafanaURLBase" -}}
-{{- fail "hub.grafanaURLBase was renamed to grafana.externalURL in chart 2.0.0 (the value is a Grafana property; the hub consumes it, doesn't own it). See README \"Migrating from chart 1.x\"." -}}
+{{- fail "hub.grafanaURLBase was renamed (grafana.externalURL in chart 2.0.0, now grafana.url in 3.0.0 — the value is a Grafana property; the hub consumes it, doesn't own it). See README \"Migrating from chart 1.x\"." -}}
 {{- end -}}
 {{- if or (hasKey $h.ingress "host") (hasKey $h.ingress "grpcAnnotations") (hasKey $h.ingress "httpAnnotations") -}}
 {{- fail "hub.ingress shape changed in chart 2.0.0. Move 'host' under api.host AND webhooks.host. Move 'grpcAnnotations'/'httpAnnotations' under api.grpcAnnotations/api.httpAnnotations. See README \"Migrating from chart 1.x\"." -}}
@@ -234,14 +296,14 @@ Consumed by hub-deployment.yaml as HUB_PUBLIC_BASE_URL.
 {{/*
 Effective base URL for Grafana. Resolution chain (highest priority first):
 
-  1. grafana.externalURL                      explicit override
+  1. grafana.url                              explicit override
   2. https://<grafana.ingress.hosts[0].host>  chart-managed Grafana ingress
 
 Empty otherwise — the chart only derives a URL when it actually controls
 the routing. Deliberately does NOT guess based on hub.ingress.api.host
 (chart doesn't route Grafana traffic there) or hub.webhookURL (wrong
 trust boundary). Installs that expose Grafana via external routing
-MUST set grafana.externalURL explicitly, especially when Grafana fronts
+MUST set grafana.url explicitly, especially when Grafana fronts
 OIDC (otherwise redirect_uri is wrong or empty).
 
 Consumed by hub-deployment.yaml as HUB_GRAFANA_URL_BASE and by
@@ -254,30 +316,55 @@ grafana-deployment.yaml as GF_SERVER_ROOT_URL.
 {{- if and $grafanaIng.enabled $grafanaIng.hosts -}}
 {{- $grafanaHost = (index $grafanaIng.hosts 0).host -}}
 {{- end -}}
-{{- if $grafana.externalURL -}}{{ $grafana.externalURL }}
+{{- if $grafana.url -}}{{ $grafana.url }}
 {{- else if $grafanaHost -}}{{ printf "https://%s" $grafanaHost }}
 {{- end -}}
 {{- end }}
 
 {{/*
-Fail fast when grafana.enabled is true but the chart can't determine a
-Grafana URL. Specifically catches the 1.x "Caddy / content-routing"
-upgrader: in 1.x, GF_SERVER_ROOT_URL and HUB_GRAFANA_URL_BASE both
-defaulted to publicBaseURL. 2.0.0 deliberately drops that fallback —
-guessing at a URL the chart doesn't route to is wrong. Without this
-guard, upgraders silently end up with GF_SERVER_ROOT_URL unset →
-Grafana defaults to http://localhost:3000/ → OIDC redirect_uri breaks.
-
-Three escape hatches, depending on topology:
-  - Set grafana.externalURL (BYO ingress / Caddy / external routing)
-  - Enable grafana.ingress (chart-managed Grafana ingress)
-  - Set grafana.enabled: false (skip Grafana entirely)
+Validate the Grafana configuration:
+  - Reject the pre-3.0.0 keys replaced in the mode/url/auth rework
+    (grafana.enabled, grafana.provisioning.enabled, grafana.externalURL,
+    grafana.admin). A stale value would otherwise be silently ignored, so fail
+    fast with migration guidance.
+  - grafana.mode must be one of chart | external | off.
+  - chart mode needs a resolvable Grafana URL (grafana.url or chart-managed
+    ingress) for GF_SERVER_ROOT_URL, and auth.tokenKey must be unset (the bundled
+    pod uses basic admin auth).
+  - external mode needs grafana.url and grafana.auth.secretName (the chart can't
+    generate credentials for a Grafana it doesn't own).
 */}}
 {{- define "lunar.validateGrafana" -}}
-{{- if .Values.grafana.enabled -}}
+{{- if hasKey .Values.grafana "enabled" -}}
+{{- fail "grafana.enabled was replaced by grafana.mode in chart 3.0.0. Set grafana.mode to one of:\n  - chart     (bundled Grafana pod + dashboards; was grafana.enabled=true)\n  - external  (bring-your-own Grafana + dashboards; was grafana.enabled=false + provisioning)\n  - off       (no Grafana, no dashboards)" -}}
+{{- end -}}
+{{- if hasKey .Values.grafana.provisioning "enabled" -}}
+{{- fail "grafana.provisioning.enabled was removed in chart 3.0.0 — dashboard provisioning is now implied by grafana.mode (chart and external provision; off does not). Drop grafana.provisioning.enabled and set grafana.mode." -}}
+{{- end -}}
+{{- if hasKey .Values.grafana "externalURL" -}}
+{{- fail "grafana.externalURL was renamed to grafana.url in chart 3.0.0 (it now applies to both chart and external modes). Rename grafana.externalURL -> grafana.url." -}}
+{{- end -}}
+{{- if hasKey .Values.grafana "admin" -}}
+{{- fail "grafana.admin was renamed to grafana.auth in chart 3.0.0 (same secretName/userKey/passwordKey, plus an optional tokenKey for external Grafana). Rename grafana.admin -> grafana.auth." -}}
+{{- end -}}
+{{- $mode := .Values.grafana.mode -}}
+{{- if not (has $mode (list "chart" "external" "off")) -}}
+{{- fail (printf "grafana.mode must be one of chart | external | off (got %q)." $mode) -}}
+{{- end -}}
+{{- if eq $mode "chart" -}}
+  {{- if .Values.grafana.auth.tokenKey -}}
+    {{- fail "grafana.auth.tokenKey is only valid in grafana.mode=external — the bundled Grafana pod uses basic admin auth. Unset auth.tokenKey, or switch to grafana.mode=external." -}}
+  {{- end -}}
   {{- $url := include "lunar.grafanaURL" . -}}
   {{- if not $url -}}
-    {{- fail "grafana.externalURL is required when grafana.enabled is true and the chart doesn't manage Grafana's ingress (chart 2.0.0 no longer derives Grafana URLs it doesn't route to — see README \"Migrating from chart 1.x\" for the Caddy / content-routing case). Pick one:\n  - grafana.externalURL = \"<your Grafana URL>\"  (BYO ingress / Caddy / external routing)\n  - grafana.ingress.enabled = true              (chart-managed Grafana ingress)\n  - grafana.enabled = false                     (skip Grafana entirely)" -}}
+    {{- fail "grafana.url is required when grafana.mode is \"chart\" and the chart doesn't manage Grafana's ingress (the chart doesn't derive Grafana URLs it doesn't route to — see README \"Migrating from chart 1.x\" for the Caddy / content-routing case). Pick one:\n  - grafana.url = \"<your Grafana URL>\"       (BYO ingress / Caddy / external routing)\n  - grafana.ingress.enabled = true          (chart-managed Grafana ingress)\n  - grafana.mode = \"external\" or \"off\"" -}}
+  {{- end -}}
+{{- else if eq $mode "external" -}}
+  {{- if not .Values.grafana.url -}}
+    {{- fail "grafana.url is required when grafana.mode is \"external\" — it's the base URL of your Grafana that the Hub vends to the provisioning tool (and uses for [More Details] links)." -}}
+  {{- end -}}
+  {{- if not .Values.grafana.auth.secretName -}}
+    {{- fail "grafana.auth.secretName is required when grafana.mode is \"external\" — the chart can't generate credentials for a Grafana it doesn't own. Provide a secret with basic creds (auth.userKey + auth.passwordKey) or a service-account token (set auth.tokenKey to the token's key)." -}}
   {{- end -}}
 {{- end -}}
 {{- end }}

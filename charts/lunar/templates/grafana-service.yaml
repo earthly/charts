@@ -1,4 +1,4 @@
-{{- if .Values.grafana.enabled }}
+{{- if eq .Values.grafana.mode "chart" }}
 apiVersion: v1
 kind: Service
 metadata:
