@@ -1,0 +1,83 @@
+name: Notify Lunar release-note source
+run-name: "Release-note source: ${{ github.event.pull_request.number || inputs.pr_number || 'reconcile' }}"
+
+on:
+  pull_request_target:
+    types:
+      - closed
+  schedule:
+    - cron: '41 9 * * 1-5'
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Optional merged PR number to prioritize
+        required: false
+        type: number
+      source_sha:
+        description: Optional earthly/charts main SHA to reconcile through
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: notify-lunar-release-note-source
+  cancel-in-progress: false
+
+jobs:
+  notify:
+    if: github.event_name != 'pull_request_target' || github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Resolve source boundary and notify Lunar
+        env:
+          GH_TOKEN: ${{ secrets.LUNAR_REPO_DISPATCH_TOKEN }}
+          SOURCE_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EVENT_PR: ${{ github.event.pull_request.number || inputs.pr_number || 0 }}
+          EVENT_SHA: ${{ github.event.pull_request.merge_commit_sha || inputs.source_sha || '' }}
+        run: |-
+          set -euo pipefail
+          source_repo="$GITHUB_REPOSITORY"
+          source_pr="$EVENT_PR"
+          source_sha="$EVENT_SHA"
+          if [[ ! "$source_pr" =~ ^[0-9]+$ ]]; then
+            echo "::error::invalid source PR '$source_pr'" >&2
+            exit 1
+          fi
+          if [[ "$source_pr" != 0 && -z "$source_sha" ]]; then
+            pr_json=$(curl -fsSL \
+              -H "Authorization: Bearer $SOURCE_GITHUB_TOKEN" \
+              -H 'Accept: application/vnd.github+json' \
+              "https://api.github.com/repos/${source_repo}/pulls/${source_pr}")
+            if [[ "$(jq -r '.merged_at // empty' <<<"$pr_json")" == '' ]]; then
+              echo "::error::PR #$source_pr is not merged" >&2
+              exit 1
+            fi
+            source_sha=$(jq -r '.merge_commit_sha' <<<"$pr_json")
+          fi
+          if [[ -z "$source_sha" ]]; then
+            source_sha=$(git rev-parse HEAD)
+          fi
+          if [[ ! "$source_sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::invalid source SHA '$source_sha'" >&2
+            exit 1
+          fi
+          git merge-base --is-ancestor "$source_sha" HEAD || {
+            echo "::error::$source_sha is not contained in earthly/charts main" >&2
+            exit 1
+          }
+          jq -n \
+            --arg event_type lunar-release-note-source-updated \
+            --arg source_repo "$source_repo" \
+            --arg source_sha "$source_sha" \
+            --argjson source_pr "$source_pr" \
+            '{event_type: $event_type, client_payload: {source_repo: $source_repo, source_sha: $source_sha, source_pr: $source_pr}}' \
+            > "$RUNNER_TEMP/lunar-release-note-source.json"
+          gh api --method POST repos/earthly/lunar/dispatches --input "$RUNNER_TEMP/lunar-release-note-source.json"

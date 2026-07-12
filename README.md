@@ -406,10 +406,7 @@ helm upgrade lunar earthly/lunar \
   -f values.yaml
 ```
 
-Per-release changes (breaking changes, new values, behaviour shifts)
-are recorded in the [chart CHANGELOG](charts/lunar/CHANGELOG.md). Read
-the entries between your current version and the one you're upgrading
-to before running `helm upgrade`.
+Before upgrading, review the [Self-hosted release notes](https://docs-lunar.earthly.dev/release-notes/self-hosted) for breaking changes, new values, behavior changes, and required upgrade actions between your current and target chart versions.
 
 ## Uninstalling
 
