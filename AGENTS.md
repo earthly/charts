@@ -21,67 +21,64 @@ User-facing install/values docs live in `README.md`.
 ```text
 charts/lunar/         # the lunar chart
   Chart.yaml          # chart metadata (name, version, kubeVersion)
-  CHANGELOG.md        # per-chart release notes (canonical for chart history)
   README.md           # values reference + install guide (publicly rendered)
   values.yaml         # default values for the chart
   templates/          # k8s manifest templates (hub, operator, grafana, etc.)
   scripts/            # helper scripts shipped with the chart (e.g. create-github-app.sh)
-scripts/              # repo tooling, NOT shipped with the chart
-  sync-release-notes.sh  # mirror CHANGELOG.md sections into GitHub release notes
-.github/workflows/    # CI: chart-releaser on main, bump-and-pr on dispatch
+.github/workflows/    # chart publication, version bump, and Lunar completion callback
 .github/CODEOWNERS    # @dchw owns everything by default
-CHANGELOG.md          # repo-level index pointing at per-chart changelogs
 lunar.yml             # lunar-config: domain + codeowners + description
 README.md             # repo-level README
 ```
 
 ## Release flow
 
-1. A new Lunar version (`lunar-hub-vX.Y.Z`) is released from `earthly/lunar`.
-2. The `bump-and-pr.yml` workflow here is triggered (`workflow_dispatch`) with
-   `version=X.Y.Z`.
+1. A human release signer reviews an exact Lunar `main` SHA and dispatches
+   Lunar's `release.yml` for `lunar-hub` with that reviewed SHA and `X.Y.Z`.
+2. Lunar's workflow validates the authorization, runs its release gate, creates
+   `lunar-hub-vX.Y.Z` on the signer's behalf, publishes the images, then triggers
+   this repository's `bump-and-pr.yml` with `version=X.Y.Z`.
 3. `bump-and-pr.yml` bumps `charts/lunar/Chart.yaml` `version` plus all the
    `*.image.tag` fields in `values.yaml`, pushes a `release/X.Y.Z` branch,
    opens a PR, and enables auto-merge (squash).
 4. On merge to `main`, `release.yml` (the `Release Charts` workflow) runs
-   `chart-releaser-action`, which packages the chart and publishes the tag
-   (`lunar-X.Y.Z`) + GitHub Release.
-5. Still in the same `release.yml` job, `scripts/sync-release-notes.sh` runs
-   and copies the matching `## [X.Y.Z]` section from
-   `charts/lunar/CHANGELOG.md` into that release's notes (see below).
+   `chart-releaser-action`, which packages the chart and publishes the Helm
+   chart tag (`lunar-X.Y.Z`) + chart GitHub Release in this repository. The
+   prefix is the chart name; it is unrelated to the CLI's `lunar-vX.Y.Z` tag
+   and does not release the CLI. `bump-and-pr.yml` explicitly dispatches
+   it after auto-merge because merges performed with `GITHUB_TOKEN` do not
+   emit a downstream `push` workflow. A daily scheduled reconciliation is the
+   fallback for a delayed merge or missed dispatch.
+5. Still in the same `release.yml` job, the workflow verifies the public tag
+   and `.tgz`, replaces the chart GitHub Release body with a link to the canonical
+   Self-hosted GitBook page, and sends a metadata-only `lunar-chart-released`
+   repository dispatch to `earthly/lunar`.
+6. Lunar independently verifies the public release and chart package, resolves
+   the packaged Lunar SHA and charts tag SHA, promotes eligible Self-hosted
+   fragments from both repositories, and publishes the canonical notes.
 
-So: **the changelog entry IS the release notes.** Write the
-`charts/lunar/CHANGELOG.md` section for the new version — usually as part of the
-release PR or a follow-up on the same `release/X.Y.Z` branch before the bump PR
-merges — and the release body is populated for you.
+## Release-note source flow
 
-## Release notes are derived from the changelog
+Structured fragments in `earthly/lunar/release-notes.d/` are the only canonical
+source for future release-note prose. This repository has no maintained
+changelog. Existing historical release bodies and Git history preserve the old
+record.
 
-`chart-releaser` seeds every release body with the chart `description`, so
-without help every release reads `A Helm chart for Earthly Lunar 🌙`.
-`scripts/sync-release-notes.sh` fixes that: for each
-`charts/<chart>/CHANGELOG.md`, it maps every `## [X.Y.Z]` section to the
-`<chart>-X.Y.Z` release tag and sets the release body to that section.
+- Lunar's weekday drafting workflow checks out Charts `main` and scans it with
+  an independent `earthly/charts` watermark. Charts sends no per-merge source
+  notification.
+- Version-only/image-tag-only release PRs are expected to become `no-note`.
+  User-visible values, templates, compatibility, installation, and upgrade
+  changes can produce `source_repo: earthly/charts` Self-hosted fragments.
+- `release.yml` sends chart metadata only after the chart is public: version/date,
+  chart tag and SHA, release URL, package name, and packaged Lunar image version.
+  It never sends release-note prose.
+- Chart GitHub Release bodies point to
+  <https://docs-lunar.earthly.dev/release-notes/self-hosted>. GitBook is the
+  canonical release-note surface.
 
-- Runs automatically as the last step of `release.yml`. It's deliberately in
-  the same job as `chart-releaser` rather than a separate `on: release`
-  workflow, because releases created with `GITHUB_TOKEN` don't trigger
-  downstream workflow runs.
-- Idempotent and self-healing — it reconciles every run, so fixing a typo in a
-  past changelog entry repairs that release's notes on the next release.
-- Skips releases with no matching changelog section (e.g. pre-1.0 history the
-  changelog intentionally omits).
-
-Run it by hand against the live repo when needed:
-
-```bash
-scripts/sync-release-notes.sh --dry-run            # preview, no writes
-scripts/sync-release-notes.sh                       # reconcile all releases
-scripts/sync-release-notes.sh --version 2.4.0       # just one release
-```
-
-Needs an authenticated `gh` and `awk`. Defaults to `$GITHUB_REPOSITORY`
-(falls back to `earthly/charts`).
+Only the completion callback requires the `LUNAR_REPO_DISPATCH_TOKEN` Actions
+secret. Repeated release callbacks are expected and idempotent.
 
 ## Editing checklist
 
@@ -89,13 +86,12 @@ Needs an authenticated `gh` and `awk`. Defaults to `$GITHUB_REPOSITORY`
   hand. Trigger the `bump-and-pr.yml` workflow via `workflow_dispatch`.
 - **Changing template behavior**: update `charts/lunar/templates/*.yaml` and
   `values.yaml`. Bump the chart minor (`X.Y+1.0`) for additions, major
-  (`X+1.0.0`) for breaking values-shape changes, patch for fixes. Add a
-  `charts/lunar/CHANGELOG.md` entry — it becomes the release notes.
+  (`X+1.0.0`) for breaking values-shape changes, patch for fixes. Do not write a
+  separate changelog entry; Lunar drafts source-aware fragments after merge.
 - **Editing the README**: keep the values table in sync with `values.yaml`.
   The README is the doc surface users see when they browse the chart.
 - **Workflow / tooling changes**: anything under `.github/workflows/` or
-  `scripts/` — these aren't chart-versioned; track them in git history (the
-  repo-level `CHANGELOG.md` is just an index, not a per-commit log).
+  `scripts/` — these aren't chart-versioned; track them in git history.
 
 ## Conventions
 
@@ -108,7 +104,6 @@ Needs an authenticated `gh` and `awk`. Defaults to `$GITHUB_REPOSITORY`
 
 ## Pointers
 
-- Per-chart release notes: [`charts/lunar/CHANGELOG.md`](charts/lunar/CHANGELOG.md)
-- Repo-level changelog index: [`CHANGELOG.md`](CHANGELOG.md)
+- Canonical Self-hosted release notes: <https://docs-lunar.earthly.dev/release-notes/self-hosted>
 - Public docs site: <https://docs-lunar.earthly.dev/>
 - Lunar source: <https://github.com/earthly/lunar>

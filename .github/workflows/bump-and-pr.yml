@@ -12,7 +12,9 @@ on:
 jobs:
   bump:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
+      actions: write
       contents: write
       pull-requests: write
     steps:
@@ -44,16 +46,26 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add charts/lunar/Chart.yaml charts/lunar/values.yaml
           if git diff --cached --quiet; then
-            echo "No changes to commit"
+            echo "No changes to commit; dispatching release reconciliation"
+            gh workflow run release.yml --ref main
             exit 0
           fi
           BRANCH="release/${VERSION}"
           git checkout -b "${BRANCH}"
           git commit -m "Release ${VERSION}"
           git push -u origin "${BRANCH}"
-          gh pr create \
+          PR_URL=$(gh pr create \
             --base main \
             --head "${BRANCH}" \
             --title "Release ${VERSION}" \
-            --body "Automated bump from the \`lunar-hub-v${VERSION}\` release. Sets \`Chart.yaml\` version and the hub/operator/init/sidecar image tags in \`charts/lunar/values.yaml\` to \`${VERSION}\` (chart and hub versions stay in lockstep). Grafana runs stock \`grafana/grafana\` and is not retagged. The chart release is published by \`release.yml\` on merge to \`main\`."
-          gh pr merge --auto --squash "${BRANCH}"
+            --body "Automated bump from the \`lunar-hub-v${VERSION}\` release. Sets \`Chart.yaml\` version and the hub/operator/init/sidecar image tags in \`charts/lunar/values.yaml\` to \`${VERSION}\` (chart and hub versions stay in lockstep). Grafana runs stock \`grafana/grafana\` and is not retagged. The chart release is published by \`release.yml\` on merge to \`main\`.")
+          gh pr merge --auto --squash "$PR_URL"
+          for attempt in $(seq 1 90); do
+            MERGED_AT=$(gh pr view "$PR_URL" --json mergedAt --jq '.mergedAt // ""')
+            if [ -n "$MERGED_AT" ]; then
+              gh workflow run release.yml --ref main
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::warning::release PR did not merge within 15 minutes; auto-merge remains enabled and the scheduled release reconciliation will publish it"
