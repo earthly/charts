@@ -50,9 +50,11 @@ README.md             # repo-level README
    emit a downstream `push` workflow. A daily scheduled reconciliation is the
    fallback for a delayed merge or missed dispatch.
 5. Still in the same `release.yml` job, the workflow verifies the public tag
-   and `.tgz`, replaces the chart GitHub Release body with a link to the canonical
-   Self-hosted GitBook page, and sends a metadata-only `lunar-chart-released`
-   repository dispatch to `earthly/lunar`.
+   and `.tgz`, sends a metadata-only `lunar-chart-released` repository dispatch
+   to `earthly/lunar`, and then replaces the chart GitHub Release body with a link
+   to the canonical Self-hosted GitBook page. That link is the durable completion
+   marker: push and scheduled reconciliation skip an already-marked release, while
+   a manual workflow dispatch forces the callback for repair.
 6. Lunar independently verifies the public release and chart package, resolves
    the packaged Lunar SHA and charts tag SHA, promotes eligible Self-hosted
    fragments from both repositories, and publishes the canonical notes.
@@ -78,7 +80,8 @@ record.
   canonical release-note surface.
 
 Only the completion callback requires the `LUNAR_REPO_DISPATCH_TOKEN` Actions
-secret. Repeated release callbacks are expected and idempotent.
+secret. A failed run before the completion marker is retried by reconciliation;
+accepted callbacks are marked once, and explicit manual callbacks remain idempotent.
 
 ## Editing checklist
 

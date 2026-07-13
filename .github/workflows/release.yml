@@ -48,12 +48,13 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           LUNAR_REPO_DISPATCH_TOKEN: ${{ secrets.LUNAR_REPO_DISPATCH_TOKEN }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |-
           set -euo pipefail
           chart_version=$(yq -r '.version' charts/lunar/Chart.yaml)
           chart_tag="lunar-${chart_version}"
           chart_asset_name="${chart_tag}.tgz"
-          release_json=$(gh release view "$chart_tag" --repo "$GITHUB_REPOSITORY" --json tagName,publishedAt,url,assets)
+          release_json=$(gh release view "$chart_tag" --repo "$GITHUB_REPOSITORY" --json tagName,publishedAt,url,assets,body)
           if [[ "$(jq -r '.tagName' <<<"$release_json")" != "$chart_tag" ]]; then
             echo "::error::published chart tag does not match $chart_tag" >&2
             exit 1
@@ -73,12 +74,16 @@ jobs:
           chart_release_url=$(jq -r '.url' <<<"$release_json")
           git fetch --force --tags origin
           chart_sha=$(git rev-list -n 1 "$chart_tag")
+          canonical_url='https://docs-lunar.earthly.dev/release-notes/self-hosted'
+          canonical_body=$(printf '%s\n\n%s' \
+            'Earthly Lunar Self-hosted release notes are maintained in the Lunar documentation.' \
+            "$canonical_url")
+          if [[ "$EVENT_NAME" != workflow_dispatch && "$(jq -r '.body // ""' <<<"$release_json")" == "$canonical_body" ]]; then
+            echo "$chart_tag already records the canonical release-note link; no callback is required."
+            exit 0
+          fi
           notes_file=$(mktemp)
-          printf '%s\n\n%s\n' \
-            "Earthly Lunar Self-hosted release notes are maintained in the Lunar documentation." \
-            "https://docs-lunar.earthly.dev/release-notes/self-hosted" \
-            > "$notes_file"
-          gh release edit "$chart_tag" --repo "$GITHUB_REPOSITORY" --notes-file "$notes_file"
+          printf '%s\n' "$canonical_body" > "$notes_file"
           jq -n \
             --arg event_type lunar-chart-released \
             --arg chart_version "$chart_version" \
@@ -97,3 +102,4 @@ jobs:
             --header 'X-GitHub-Api-Version: 2022-11-28' \
             --data-binary "@$RUNNER_TEMP/lunar-chart-released.json" \
             https://api.github.com/repos/earthly/lunar/dispatches
+          gh release edit "$chart_tag" --repo "$GITHUB_REPOSITORY" --notes-file "$notes_file"
