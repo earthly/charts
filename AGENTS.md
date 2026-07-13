@@ -25,7 +25,7 @@ charts/lunar/         # the lunar chart
   values.yaml         # default values for the chart
   templates/          # k8s manifest templates (hub, operator, grafana, etc.)
   scripts/            # helper scripts shipped with the chart (e.g. create-github-app.sh)
-.github/workflows/    # chart publication, version bump, and Lunar source notifications
+.github/workflows/    # chart publication, version bump, and Lunar completion callback
 .github/CODEOWNERS    # @dchw owns everything by default
 lunar.yml             # lunar-config: domain + codeowners + description
 README.md             # repo-level README
@@ -64,25 +64,21 @@ source for future release-note prose. This repository has no maintained
 changelog. Existing historical release bodies and Git history preserve the old
 record.
 
-- `notify-lunar-release-notes.yml` sends `lunar-release-note-source-updated`
-  after a charts PR merges. The payload contains only `source_repo`, the merge
-  SHA, and the PR-number hint; Lunar fetches and analyzes the source itself.
-- The same workflow runs on a weekday schedule and sends the latest charts
-  `main` SHA so Lunar can drain any PRs missed because of event suppression or
-  workflow failure.
+- Lunar's weekday drafting workflow checks out Charts `main` and scans it with
+  an independent `earthly/charts` watermark. Charts sends no per-merge source
+  notification.
 - Version-only/image-tag-only release PRs are expected to become `no-note`.
   User-visible values, templates, compatibility, installation, and upgrade
   changes can produce `source_repo: earthly/charts` Self-hosted fragments.
-- `release.yml` sends chart metadata only: version/date, chart tag and SHA,
-  release URL, package name, and packaged Lunar image version. It never sends
-  release-note prose.
+- `release.yml` sends chart metadata only after the chart is public: version/date,
+  chart tag and SHA, release URL, package name, and packaged Lunar image version.
+  It never sends release-note prose.
 - Chart GitHub Release bodies point to
   <https://docs-lunar.earthly.dev/release-notes/self-hosted>. GitBook is the
   canonical release-note surface.
 
-Both notification workflows require the `LUNAR_REPO_DISPATCH_TOKEN` Actions
-secret to create repository dispatches in `earthly/lunar`. Repeated source and
-release callbacks are expected and idempotent.
+Only the completion callback requires the `LUNAR_REPO_DISPATCH_TOKEN` Actions
+secret. Repeated release callbacks are expected and idempotent.
 
 ## Editing checklist
 
