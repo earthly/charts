@@ -471,6 +471,22 @@ operator:
   # Example:
   #   scriptPodPriorityClassName: lunar-snippet
   scriptPodPriorityClassName: ""
+  # Pod-level annotations and securityContext applied to every script pod the
+  # operator creates. NOTE: distinct from operator.podAnnotations /
+  # operator.podSecurityContext below, which apply to the operator's OWN
+  # Deployment pod — not the script pods. scriptPodSecurityContext is the
+  # pod-scoped context (fsGroup, runAsUser, seccompProfile, ...); set the
+  # container-level securityContext via scriptContainerSpec* above.
+  # Example:
+  #   scriptPodAnnotations:
+  #     karpenter.sh/do-not-disrupt: "true"
+  #   scriptPodSecurityContext:
+  #     runAsNonRoot: true
+  #     fsGroup: 2000
+  #     seccompProfile:
+  #       type: RuntimeDefault
+  scriptPodAnnotations: {}
+  scriptPodSecurityContext: {}
   extraEnv: []
   resources: {}
   annotations: {}

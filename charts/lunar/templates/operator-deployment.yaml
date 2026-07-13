@@ -145,6 +145,14 @@ spec:
             - name: OPERATOR_SNIPPET_POD_PRIORITY_CLASS_NAME
               value: {{ .Values.operator.scriptPodPriorityClassName | quote }}
             {{- end }}
+            {{- if not (eq (toJson .Values.operator.scriptPodAnnotations) "{}") }}
+            - name: OPERATOR_SNIPPET_POD_ANNOTATIONS
+              value: {{ .Values.operator.scriptPodAnnotations | toJson | quote }}
+            {{- end }}
+            {{- if not (eq (toJson .Values.operator.scriptPodSecurityContext) "{}") }}
+            - name: OPERATOR_SNIPPET_POD_SECURITY_CONTEXT
+              value: {{ .Values.operator.scriptPodSecurityContext | toJson | quote }}
+            {{- end }}
             {{- with .Values.operator.extraEnv }}
               {{- toYaml . | nindent 12 }}
             {{- end }}

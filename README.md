@@ -672,6 +672,8 @@ Watches for script execution jobs and creates Kubernetes pods to run them.
 | `operator.scriptPodNodeSelector` | Node selector for script pods | `{}` |
 | `operator.scriptPodTolerations` | Tolerations for script pods | `[]` |
 | `operator.scriptPodPriorityClassName` | PriorityClass name for script pods; empty leaves the cluster default | `""` |
+| `operator.scriptPodAnnotations` | Annotations applied to script pods | `{}` |
+| `operator.scriptPodSecurityContext` | Pod-level `securityContext` for script pods (`fsGroup`, `runAsUser`, `seccompProfile`, …); container-level context comes from `scriptContainerSpec*` | `{}` |
 
 **Logging**
 
