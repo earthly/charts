@@ -9,6 +9,21 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [3.1.0] - 2026-07-13
+
+### Added
+
+- **`operator.scriptPodAnnotations` and `operator.scriptPodSecurityContext`** — set
+  pod annotations and a pod-level `securityContext` (`fsGroup`, `runAsUser`,
+  `seccompProfile`, …) on the script pods the operator spawns at runtime. The
+  pod-level `securityContext` is commonly required to run under a "restricted" Pod
+  Security Standards namespace. These join the existing `scriptPodNodeSelector`,
+  `scriptPodTolerations`, and `scriptPodPriorityClassName`; container-level
+  securityContext is set separately via `operator.scriptContainerSpec*`. Requires an
+  operator image that reads `OPERATOR_SNIPPET_POD_ANNOTATIONS` /
+  `OPERATOR_SNIPPET_POD_SECURITY_CONTEXT` — pin `operator.image.tag` to a release
+  that includes it.
+
 ## [3.0.0] - 2026-07-11
 
 ### Breaking
