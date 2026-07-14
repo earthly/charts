@@ -497,6 +497,13 @@ operator:
   nodeSelector: {}
   tolerations: []
   affinity: {}
+  # Optional pod topology-spread constraints for operator replicas. Unlike the
+  # hub (which soft-spreads by default), the operator runs a single replica by
+  # default and applies NO spread unless you set this — empty means no
+  # constraints. Set it (maxSkew / topologyKey / whenUnsatisfiable / ...) when
+  # running the operator with replicaCount > 1 to spread its pods across nodes
+  # or zones.
+  topologySpreadConstraints: []
 grafana:
   # How Grafana is provided. One of:
   #   chart    — the chart runs a bundled stock Grafana pod and provisions the
