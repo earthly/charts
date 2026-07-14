@@ -9,6 +9,17 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [3.2.1] - 2026-07-14
+
+### Added
+
+- **Operator pods can be spread with `operator.topologySpreadConstraints`.**
+  Opt-in — set it to spread the operator across nodes or zones when running more
+  than one replica. Empty by default (no constraints applied).
+- **The Hub migration job now honors `hub.annotations` and `hub.podAnnotations`.**
+  Applied to the pre-install/pre-upgrade migration Job and its pod, matching the
+  annotation controls already available on the long-running components.
+
 ## [3.1.0] - 2026-07-13
 
 ### Added

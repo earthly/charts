@@ -175,4 +175,4 @@ spec:
       {{- with .Values.operator.topologySpreadConstraints }}
       topologySpreadConstraints:
         {{- toYaml . | nindent 8 }}
-      {{- else }}
+      {{- end }}
