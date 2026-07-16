@@ -383,6 +383,10 @@ hub:
   podSecurityContext: {}
   securityContext: {}
   resources: {}
+  # CPU/memory requests and limits for the pre-install/pre-upgrade migrate
+  # Job's container. Separate from hub.resources (the long-running
+  # Deployment) since a one-shot migration typically needs less headroom.
+  migrateJobResources: {}
   volumeMounts: []
   volumes: []
   nodeSelector: {}

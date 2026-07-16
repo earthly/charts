@@ -618,6 +618,7 @@ The Hub uses a PVC for state, cached repos, and script code.
 | Key | Description | Default |
 |-----|-------------|---------|
 | `hub.resources` | CPU/memory requests and limits | `{}` |
+| `hub.migrateJobResources` | CPU/memory requests and limits for the pre-install/pre-upgrade migrate Job's container | `{}` |
 | `hub.nodeSelector` | Node selector | `{}` |
 | `hub.tolerations` | Tolerations | `[]` |
 | `hub.affinity` | Affinity rules | `{}` |
