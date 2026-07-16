@@ -77,6 +77,10 @@ spec:
           image: "{{ .Values.hub.image.repository }}:{{ .Values.hub.image.tag }}"
           imagePullPolicy: {{ .Values.hub.image.pullPolicy }}
           command: ["/bin/lunar-hub-migrate"]
+          {{- with .Values.hub.migrateJobResources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           {{- with .Values.hub }}
           env:
             - name: HUB_DB_NAME
