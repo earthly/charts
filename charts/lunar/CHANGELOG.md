@@ -9,6 +9,19 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [3.4.1] - 2026-07-20
+
+### Added
+
+- **`operator.scriptInitContainerSpec` and `operator.scriptSidecarContainerSpec`** —
+  set the container spec for the init and sidecar containers the operator injects
+  into each script pod (one of each, shared across all script types). Same overlay
+  rules as the `operator.scriptContainerSpec*` settings: you set `resources`, env,
+  and so on, while the operator overlays the image, env, and volume mounts. Set
+  `resources` here so the init and sidecar containers satisfy a namespace
+  `ResourceQuota` or `LimitRange` that requires requests. Empty (`{}`) uses the
+  operator's built-in defaults.
+
 ## [3.2.1] - 2026-07-14
 
 ### Added
