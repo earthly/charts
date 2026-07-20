@@ -449,6 +449,26 @@ operator:
   scriptContainerSpecPolicy: {}
   scriptContainerSpecCollector: {}
   scriptContainerSpecCataloger: {}
+  # Container spec for the operator-injected init and sidecar containers (one of
+  # each per script pod, the same across all script types). Same overlay rules
+  # as scriptContainerSpec* above — you control resources, env, etc.; the
+  # operator overlays image, env, and volume mounts. Set resources here so the
+  # init and sidecar containers satisfy a namespace ResourceQuota / LimitRange
+  # that requires requests. Empty ({}) uses the operator's built-in defaults
+  # (init sized for the git clone, sidecar minimal). The init/sidecar
+  # container-level securityContext follows the script container's; it is not
+  # set here.
+  # Example:
+  #   scriptInitContainerSpec:
+  #     resources:
+  #       requests:
+  #         cpu: "100m"
+  #         memory: "128Mi"
+  #       limits:
+  #         cpu: "500m"
+  #         memory: "512Mi"
+  scriptInitContainerSpec: {}
+  scriptSidecarContainerSpec: {}
   # Per-script-type batch size: how many jobs the operator groups into a
   # single pod. Zero = use the operator's built-in default. Policies are cheap
   # and uniform — pack more per pod to amortize init+sidecar overhead.

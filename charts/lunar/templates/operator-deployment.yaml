@@ -121,6 +121,14 @@ spec:
             - name: OPERATOR_SNIPPET_CONTAINER_SPEC_CATALOGER
               value: {{ .Values.operator.scriptContainerSpecCataloger | toJson | quote }}
             {{- end }}
+            {{- if not (eq (toJson .Values.operator.scriptInitContainerSpec) "{}") }}
+            - name: OPERATOR_SNIPPET_INIT_CONTAINER_SPEC
+              value: {{ .Values.operator.scriptInitContainerSpec | toJson | quote }}
+            {{- end }}
+            {{- if not (eq (toJson .Values.operator.scriptSidecarContainerSpec) "{}") }}
+            - name: OPERATOR_SNIPPET_SIDECAR_CONTAINER_SPEC
+              value: {{ .Values.operator.scriptSidecarContainerSpec | toJson | quote }}
+            {{- end }}
             {{- if gt (int .Values.operator.batchMaxCountPolicy) 0 }}
             - name: OPERATOR_BATCH_MAX_COUNT_POLICY
               value: {{ .Values.operator.batchMaxCountPolicy | quote }}
