@@ -425,6 +425,13 @@ operator:
   # non-standard name.
   hubHost: ""
   maxConcurrent: 10
+  # Kubernetes API client rate limits (client-go QPS/Burst) for the operator.
+  # These gate how fast the operator can create/delete script pods and run its
+  # pod-GC reconciler. The client-go stock defaults (5 QPS / 10 burst) throttle
+  # pod creation far below maxConcurrent on busy clusters, so the chart sets a
+  # higher baseline. Raise further on large fleets to saturate more nodes.
+  k8sQps: 50
+  k8sBurst: 100
   healthPort: 8081
   # Per-script-type base container spec. The operator overlays required
   # fields (name, image, command, workingDir, volume mounts) on top — you

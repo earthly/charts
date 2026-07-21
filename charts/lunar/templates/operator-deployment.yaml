@@ -80,6 +80,10 @@ spec:
               value: {{ include "lunar.scriptNamespace" . | quote }}
             - name: OPERATOR_MAX_CONCURRENT
               value: {{ .Values.operator.maxConcurrent | quote }}
+            - name: OPERATOR_K8S_QPS
+              value: {{ .Values.operator.k8sQps | quote }}
+            - name: OPERATOR_K8S_BURST
+              value: {{ .Values.operator.k8sBurst | quote }}
             - name: OPERATOR_HEALTH_PORT
               value: {{ .Values.operator.healthPort | quote }}
             - name: LUNAR_LOG_LEVEL
