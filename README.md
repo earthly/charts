@@ -700,9 +700,17 @@ Operator logging uses the top-level global `logging.*` values. Tenant and teleme
 
 Pre-built Grafana instance with dashboards for policy results, component health, and collection activity. Deployed by default; set `grafana.mode: off` to opt out.
 
+In `chart` mode the bundled Grafana pod persists its own state (SQLite at `/var/lib/grafana`: user-created dashboards, users/orgs, annotations, runtime-installed plugins) on a PVC by default, so it survives pod replacement. The Lunar-managed dashboards/datasources are re-applied on every pod start regardless. The PVC (`<release>-grafana-data`) is created with `helm.sh/resource-policy: keep` and needs a default StorageClass (or set `grafana.persistence.storageClass`). Set `grafana.persistence.enabled: false` for the previous ephemeral behavior. Because the PVC is single-writer (RWO), the Grafana Deployment uses `strategy: Recreate` when persistence is enabled, so upgrades incur a brief Grafana downtime.
+
 | Key | Description | Default |
 |-----|-------------|---------|
 | `grafana.mode` | How Grafana is provided: `chart` (bundled pod + dashboards), `external` (bring-your-own Grafana + dashboards), or `off` (neither) | `chart` |
+| `grafana.persistence.enabled` | Create/mount a PVC for the bundled Grafana's state (`chart` mode only) | `true` |
+| `grafana.persistence.existingClaim` | Mount this PVC instead of a chart-created one (size/storageClass/accessModes ignored) | `""` |
+| `grafana.persistence.size` | Volume size | `10Gi` |
+| `grafana.persistence.storageClass` | StorageClass (empty = cluster default) | `""` |
+| `grafana.persistence.accessModes` | PVC access modes | `[ReadWriteOnce]` |
+| `grafana.persistence.fsGroup` | Pod `fsGroup` so the volume is writable by Grafana (uid/gid 472) | `472` |
 | `grafana.url` | URL where Grafana is reachable (was `grafana.externalURL`). Drives `GF_SERVER_ROOT_URL` (Grafana's self-knowledge — used for OIDC `redirect_uri`, absolute link rendering, etc) and `HUB_GRAFANA_URL_BASE` (`[More Details]` links in PR comments). In `chart` mode defaults to `https://<grafana.ingress.hosts[0].host>` when chart-managed Grafana ingress is enabled (else required); in `external` mode it's required (the external target). Install fails fast if unset when required. | `""` (derived) |
 | `grafana.image.repository` | Grafana image | `ghcr.io/earthly/lunar-grafana` |
 | `grafana.image.tag` | Image tag | `2.1.1` |

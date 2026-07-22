@@ -571,6 +571,40 @@ grafana:
     userKey: "username"
     passwordKey: "password"
     tokenKey: ""
+  # Persistent storage for the bundled Grafana pod's own state — the SQLite DB at
+  # /var/lib/grafana (user-created dashboards, users/orgs, annotations, stars, and
+  # runtime-installed plugins). chart mode only; ignored for external/off (there
+  # is no bundled pod to give a volume).
+  #
+  # Enabled by default: without it the Grafana filesystem is ephemeral, so
+  # anything a user authors in the UI is lost when the pod is replaced (upgrade,
+  # node roll, crash). The Lunar-managed dashboards/datasources are re-applied on
+  # every pod start by the provisioning reconverge sidecar regardless, so this
+  # only protects user-authored content.
+  #
+  # The chart-managed PVC (<release>-grafana-data) is created with
+  # helm.sh/resource-policy: keep, so it survives `helm uninstall` — the
+  # dashboards outlive the release. Set existingClaim to bring your own PVC.
+  #
+  # NOTE: a single-writer (RWO) PVC forces the Grafana Deployment to
+  # strategy: Recreate — the old pod must release the volume before the new one
+  # can attach, otherwise they deadlock on a Multi-Attach error — so expect a
+  # brief Grafana downtime on upgrade.
+  persistence:
+    enabled: true
+    # Bring-your-own PVC. When set, the chart mounts this claim and does NOT
+    # create one (size / storageClass / accessModes below are then ignored).
+    existingClaim: ""
+    size: 10Gi
+    # "" uses the cluster's default StorageClass. Set to pin a class (e.g. gp3).
+    storageClass: ""
+    accessModes:
+      - ReadWriteOnce
+    # Pod fsGroup applied when persistence is enabled, so the mounted volume is
+    # group-writable by Grafana (the stock grafana/grafana image runs as uid/gid
+    # 472). If you set your own grafana.podSecurityContext.fsGroup, that wins and
+    # this is ignored.
+    fsGroup: 472
   extraEnv: []
   # Stock upstream Grafana — no Lunar-built/derived image (avoids the AGPL
   # implications and maintenance of shipping a modified Grafana). Plugins,
