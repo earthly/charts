@@ -37,13 +37,6 @@ history see `git log -- charts/lunar/`.
 - The Grafana provisioning Job now honors `grafana.annotations` and
   `grafana.podAnnotations`, matching the existing hub/operator pattern.
 
-### Changed
-
-- **`grafana.securityContext` default** changed from `{}` to
-  `runAsNonRoot: true`, `allowPrivilegeEscalation: false`, and
-  `capabilities.drop: [ALL]`. Override `grafana.securityContext` to restore
-  the previous permissive default if needed.
-
 ## [3.4.1] - 2026-07-20
 
 ### Added

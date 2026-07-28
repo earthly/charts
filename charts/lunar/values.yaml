@@ -634,12 +634,7 @@ grafana:
   podAnnotations: {}
   podLabels: {}
   podSecurityContext: {}
-  securityContext:
-    capabilities:
-      drop:
-        - ALL
-    runAsNonRoot: true
-    allowPrivilegeEscalation: false
+  securityContext: {}
   resources: {}
   # CPU/memory requests and limits for the kiosk sidecar (the nginx proxy that
   # injects ?kiosk into dashboard URLs). Separate from grafana.resources

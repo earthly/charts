@@ -717,7 +717,7 @@ Pre-built Grafana instance with dashboards for policy results, component health,
 | `grafana.replicaCount` | Number of Grafana replicas. Requires `grafana.db.host` (below) when > 1 — install fails fast otherwise, since the default per-pod SQLite backend can't be shared across replicas | `1` |
 | `grafana.db` | Grafana's own backend store (sessions, orgs, annotations — NOT the read-only dashboard datasource, see `grafana.provisioning.dbPassword`). Empty keeps the built-in SQLite (single-replica only); set `host`/`port`/`name`/`user`/`pass`/`sslMode` to point it at Postgres and share state across replicas | `{}` |
 | `grafana.resources` | CPU/memory requests and limits for the Grafana server container | `{}` |
-| `grafana.securityContext` | securityContext for the Grafana server container | `runAsNonRoot: true`, `allowPrivilegeEscalation: false`, `capabilities.drop: [ALL]` |
+| `grafana.securityContext` | securityContext for the Grafana server container | `{}` |
 | `grafana.nginx_image.repository` / `grafana.nginx_image.tag` | Image for the kiosk sidecar (the nginx proxy that injects `?kiosk` into dashboard URLs) | `nginx` / `1-alpine` |
 | `grafana.kioskResources` | CPU/memory requests and limits for the kiosk sidecar | `{}` |
 | `grafana.kioskSecurityContext` | securityContext for the kiosk sidecar — separate from `grafana.securityContext` since it runs as a different uid | `{}` |
