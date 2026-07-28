@@ -634,10 +634,48 @@ grafana:
   podAnnotations: {}
   podLabels: {}
   podSecurityContext: {}
-  securityContext: {}
+  securityContext:
+    capabilities:
+      drop:
+        - ALL
+    runAsNonRoot: true
+    allowPrivilegeEscalation: false
   resources: {}
+  # CPU/memory requests and limits for the kiosk sidecar (the nginx proxy that
+  # injects ?kiosk into dashboard URLs). Separate from grafana.resources
+  # (the Grafana server container) since nginx's footprint is much smaller.
+  kioskResources: {}
+  # securityContext for the kiosk sidecar. Separate from grafana.securityContext
+  # since the nginx image runs as a different uid than Grafana (grafana.securityContext's
+  # runAsUser, if set, does not apply here) — e.g. stock nginx has no numeric
+  # user set at image level, so runAsNonRoot requires an explicit runAsUser here.
+  kioskSecurityContext: {}
+  # Image for the kiosk sidecar (the nginx proxy that injects ?kiosk into
+  # dashboard URLs). Separate from grafana.image — it's a different upstream
+  # project entirely.
+  nginx_image:
+    repository: "nginx"
+    tag: "1-alpine"
   volumeMounts: []
   volumes: []
   nodeSelector: {}
   tolerations: []
   affinity: {}
+  # Number of Grafana replicas. Grafana's own state (sessions, orgs,
+  # annotations) lives in its database — see grafana.db below to point it at
+  # Postgres instead of the default per-pod SQLite, so state is shared across
+  # replicas rather than stranded on whichever pod a login landed on.
+  replicaCount: 1
+  # Grafana's own backend store (NOT the read-only datasource used by
+  # dashboards — see grafana.provisioning.dbPassword for that). Defaults to
+  # Grafana's built-in SQLite, which is fine at replicaCount 1 but strands
+  # sessions/orgs/annotations per-pod once you scale out — a login on one
+  # replica won't be recognized by another. Point this at Postgres (e.g. the
+  # same instance as hub.db, with a dedicated database/role) to share state
+  # across replicas; leave host empty to keep SQLite (single-replica only).
+  db: {}
+  # Extra pod topology-spread constraints for Grafana replicas. Empty is NOT
+  # "no spread" — the chart applies a soft default (maxSkew 1 across
+  # topology.kubernetes.io/zone, ScheduleAnyway), matching hub/operator. Set
+  # this to override with your own; it replaces the default wholesale.
+  topologySpreadConstraints: []

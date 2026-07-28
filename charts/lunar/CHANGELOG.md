@@ -9,6 +9,41 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [3.5.0] - 2026-07-28
+
+### Added
+
+- **`grafana.replicaCount`** — scale the bundled Grafana Deployment beyond a
+  single replica. Requires `grafana.db.host` (below) once > 1 — the chart
+  fails fast otherwise, since Grafana's default per-pod SQLite backend can't
+  be shared across replicas.
+- **`grafana.db`** — points Grafana's own backend store (sessions, orgs,
+  annotations — distinct from the read-only dashboard datasource under
+  `grafana.provisioning.dbPassword`) at Postgres instead of the default
+  per-pod SQLite. Wires `GF_DATABASE_*` on the Grafana container.
+- **`grafana.kioskResources`** and **`grafana.kioskSecurityContext`** — CPU/memory
+  requests+limits and securityContext for the kiosk sidecar (the nginx proxy
+  that injects `?kiosk` into dashboard URLs), separate from `grafana.resources`
+  / `grafana.securityContext` since it's a different container with a
+  different footprint and runs as a different uid.
+- **`grafana.nginx_image`** — image/tag for the kiosk sidecar, previously
+  hardcoded to `nginx:1-alpine`.
+- **`grafana.topologySpreadConstraints`** — spread Grafana replicas across
+  nodes/zones. Defaults to a soft zone-spread (`ScheduleAnyway`, no-op at
+  `replicaCount: 1`); set explicitly to override.
+- Liveness/readiness probes on all three containers in the Grafana pod
+  (`grafana`, `kiosk`, `provision-reconverge`) — previously none, so a wedged
+  container wasn't detected by Kubernetes.
+- The Grafana provisioning Job now honors `grafana.annotations` and
+  `grafana.podAnnotations`, matching the existing hub/operator pattern.
+
+### Changed
+
+- **`grafana.securityContext` default** changed from `{}` to
+  `runAsNonRoot: true`, `allowPrivilegeEscalation: false`, and
+  `capabilities.drop: [ALL]`. Override `grafana.securityContext` to restore
+  the previous permissive default if needed.
+
 ## [3.4.1] - 2026-07-20
 
 ### Added

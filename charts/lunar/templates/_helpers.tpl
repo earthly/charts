@@ -245,6 +245,36 @@ Job and the reconverge sidecar). deploy.sh uses it to resolve the Grafana endpoi
 {{- end }}
 
 {{/*
+GF_DATABASE_* env for Grafana's own backend store (sessions, orgs,
+annotations — distinct from the read-only datasource in
+lunar.grafanaProvisionHubEnv). Only rendered when grafana.db.host is set;
+otherwise Grafana falls back to its built-in per-pod SQLite, which is only
+safe at grafana.replicaCount 1.
+*/}}
+{{- define "lunar.grafanaDBEnv" -}}
+{{- with .Values.grafana.db }}
+- name: GF_DATABASE_TYPE
+  value: "postgres"
+- name: GF_DATABASE_HOST
+  value: {{ printf "%s:%v" .host .port | quote }}
+- name: GF_DATABASE_NAME
+  value: {{ .name | quote }}
+- name: GF_DATABASE_USER
+  valueFrom:
+    secretKeyRef:
+      name: {{ .user.secretName }}
+      key: {{ .user.secretKey }}
+- name: GF_DATABASE_PASSWORD
+  valueFrom:
+    secretKeyRef:
+      name: {{ .pass.secretName }}
+      key: {{ .pass.secretKey }}
+- name: GF_DATABASE_SSL_MODE
+  value: {{ .sslMode | quote }}
+{{- end }}
+{{- end }}
+
+{{/*
 In-cluster DNS name for the Hub service, in `<svc>.<ns>.svc.<clusterDomain>`
 form so it resolves from any namespace (the operator's scriptNamespace, in
 particular). Callers that need to honor a per-component override should do
@@ -358,6 +388,9 @@ Validate the Grafana configuration:
   {{- $url := include "lunar.grafanaURL" . -}}
   {{- if not $url -}}
     {{- fail "grafana.url is required when grafana.mode is \"chart\" and the chart doesn't manage Grafana's ingress (the chart doesn't derive Grafana URLs it doesn't route to — see README \"Migrating from chart 1.x\" for the Caddy / content-routing case). Pick one:\n  - grafana.url = \"<your Grafana URL>\"       (BYO ingress / Caddy / external routing)\n  - grafana.ingress.enabled = true          (chart-managed Grafana ingress)\n  - grafana.mode = \"external\" or \"off\"" -}}
+  {{- end -}}
+  {{- if and (gt (int .Values.grafana.replicaCount) 1) (not .Values.grafana.db.host) -}}
+    {{- fail "grafana.db.host is required when grafana.replicaCount > 1 — Grafana's default per-pod SQLite backend can't be shared across replicas (sessions/orgs would silently split per-pod). Point grafana.db at a Postgres instance, or set grafana.replicaCount to 1." -}}
   {{- end -}}
 {{- else if eq $mode "external" -}}
   {{- if not .Values.grafana.url -}}

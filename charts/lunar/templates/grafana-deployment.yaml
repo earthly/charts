@@ -11,7 +11,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
-  replicas: 1
+  replicas: {{ .Values.grafana.replicaCount }}
   selector:
     matchLabels:
       {{- include "lunar.selectorLabels" . | nindent 6 }}
@@ -68,6 +68,7 @@ spec:
             # so the only server-level knob we set is sign-up. Override via extraEnv.
             - name: GF_USERS_ALLOW_SIGN_UP
               value: "false"
+            {{- include "lunar.grafanaDBEnv" $ | nindent 12 }}
             {{- with .extraEnv }}
               {{- toYaml . | nindent 12 }}
             {{- end }}
@@ -76,6 +77,18 @@ spec:
             - name: http
               containerPort: 3000
               protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
           {{- with .Values.grafana.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
@@ -85,8 +98,9 @@ spec:
             {{- toYaml . | nindent 12 }}
           {{- end }}
         - name: kiosk
-          image: nginx:1-alpine
-          {{- with .Values.grafana.securityContext }}
+          image: "{{ .Values.grafana.nginx_image.repository }}:{{ .Values.grafana.nginx_image.tag }}"
+          imagePullPolicy: {{ .Values.grafana.image.pullPolicy }}
+          {{- with .Values.grafana.kioskSecurityContext }}
           securityContext:
             {{- toYaml . | nindent 12 }}
           {{- end }}
@@ -94,9 +108,30 @@ spec:
             - name: kiosk
               containerPort: 8080
               protocol: TCP
+          livenessProbe:
+            tcpSocket:
+              port: kiosk
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            tcpSocket:
+              port: kiosk
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          {{- with .Values.grafana.kioskResources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           volumeMounts:
             - name: kiosk-config
               mountPath: /etc/nginx/conf.d
+            # Stock nginx image writes its pidfile + proxy/temp dirs under these
+            # paths at startup; both are root-owned in the image, so a non-root
+            # runAsUser (kioskSecurityContext) needs them writable via emptyDir.
+            - name: kiosk-cache
+              mountPath: /var/cache/nginx
+            - name: kiosk-run
+              mountPath: /run
         # Reconverge sidecar — present in mode=chart (the only mode with a bundled
         # pod); chart mode always provisions, so it has no separate toggle.
         - name: provision-reconverge
@@ -114,12 +149,28 @@ spec:
           command: ["/bin/sh", "-c"]
           args:
             - |
+              # Marker for the probes below, written immediately — this sidecar
+              # is deliberately non-blocking (a slow/failed reconverge must not
+              # hold the Deployment's pod (and thus the grafana/kiosk containers)
+              # out of Ready), so readiness reflects the process being alive, not
+              # deploy.sh's outcome.
+              touch /tmp/reconverge-alive
               {{- include "lunar.waitForGrafana" . | nindent 14 }}
               {{- include "lunar.waitForHub" . | nindent 14 }}
               /deploy.sh || echo "dashboards reconverge failed" >&2
               # Idle so the Deployment treats this as a long-lived sidecar; it
               # re-applies on the next pod (re)start.
               tail -f /dev/null
+          livenessProbe:
+            exec:
+              command: ["test", "-f", "/tmp/reconverge-alive"]
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            exec:
+              command: ["test", "-f", "/tmp/reconverge-alive"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
           env:
             - name: GRAFANA_URL
               value: "http://localhost:3000"
@@ -129,14 +180,18 @@ spec:
             {{- toYaml . | nindent 12 }}
           {{- end }}
       {{- range .Values.grafana.volumes }}
-      {{- if eq .name "kiosk-config" }}
-      {{- fail "Values.grafana.volumes contains reserved name 'kiosk-config'" }}
+      {{- if or (eq .name "kiosk-config") (eq .name "kiosk-cache") (eq .name "kiosk-run") }}
+      {{- fail (printf "Values.grafana.volumes contains reserved name '%s'" .name) }}
       {{- end }}
       {{- end }}
       volumes:
         - name: kiosk-config
           configMap:
             name: {{ include "lunar.fullname" . }}-grafana-kiosk
+        - name: kiosk-cache
+          emptyDir: {}
+        - name: kiosk-run
+          emptyDir: {}
         {{- with .Values.grafana.volumes }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -151,5 +206,23 @@ spec:
       {{- with .Values.grafana.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.grafana.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- else }}
+      # Default: soft-spread Grafana replicas across zones so a single zone
+      # loss doesn't take down the whole Grafana Deployment. ScheduleAnyway
+      # keeps small/single-zone clusters schedulable (and is a no-op at
+      # replicaCount 1). Override grafana.topologySpreadConstraints for a
+      # stricter spread (e.g. a hard zone spread with DoNotSchedule).
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              {{- include "lunar.selectorLabels" . | nindent 14 }}
+              app.kubernetes.io/component: grafana
       {{- end }}
 {{- end }}
