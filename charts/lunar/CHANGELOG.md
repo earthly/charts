@@ -9,7 +9,7 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
-## [3.5.0] - 2026-07-28
+## [3.7.0] - 2026-07-31
 
 ### Added
 
@@ -36,6 +36,15 @@ history see `git log -- charts/lunar/`.
   container wasn't detected by Kubernetes.
 - The Grafana provisioning Job now honors `grafana.annotations` and
   `grafana.podAnnotations`, matching the existing hub/operator pattern.
+
+## [3.6.0] - 2026-07-30
+
+### Changed
+
+- **Hub, operator, script-init, script-sidecar, and dashboards images bumped to
+  `3.6.0`**, tracking the `lunar-hub` 3.6.0 release. No template or values
+  changes in this release — the chart moves in lockstep with the hub so an
+  upgrade picks up the matching images without overriding tags by hand.
 
 ## [3.4.1] - 2026-07-20
 
