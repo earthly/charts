@@ -12,6 +12,14 @@ metadata:
   {{- end }}
 spec:
   replicas: 1
+  {{- if .Values.grafana.persistence.enabled }}
+  # A persistent /var/lib/grafana is a single-writer (RWO) PVC. Under the default
+  # RollingUpdate the replacement pod starts before the old one releases the
+  # volume, so they deadlock on a Multi-Attach error and the rollout hangs.
+  # Recreate terminates the old pod first — brief Grafana downtime on upgrade.
+  strategy:
+    type: Recreate
+  {{- end }}
   selector:
     matchLabels:
       {{- include "lunar.selectorLabels" . | nindent 6 }}
@@ -34,9 +42,15 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       serviceAccountName: {{ include "lunar.serviceAccountName" . }}
-      {{- with .Values.grafana.podSecurityContext }}
+      {{- if or .Values.grafana.persistence.enabled .Values.grafana.podSecurityContext }}
       securityContext:
+        {{- if and .Values.grafana.persistence.enabled (not (hasKey .Values.grafana.podSecurityContext "fsGroup")) }}
+        # Make the persistent volume group-writable by Grafana (uid/gid 472).
+        fsGroup: {{ .Values.grafana.persistence.fsGroup }}
+        {{- end }}
+        {{- with .Values.grafana.podSecurityContext }}
         {{- toYaml . | nindent 8 }}
+        {{- end }}
       {{- end }}
       containers:
         - name: {{ .Chart.Name }}
@@ -80,9 +94,15 @@ spec:
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          {{- with .Values.grafana.volumeMounts }}
+          {{- if or .Values.grafana.persistence.enabled .Values.grafana.volumeMounts }}
           volumeMounts:
+            {{- if .Values.grafana.persistence.enabled }}
+            - name: grafana-data
+              mountPath: /var/lib/grafana
+            {{- end }}
+            {{- with .Values.grafana.volumeMounts }}
             {{- toYaml . | nindent 12 }}
+            {{- end }}
           {{- end }}
         - name: kiosk
           image: nginx:1-alpine
@@ -132,11 +152,19 @@ spec:
       {{- if eq .name "kiosk-config" }}
       {{- fail "Values.grafana.volumes contains reserved name 'kiosk-config'" }}
       {{- end }}
+      {{- if and $.Values.grafana.persistence.enabled (eq .name "grafana-data") }}
+      {{- fail "Values.grafana.volumes contains reserved name 'grafana-data' (used by grafana.persistence)" }}
+      {{- end }}
       {{- end }}
       volumes:
         - name: kiosk-config
           configMap:
             name: {{ include "lunar.fullname" . }}-grafana-kiosk
+        {{- if .Values.grafana.persistence.enabled }}
+        - name: grafana-data
+          persistentVolumeClaim:
+            claimName: {{ .Values.grafana.persistence.existingClaim | default (printf "%s-grafana-data" (include "lunar.fullname" .)) }}
+        {{- end }}
         {{- with .Values.grafana.volumes }}
         {{- toYaml . | nindent 8 }}
         {{- end }}

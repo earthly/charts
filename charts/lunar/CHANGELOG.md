@@ -9,6 +9,30 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [3.5.0] - 2026-07-22
+
+### Added
+
+- **`grafana.persistence` — the bundled Grafana pod now keeps its state on a
+  PersistentVolume.** A PVC (`<release>-grafana-data`) is mounted at
+  `/var/lib/grafana`, so user-created dashboards, users/orgs, annotations, and
+  runtime-installed plugins survive pod replacement (upgrade, node roll, crash).
+  Previously that filesystem was ephemeral and only the Lunar-managed
+  dashboards/datasources were restored (by the provisioning reconverge sidecar).
+  Tunable via
+  `grafana.persistence.{size,storageClass,accessModes,existingClaim,fsGroup}`.
+  The PVC is created with `helm.sh/resource-policy: keep`, so it — and the
+  dashboards — survive `helm uninstall`. `chart` mode only.
+
+### Changed
+
+- **`grafana.persistence.enabled` defaults to `true`.** On upgrade, existing
+  chart-mode installs provision a Grafana PVC and the Grafana Deployment switches
+  to `strategy: Recreate` (an RWO volume can't attach to the old and new pods at
+  once), so expect a brief Grafana downtime during that one upgrade. Requires a
+  default StorageClass (or set `grafana.persistence.storageClass`); set
+  `grafana.persistence.enabled: false` to keep the previous ephemeral behavior.
+
 ## [3.4.1] - 2026-07-20
 
 ### Added

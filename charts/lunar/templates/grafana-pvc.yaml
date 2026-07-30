@@ -1,0 +1,21 @@
+{{- if and (eq .Values.grafana.mode "chart") .Values.grafana.persistence.enabled (not .Values.grafana.persistence.existingClaim) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "lunar.fullname" . }}-grafana-data
+  annotations:
+    # Keep the PVC (and its dashboards) across `helm uninstall`.
+    helm.sh/resource-policy: keep
+  labels:
+    {{- include "lunar.labels" . | nindent 4 }}
+    app.kubernetes.io/component: grafana
+spec:
+  accessModes:
+    {{- toYaml .Values.grafana.persistence.accessModes | nindent 4 }}
+  {{- if .Values.grafana.persistence.storageClass }}
+  storageClassName: {{ .Values.grafana.persistence.storageClass | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.grafana.persistence.size | quote }}
+{{- end }}
