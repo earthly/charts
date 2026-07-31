@@ -21,16 +21,15 @@ history see `git log -- charts/lunar/`.
   annotations — distinct from the read-only dashboard datasource under
   `grafana.provisioning.dbPassword`) at Postgres instead of the default
   per-pod SQLite. Wires `GF_DATABASE_*` on the Grafana container.
-- **`grafana.kioskResources`** and **`grafana.kioskSecurityContext`** — CPU/memory
-  requests+limits and securityContext for the kiosk sidecar (the nginx proxy
-  that injects `?kiosk` into dashboard URLs), separate from `grafana.resources`
-  / `grafana.securityContext` since it's a different container with a
-  different footprint and runs as a different uid.
-- **`grafana.nginx_image`** — image/tag for the kiosk sidecar, previously
-  hardcoded to `nginx:1-alpine`.
+- **`grafana.kiosk`** — settings for the kiosk sidecar (the nginx proxy that
+  injects `?kiosk` into dashboard URLs): `image.repository`/`image.tag`
+  (previously hardcoded to `nginx:1-alpine`, now defaulting to the tighter
+  `nginx:1.31.3-alpine` so it doesn't drift per-node), `resources`, and
+  `securityContext` — all separate from the `grafana.*` knobs above since
+  it's a different container with a different footprint and uid.
 - **`grafana.topologySpreadConstraints`** — spread Grafana replicas across
-  nodes/zones. Defaults to a soft zone-spread (`ScheduleAnyway`, no-op at
-  `replicaCount: 1`); set explicitly to override.
+  nodes. Defaults to a soft node-spread (`ScheduleAnyway`, no-op at
+  `replicaCount: 1`), matching the `hub` default; set explicitly to override.
 - Liveness/readiness probes on all three containers in the Grafana pod
   (`grafana`, `kiosk`, `provision-reconverge`) — previously none, so a wedged
   container wasn't detected by Kubernetes.

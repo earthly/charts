@@ -636,21 +636,24 @@ grafana:
   podSecurityContext: {}
   securityContext: {}
   resources: {}
-  # CPU/memory requests and limits for the kiosk sidecar (the nginx proxy that
-  # injects ?kiosk into dashboard URLs). Separate from grafana.resources
-  # (the Grafana server container) since nginx's footprint is much smaller.
-  kioskResources: {}
-  # securityContext for the kiosk sidecar. Separate from grafana.securityContext
-  # since the nginx image runs as a different uid than Grafana (grafana.securityContext's
-  # runAsUser, if set, does not apply here) — e.g. stock nginx has no numeric
-  # user set at image level, so runAsNonRoot requires an explicit runAsUser here.
-  kioskSecurityContext: {}
-  # Image for the kiosk sidecar (the nginx proxy that injects ?kiosk into
-  # dashboard URLs). Separate from grafana.image — it's a different upstream
-  # project entirely.
-  nginx_image:
-    repository: "nginx"
-    tag: "1-alpine"
+  # The kiosk sidecar (the nginx proxy that injects ?kiosk into dashboard
+  # URLs). Kept separate from the grafana.* knobs above since it's a
+  # different upstream image, different footprint, and runs as a different
+  # uid than the Grafana server.
+  kiosk:
+    image:
+      repository: "nginx"
+      pullPolicy: IfNotPresent
+      # Pinned tighter than a bare "1-alpine" so the exact build doesn't
+      # drift per-node as upstream reslices that tag. Bump deliberately.
+      tag: "1.31.3-alpine"
+    resources: {}
+    # securityContext for the kiosk sidecar. Separate from
+    # grafana.securityContext since the nginx image runs as a different uid
+    # than Grafana (grafana.securityContext's runAsUser, if set, does not
+    # apply here) — e.g. stock nginx has no numeric user set at image level,
+    # so runAsNonRoot requires an explicit runAsUser here.
+    securityContext: {}
   volumeMounts: []
   volumes: []
   nodeSelector: {}
@@ -671,6 +674,6 @@ grafana:
   db: {}
   # Extra pod topology-spread constraints for Grafana replicas. Empty is NOT
   # "no spread" — the chart applies a soft default (maxSkew 1 across
-  # topology.kubernetes.io/zone, ScheduleAnyway), matching hub/operator. Set
+  # kubernetes.io/hostname, ScheduleAnyway), matching hub/operator. Set
   # this to override with your own; it replaces the default wholesale.
   topologySpreadConstraints: []

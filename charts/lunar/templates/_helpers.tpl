@@ -245,36 +245,6 @@ Job and the reconverge sidecar). deploy.sh uses it to resolve the Grafana endpoi
 {{- end }}
 
 {{/*
-GF_DATABASE_* env for Grafana's own backend store (sessions, orgs,
-annotations — distinct from the read-only datasource in
-lunar.grafanaProvisionHubEnv). Only rendered when grafana.db.host is set;
-otherwise Grafana falls back to its built-in per-pod SQLite, which is only
-safe at grafana.replicaCount 1.
-*/}}
-{{- define "lunar.grafanaDBEnv" -}}
-{{- with .Values.grafana.db }}
-- name: GF_DATABASE_TYPE
-  value: "postgres"
-- name: GF_DATABASE_HOST
-  value: {{ printf "%s:%v" .host .port | quote }}
-- name: GF_DATABASE_NAME
-  value: {{ .name | quote }}
-- name: GF_DATABASE_USER
-  valueFrom:
-    secretKeyRef:
-      name: {{ .user.secretName }}
-      key: {{ .user.secretKey }}
-- name: GF_DATABASE_PASSWORD
-  valueFrom:
-    secretKeyRef:
-      name: {{ .pass.secretName }}
-      key: {{ .pass.secretKey }}
-- name: GF_DATABASE_SSL_MODE
-  value: {{ .sslMode | quote }}
-{{- end }}
-{{- end }}
-
-{{/*
 In-cluster DNS name for the Hub service, in `<svc>.<ns>.svc.<clusterDomain>`
 form so it resolves from any namespace (the operator's scriptNamespace, in
 particular). Callers that need to honor a per-component override should do
