@@ -9,6 +9,43 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [3.6.1] - 2026-08-03
+
+### Added
+
+- **`grafana.replicaCount`** — scale the bundled Grafana Deployment beyond a
+  single replica. Requires `grafana.db.host` (below) once > 1 — the chart
+  fails fast otherwise, since Grafana's default per-pod SQLite backend can't
+  be shared across replicas.
+- **`grafana.db`** — points Grafana's own backend store (sessions, orgs,
+  annotations — distinct from the read-only dashboard datasource under
+  `grafana.provisioning.dbPassword`) at Postgres instead of the default
+  per-pod SQLite. Wires `GF_DATABASE_*` on the Grafana container.
+- **`grafana.kiosk`** — settings for the kiosk sidecar (the nginx proxy that
+  injects `?kiosk` into dashboard URLs): `image.repository`/`image.tag`
+  (previously hardcoded to `nginx:1-alpine`, now defaulting to the tighter
+  `nginx:1.31.3-alpine` so it doesn't drift per-node), `resources`, and
+  `securityContext` — all separate from the `grafana.*` knobs above since
+  it's a different container with a different footprint and uid.
+- **`grafana.topologySpreadConstraints`** — spread Grafana replicas across
+  nodes. Defaults to a soft node-spread (`ScheduleAnyway`, no-op at
+  `replicaCount: 1`), matching the `hub` default; set explicitly to override.
+- Liveness/readiness probes on all three containers in the Grafana pod
+  (`grafana`, `kiosk`, `provision-reconverge`) — previously none, so a wedged
+  container wasn't detected by Kubernetes.
+- The Grafana provisioning Job now honors `grafana.annotations` and
+  `grafana.podAnnotations`, matching the existing hub/operator pattern.
+
+### Changed
+
+- **`grafana.securityContext` no longer applies to the kiosk sidecar.** It now
+  scopes to the Grafana server container only; the kiosk container reads the
+  new `grafana.kiosk.securityContext` (default `{}`). **If you set
+  `grafana.securityContext`, copy the block to `grafana.kiosk.securityContext`
+  when upgrading** — otherwise the kiosk container loses those settings
+  silently (or, under an enforced Pod Security Standards namespace, the pod
+  can be rejected outright).
+
 ## [3.6.0] - 2026-07-30
 
 ### Changed

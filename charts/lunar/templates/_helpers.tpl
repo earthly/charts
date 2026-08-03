@@ -359,6 +359,9 @@ Validate the Grafana configuration:
   {{- if not $url -}}
     {{- fail "grafana.url is required when grafana.mode is \"chart\" and the chart doesn't manage Grafana's ingress (the chart doesn't derive Grafana URLs it doesn't route to — see README \"Migrating from chart 1.x\" for the Caddy / content-routing case). Pick one:\n  - grafana.url = \"<your Grafana URL>\"       (BYO ingress / Caddy / external routing)\n  - grafana.ingress.enabled = true          (chart-managed Grafana ingress)\n  - grafana.mode = \"external\" or \"off\"" -}}
   {{- end -}}
+  {{- if and (gt (int .Values.grafana.replicaCount) 1) (not .Values.grafana.db.host) -}}
+    {{- fail "grafana.db.host is required when grafana.replicaCount > 1 — Grafana's default per-pod SQLite backend can't be shared across replicas (sessions/orgs would silently split per-pod). Point grafana.db at a Postgres instance, or set grafana.replicaCount to 1." -}}
+  {{- end -}}
 {{- else if eq $mode "external" -}}
   {{- if not .Values.grafana.url -}}
     {{- fail "grafana.url is required when grafana.mode is \"external\" — it's the base URL of your Grafana that the Hub vends to the provisioning tool (and uses for [More Details] links)." -}}

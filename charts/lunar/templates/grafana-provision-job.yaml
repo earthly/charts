@@ -27,6 +27,9 @@ metadata:
     "helm.sh/hook": post-install,post-upgrade
     "helm.sh/hook-weight": "5"
     "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+    {{- with .Values.grafana.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
 spec:
   backoffLimit: 2
   activeDeadlineSeconds: 600
@@ -35,6 +38,10 @@ spec:
       labels:
         {{- include "lunar.labels" . | nindent 8 }}
         app.kubernetes.io/component: grafana-provision
+      {{- with .Values.grafana.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
     spec:
       restartPolicy: Never
       {{- with .Values.imagePullSecrets }}
