@@ -715,7 +715,7 @@ Pre-built Grafana instance with dashboards for policy results, component health,
 | `grafana.ingress.*` | Same structure as `hub.ingress.*` | disabled |
 | `grafana.extraEnv` | Additional environment variables | `[]` |
 | `grafana.replicaCount` | Number of Grafana replicas. Requires `grafana.db.host` (below) when > 1 — install fails fast otherwise, since the default per-pod SQLite backend can't be shared across replicas | `1` |
-| `grafana.db` | Grafana's own backend store (sessions, orgs, annotations — NOT the read-only dashboard datasource, see `grafana.provisioning.dbPassword`). Empty keeps the built-in SQLite (single-replica only); set `host`/`port`/`name`/`user`/`pass`/`sslMode` to point it at Postgres and share state across replicas | `{}` |
+| `grafana.db` | Grafana's own backend store (sessions, orgs, annotations — NOT the read-only dashboard datasource, see `grafana.provisioning.dbPassword`). Empty keeps the built-in SQLite (single-replica only); set `host`/`port`/`name`/`sslMode` plus `user`/`pass` secret refs (`{secretName, secretKey}` — see values.yaml for the full shape) to point it at Postgres and share state across replicas | `{}` |
 | `grafana.resources` | CPU/memory requests and limits for the Grafana server container | `{}` |
 | `grafana.securityContext` | securityContext for the Grafana server container | `{}` |
 | `grafana.kiosk.image.repository` / `grafana.kiosk.image.tag` | Image for the kiosk sidecar (the nginx proxy that injects `?kiosk` into dashboard URLs) | `nginx` / `1.31.3-alpine` |

@@ -9,7 +9,7 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
-## [3.7.0] - 2026-07-31
+## [3.6.1] - 2026-08-03
 
 ### Added
 
@@ -35,6 +35,16 @@ history see `git log -- charts/lunar/`.
   container wasn't detected by Kubernetes.
 - The Grafana provisioning Job now honors `grafana.annotations` and
   `grafana.podAnnotations`, matching the existing hub/operator pattern.
+
+### Changed
+
+- **`grafana.securityContext` no longer applies to the kiosk sidecar.** It now
+  scopes to the Grafana server container only; the kiosk container reads the
+  new `grafana.kiosk.securityContext` (default `{}`). **If you set
+  `grafana.securityContext`, copy the block to `grafana.kiosk.securityContext`
+  when upgrading** — otherwise the kiosk container loses those settings
+  silently (or, under an enforced Pod Security Standards namespace, the pod
+  can be rejected outright).
 
 ## [3.6.0] - 2026-07-30
 

@@ -671,9 +671,22 @@ grafana:
   # replica won't be recognized by another. Point this at Postgres (e.g. the
   # same instance as hub.db, with a dedicated database/role) to share state
   # across replicas; leave host empty to keep SQLite (single-replica only).
+  # All six keys are required together; user and pass are secret references,
+  # not literals:
+  # db:
+  #   host: "postgres.internal"
+  #   port: 5432
+  #   name: "grafana"
+  #   sslMode: "require"
+  #   user:
+  #     secretName: "grafana-db"
+  #     secretKey: "username"
+  #   pass:
+  #     secretName: "grafana-db"
+  #     secretKey: "password"
   db: {}
   # Extra pod topology-spread constraints for Grafana replicas. Empty is NOT
   # "no spread" — the chart applies a soft default (maxSkew 1 across
-  # kubernetes.io/hostname, ScheduleAnyway), matching hub/operator. Set
+  # kubernetes.io/hostname, ScheduleAnyway), matching hub. Set
   # this to override with your own; it replaces the default wholesale.
   topologySpreadConstraints: []
