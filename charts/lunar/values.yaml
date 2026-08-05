@@ -401,6 +401,27 @@ operator:
   # Operator Postgres connections scale with replicaCount. Keep at 1 unless you
   # want operator failover / throughput.
   replicaCount: 1
+  # Grace period for the operator to unwind in-flight snippet batches on SIGTERM.
+  # Must exceed OPERATOR_SHUTDOWN_TIMEOUT, or the kubelet SIGKILLs mid-drain and
+  # that setting is decorative.
+  #
+  # On SIGTERM the operator calls River's StopAndCancel, which per in-flight
+  # BATCH cancels the job context, snoozes (requeues) the batch, and deletes its
+  # snippet pod. So the work to be done scales with concurrent batches, which is
+  # bounded by operator.maxConcurrent -- NOT with a fixed duration.
+  #
+  # Previously unset, so this inherited Kubernetes' 30s default: not a sizing
+  # decision, just the absence of one. Measured on a 30k-component fleet, an
+  # operator rollout left 10,734 jobs stranded in `running` across 657 batches
+  # (~329 per replica), which the then-25s shutdown budget allowed ~76ms each to
+  # cancel, requeue and delete. A single Postgres write during a rollout exceeds
+  # that on its own, so most batches never got unwound and waited on River's
+  # rescuer instead (ENG-1264).
+  #
+  # 150s pairs with an OPERATOR_SHUTDOWN_TIMEOUT of 120s, leaving 30s for the
+  # rest of shutdown (pool close, log flush) and giving ~300ms per batch at
+  # maxConcurrent=400. RAISE BOTH TOGETHER if maxConcurrent goes higher.
+  terminationGracePeriodSeconds: 150
   image:
     repository: "ghcr.io/earthly/lunar-snippet-operator"
     pullPolicy: IfNotPresent
