@@ -401,6 +401,15 @@ operator:
   # Operator Postgres connections scale with replicaCount. Keep at 1 unless you
   # want operator failover / throughput.
   replicaCount: 1
+  # Grace period for the operator to drain on SIGTERM; must exceed
+  # OPERATOR_SHUTDOWN_TIMEOUT (default 90s) with room for the process to exit.
+  #
+  # While draining, the operator requeues each in-flight snippet batch and
+  # deletes its pod, so the time required scales with maxConcurrent below. If
+  # you raise maxConcurrent, raise this and OPERATOR_SHUTDOWN_TIMEOUT with it:
+  # too short a window leaves in-flight jobs claimed until the queue rescuer
+  # reclaims them, delaying that work.
+  terminationGracePeriodSeconds: 120
   image:
     repository: "ghcr.io/earthly/lunar-snippet-operator"
     pullPolicy: IfNotPresent
