@@ -401,31 +401,14 @@ operator:
   # Operator Postgres connections scale with replicaCount. Keep at 1 unless you
   # want operator failover / throughput.
   replicaCount: 1
-  # Grace period for the operator to unwind in-flight snippet batches on SIGTERM.
-  # Must exceed OPERATOR_SHUTDOWN_TIMEOUT, or the kubelet SIGKILLs mid-drain and
-  # that setting is decorative.
+  # Grace period for the operator to drain on SIGTERM; must exceed
+  # OPERATOR_SHUTDOWN_TIMEOUT (default 90s) with room for the process to exit.
   #
-  # On SIGTERM the operator calls River's StopAndCancel, which per in-flight
-  # BATCH cancels the job context, snoozes (requeues) the batch, and deletes its
-  # snippet pod. So the work to be done scales with concurrent batches, which is
-  # bounded by operator.maxConcurrent -- NOT with a fixed duration.
-  #
-  # Previously unset, so this inherited Kubernetes' 30s default: not a sizing
-  # decision, just the absence of one. Measured on a 30k-component fleet, an
-  # operator rollout left 10,734 jobs stranded in `running` across 657 batches
-  # (~329 per replica), which the then-25s shutdown budget allowed ~76ms each to
-  # cancel, requeue and delete. A single Postgres write during a rollout exceeds
-  # that on its own, so most batches never got unwound and waited on River's
-  # rescuer instead (ENG-1264).
-  #
-  # 120s pairs with an OPERATOR_SHUTDOWN_TIMEOUT of 90s, leaving 30s for the
-  # rest of shutdown (pool close, log flush) and giving ~225ms per batch at
-  # maxConcurrent=400. RAISE BOTH TOGETHER if maxConcurrent goes higher.
-  #
-  # A deliberately moderate first step -- ~3.5x the budget that failed, not the
-  # largest defensible value. The per-batch cost under a loaded database has not
-  # been measured directly, and a longer grace period also lengthens every
-  # rollout, since a genuinely hung pod is waited out in full before SIGKILL.
+  # While draining, the operator requeues each in-flight snippet batch and
+  # deletes its pod, so the time required scales with maxConcurrent below. If
+  # you raise maxConcurrent, raise this and OPERATOR_SHUTDOWN_TIMEOUT with it:
+  # too short a window leaves in-flight jobs claimed until the queue rescuer
+  # reclaims them, delaying that work.
   terminationGracePeriodSeconds: 120
   image:
     repository: "ghcr.io/earthly/lunar-snippet-operator"
