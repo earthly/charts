@@ -32,7 +32,7 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       serviceAccountName: {{ include "lunar.fullname" . }}-operator
-      terminationGracePeriodSeconds: {{ .Values.operator.terminationGracePeriodSeconds | default 150 }}
+      terminationGracePeriodSeconds: {{ .Values.operator.terminationGracePeriodSeconds | default 120 }}
       {{- with .Values.operator.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}

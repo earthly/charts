@@ -418,10 +418,15 @@ operator:
   # that on its own, so most batches never got unwound and waited on River's
   # rescuer instead (ENG-1264).
   #
-  # 150s pairs with an OPERATOR_SHUTDOWN_TIMEOUT of 120s, leaving 30s for the
-  # rest of shutdown (pool close, log flush) and giving ~300ms per batch at
+  # 120s pairs with an OPERATOR_SHUTDOWN_TIMEOUT of 90s, leaving 30s for the
+  # rest of shutdown (pool close, log flush) and giving ~225ms per batch at
   # maxConcurrent=400. RAISE BOTH TOGETHER if maxConcurrent goes higher.
-  terminationGracePeriodSeconds: 150
+  #
+  # A deliberately moderate first step -- ~3.5x the budget that failed, not the
+  # largest defensible value. The per-batch cost under a loaded database has not
+  # been measured directly, and a longer grace period also lengthens every
+  # rollout, since a genuinely hung pod is waited out in full before SIGKILL.
+  terminationGracePeriodSeconds: 120
   image:
     repository: "ghcr.io/earthly/lunar-snippet-operator"
     pullPolicy: IfNotPresent
