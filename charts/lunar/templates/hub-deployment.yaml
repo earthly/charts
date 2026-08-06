@@ -1,4 +1,4 @@
-{{- include "lunar.githubAuthCheck" . }}
+{{- include "lunar.forgeAuthCheck" . }}
 {{- include "lunar.hubLicenceCheck" . }}
 {{- include "lunar.rejectLegacyIngressShape" . }}
 {{- include "lunar.validateGrafana" . }}
@@ -88,6 +88,7 @@ spec:
               value: {{ .db.operatorPoolSize | quote }}
             - name: HUB_DB_MIGRATIONS_PATH
               value: "/usr/share/migrations"
+            {{- if include "lunar.githubConfigured" $ }}
             - name: HUB_GITHUB_WEBHOOK_SECRET
               valueFrom:
                 secretKeyRef:
@@ -112,6 +113,18 @@ spec:
               value: {{ .github.app.id | quote }}
             - name: HUB_GITHUB_APP_INSTALL_ID
               value: {{ .github.app.installId | quote }}
+            {{- end }}
+            {{- end }}
+            {{- if gt (len .gitlab.tokens) 0 }}
+            - name: HUB_GITLAB_TOKENS
+              value: {{ include "lunar.gitlabTokensJSON" $ | quote }}
+            # Operator-level webhook-signing fallback; per-entry
+            # webhook_secret in the JSON (advanced) wins where set.
+            - name: HUB_GITLAB_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "lunar.hubGitlabWebhookSecretName" $ }}
+                  key: {{ .gitlab.webhookSecret.secretKey }}
             {{- end }}
             - name: HUB_POLICY_QUEUE_POLL_INTERVAL
               value: {{ .policyQueue.pollInterval | quote }}
@@ -310,6 +323,11 @@ spec:
               mountPath: /secrets/github-apps
               readOnly: true
             {{- end }}
+            {{- if gt (len .Values.hub.gitlab.tokens) 0 }}
+            - name: gitlab-token
+              mountPath: /secrets/gitlab
+              readOnly: true
+            {{- end }}
             {{- with .Values.hub.volumeMounts }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
@@ -332,6 +350,11 @@ spec:
         - name: github-apps
           secret:
             secretName: {{ .Values.hub.github.appsSecret.secretName }}
+        {{- end }}
+        {{- if gt (len .Values.hub.gitlab.tokens) 0 }}
+        - name: gitlab-token
+          secret:
+            secretName: {{ .Values.hub.gitlab.tokensSecret.secretName }}
         {{- end }}
         {{- with .Values.hub.volumes }}
         {{- toYaml . | nindent 8 }}

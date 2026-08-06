@@ -9,6 +9,36 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [Unreleased]
+
+### Added
+
+- **First-class GitLab authentication** (`hub.gitlab.*`, ENG-1409). One
+  `hub.gitlab.tokens` entry per top-level group (`{group, host?, baseUrl?}`),
+  with the group access tokens in a single operator-created Secret
+  (`hub.gitlab.tokensSecret.secretName`, one `<lowercase-group>.token` key
+  per entry) mounted at `/secrets/gitlab`. The chart renders
+  `HUB_GITLAB_TOKENS` with each entry's `token_path` derived into that
+  mount, mirroring the multi-App GitHub pattern. Replaces the documented
+  `hub.extraEnv` + `hub.volumes` passthrough workaround.
+- **`hub.gitlab.webhookSecret`** — the GitLab webhook signing secret,
+  chart-generated as `<release>-gitlab-webhook` (lookup + `resource-policy:
+  keep`) when `secretName` is empty, BYO otherwise; delivered as
+  `HUB_GITLAB_WEBHOOK_SECRET` (requires a hub image with the operator-level
+  fallback). Unlike GitHub there is no paste-back: the Hub registers project
+  hooks itself and stamps the secret on them. Per-entry
+  `tokens[].webhookSecret` remains as an advanced inline override.
+
+### Changed
+
+- **GitLab-only installs now render.** The GitHub-required guard became an
+  at-least-one-forge guard: GitHub-only, GitLab-only, and mixed-forge values
+  all template, while a partial config for either forge still fails with a
+  specific message (missing/duplicate/non-top-level GitLab groups included).
+  GitHub-only output is byte-for-byte unchanged. The chart-managed GitHub
+  webhook secret and the NOTES entries for GitHub secrets now render only
+  when GitHub is configured.
+
 ## [3.6.1] - 2026-08-03
 
 ### Added
