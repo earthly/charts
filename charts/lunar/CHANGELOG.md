@@ -9,7 +9,7 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
-## [Unreleased]
+## [3.9.0] - 2026-08-07
 
 ### Added
 
@@ -38,6 +38,10 @@ history see `git log -- charts/lunar/`.
   GitHub-only output is byte-for-byte unchanged. The chart-managed GitHub
   webhook secret and the NOTES entries for GitHub secrets now render only
   when GitHub is configured.
+- **Hub, operator, script-init, script-sidecar, and dashboards images bumped to
+  `3.9.0`**, tracking the `lunar-hub` 3.9.0 release. The chart moves in lockstep
+  with the hub so an upgrade picks up the matching images without overriding
+  tags by hand.
 
 ## [3.6.1] - 2026-08-03
 
