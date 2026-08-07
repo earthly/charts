@@ -66,12 +66,16 @@ Namespace where script pods run. Defaults to the release namespace.
 {{- end }}
 
 {{/*
-"true" when any GitHub auth mode is configured, "" otherwise. Gates the
+"true" when any GitHub auth signal is present, "" otherwise. Gates the
 GitHub env/secret rendering so GitLab-only installs don't reference GitHub
-secrets that don't exist.
+secrets that don't exist. app.owner counts as a signal deliberately: a
+PARTIAL config (owner set, ids missing) must route into githubAuthCheck's
+specific failure, not silently render a GitHub-less hub — the ids-and-owner
+trio are the only usable signals (privateKey.secretName has a non-empty
+default, so it can't distinguish configured from untouched).
 */}}
 {{- define "lunar.githubConfigured" -}}
-{{- if or (gt (len .Values.hub.github.apps) 0) (gt (int .Values.hub.github.app.id) 0) (gt (int .Values.hub.github.app.installId) 0) -}}true{{- end -}}
+{{- if or (gt (len .Values.hub.github.apps) 0) (gt (int .Values.hub.github.app.id) 0) (gt (int .Values.hub.github.app.installId) 0) (.Values.hub.github.app.owner) -}}true{{- end -}}
 {{- end }}
 
 {{/*
@@ -166,7 +170,7 @@ Called from lunar.forgeAuthCheck when tokens is non-empty.
 {{- fail (printf "hub.gitlab.tokens[%d].group %q must be a single top-level group path (lowercase letters, digits, '.', '_', '-'; no '/') — it names the token's data key and the Hub's longest-prefix match root" $i $t.group) -}}
 {{- end -}}
 {{- if hasKey $seen $key -}}
-{{- fail (printf "hub.gitlab.tokens: duplicate group %q (case-insensitive) — longest-prefix matching would make it silently ambiguous" $t.group) -}}
+{{- fail (printf "hub.gitlab.tokens: duplicate group %q (case-insensitive) — the token file is keyed by group alone (<group>.token), so same-named groups collide on one token even across different hosts; the Hub's longest-prefix matching would also be ambiguous" $t.group) -}}
 {{- end -}}
 {{- $_ := set $seen $key true -}}
 {{- end -}}
