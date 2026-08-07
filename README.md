@@ -149,6 +149,37 @@ Hub authenticates to GitHub as a GitHub App. Two modes, mutually exclusive:
 
 The chart validates the chosen mode at install time with `helm.sh/fail` (mutex, required fields, duplicate owners).
 
+### GitLab authentication
+
+Hub authenticates to GitLab with **group access tokens** — one per top-level group it should serve (a top-level token also covers that group's subgroups). GitLab may be configured alongside GitHub (mixed-forge) or alone; **at least one forge is required** — a GitLab-only install renders with no `hub.github` block at all.
+
+List one entry per group under `hub.gitlab.tokens`, and put all the tokens in a single Kubernetes Secret named via `hub.gitlab.tokensSecret.secretName`. The chart looks up each entry's token at `<lowercase-group>.token` inside that Secret:
+
+```yaml
+hub:
+  gitlab:
+    tokens:
+      - group: acme            # gitlab.com group
+      # A self-managed or GitLab Dedicated instance — host is REQUIRED for
+      # non-gitlab.com hosts, or the Hub treats them as GitHub.
+      - group: platform
+        host: gitlab.example.com
+    tokensSecret:
+      secretName: lunar-gitlab-token
+```
+
+Create the Secret out of band (`group` is the URL path segment, not the display name):
+
+```bash
+kubectl create secret generic lunar-gitlab-token \
+  --from-file=acme.token=./acme.token \
+  --from-file=platform.token=./platform.token
+```
+
+**Webhooks need no manual step.** The Hub registers project hooks itself and signs them with the secret behind `hub.gitlab.webhookSecret` (chart-generated as `<release>-gitlab-webhook` when `secretName` is empty; BYO for GitOps — same pattern and caveats as `hub.github.webhookSecret`, minus the paste-back: there is nothing to configure on the GitLab side). Requires a hub image with `HUB_GITLAB_WEBHOOK_SECRET` support.
+
+The chart validates GitLab config at install time (required group, valid top-level path, duplicate groups, tokens Secret name).
+
 ### Object storage & AWS credentials
 
 Lunar uses two S3-compatible buckets — one for streaming script logs, one for script resource archives fetched by init containers. Both must exist and be writable before pods start doing real work.
@@ -518,6 +549,10 @@ Hub authenticates as a GitHub App. App ID, install ID, and the App's private-key
 | `hub.github.webhookSecret.secretKey` | Key within the secret | `webhook-secret` |
 | `hub.github.baseUrl` | GitHub API base URL (for GitHub Enterprise Server) | `""` |
 | `hub.github.syncWindow` | How far back to sync GitHub data on first pull | `2160h` (90 days) |
+| `hub.gitlab.tokens` | GitLab entries: list of `{group, host?, baseUrl?, webhookSecret?}`, one per top-level group. May combine with GitHub; at least one forge is required. | `[]` |
+| `hub.gitlab.tokensSecret.secretName` | Secret holding one group access token per `tokens[].group` (key name: `<lowercase-group>.token`) | `lunar-gitlab-token` |
+| `hub.gitlab.webhookSecret.secretName` | Secret containing the GitLab webhook signing secret (empty = chart-generated; no paste-back — the Hub stamps it on project hooks itself) | `""` |
+| `hub.gitlab.webhookSecret.secretKey` | Key within the secret | `webhook-secret` |
 
 **S3 / Object Storage**
 

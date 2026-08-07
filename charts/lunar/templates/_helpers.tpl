@@ -66,7 +66,40 @@ Namespace where script pods run. Defaults to the release namespace.
 {{- end }}
 
 {{/*
-Fail fast when GitHub App auth is misconfigured.
+"true" when any GitHub auth signal is present, "" otherwise. Gates the
+GitHub env/secret rendering so GitLab-only installs don't reference GitHub
+secrets that don't exist. app.owner counts as a signal deliberately: a
+PARTIAL config (owner set, ids missing) must route into githubAuthCheck's
+specific failure, not silently render a GitHub-less hub — the ids-and-owner
+trio are the only usable signals (privateKey.secretName has a non-empty
+default, so it can't distinguish configured from untouched).
+*/}}
+{{- define "lunar.githubConfigured" -}}
+{{- if or (gt (len .Values.hub.github.apps) 0) (gt (int .Values.hub.github.app.id) 0) (gt (int .Values.hub.github.app.installId) 0) (.Values.hub.github.app.owner) -}}true{{- end -}}
+{{- end }}
+
+{{/*
+Fail fast when no Git platform is configured at all, then validate each
+configured forge. GitHub-only, GitLab-only, and mixed-forge all render; a
+PARTIAL config for either forge still fails loudly (per-forge checks below).
+*/}}
+{{- define "lunar.forgeAuthCheck" -}}
+{{- $hasGithub := include "lunar.githubConfigured" . -}}
+{{- $hasGitlab := gt (len .Values.hub.gitlab.tokens) 0 -}}
+{{- if and (not $hasGithub) (not $hasGitlab) -}}
+{{- fail "no Git platform configured: set hub.github.app / hub.github.apps (GitHub) and/or hub.gitlab.tokens (GitLab) — at least one forge is required" -}}
+{{- end -}}
+{{- if $hasGithub -}}
+{{- include "lunar.githubAuthCheck" . -}}
+{{- end -}}
+{{- if $hasGitlab -}}
+{{- include "lunar.gitlabTokensCheck" . -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Fail fast when GitHub App auth is misconfigured. Called from
+lunar.forgeAuthCheck only when GitHub is configured.
 */}}
 {{- define "lunar.githubAuthCheck" -}}
 {{- $hasApps := gt (len .Values.hub.github.apps) 0 -}}
@@ -117,6 +150,55 @@ Called from lunar.githubAuthCheck when apps is non-empty.
 {{- end -}}
 {{- $_ := set $seen $key true -}}
 {{- end -}}
+{{- end }}
+
+{{/*
+Validate the GitLab config (hub.gitlab.tokens + hub.gitlab.tokensSecret).
+Called from lunar.forgeAuthCheck when tokens is non-empty.
+*/}}
+{{- define "lunar.gitlabTokensCheck" -}}
+{{- if not .Values.hub.gitlab.tokensSecret.secretName -}}
+{{- fail "hub.gitlab.tokensSecret.secretName is required when hub.gitlab.tokens is set. Create a Kubernetes secret with one group access token per entry, under a data key named '<lowercase-group>.token'." -}}
+{{- end -}}
+{{- $seen := dict -}}
+{{- range $i, $t := .Values.hub.gitlab.tokens -}}
+{{- if not $t.group -}}
+{{- fail (printf "hub.gitlab.tokens[%d].group is required (the top-level group PATH — the URL segment, not the display name)" $i) -}}
+{{- end -}}
+{{- $key := lower $t.group -}}
+{{- if not (regexMatch "^[a-z0-9][a-z0-9._-]*$" $key) -}}
+{{- fail (printf "hub.gitlab.tokens[%d].group %q must be a single top-level group path (lowercase letters, digits, '.', '_', '-'; no '/') — it names the token's data key and the Hub's longest-prefix match root" $i $t.group) -}}
+{{- end -}}
+{{- if hasKey $seen $key -}}
+{{- fail (printf "hub.gitlab.tokens: duplicate group %q (case-insensitive) — the token file is keyed by group alone (<group>.token), so same-named groups collide on one token even across different hosts; the Hub's longest-prefix matching would also be ambiguous" $t.group) -}}
+{{- end -}}
+{{- $_ := set $seen $key true -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Render the HUB_GITLAB_TOKENS JSON env value from hub.gitlab.tokens. Each
+entry's token_path is derived from <lowercase-group>.token under the Secret
+mountPath /secrets/gitlab, the way githubAppsJSON derives
+<lowercase-owner>.pem. host / base_url / webhook_secret are emitted only
+when set; the webhook secret normally arrives via the operator-level
+HUB_GITLAB_WEBHOOK_SECRET fallback instead (hub-deployment.yaml), so
+per-entry webhook_secret is the advanced multi-instance override only.
+*/}}
+{{- define "lunar.gitlabTokensJSON" -}}
+{{- $entries := list -}}
+{{- range .Values.hub.gitlab.tokens -}}
+{{- $group := lower .group -}}
+{{- $entry := dict
+    "group" $group
+    "token_path" (printf "/secrets/gitlab/%s.token" $group)
+-}}
+{{- if .host -}}{{- $_ := set $entry "host" .host -}}{{- end -}}
+{{- if .baseUrl -}}{{- $_ := set $entry "base_url" .baseUrl -}}{{- end -}}
+{{- if .webhookSecret -}}{{- $_ := set $entry "webhook_secret" .webhookSecret -}}{{- end -}}
+{{- $entries = append $entries $entry -}}
+{{- end -}}
+{{- $entries | toJson -}}
 {{- end }}
 
 {{/*
@@ -173,6 +255,14 @@ Resolved name for the chart-managed GitHub webhook secret.
 */}}
 {{- define "lunar.hubWebhookSecretName" -}}
 {{- .Values.hub.github.webhookSecret.secretName | default (printf "%s-github-webhook" (include "lunar.fullname" .)) -}}
+{{- end }}
+
+{{/*
+Resolved name for the GitLab webhook-signing secret (chart-generated as
+<fullname>-gitlab-webhook when hub.gitlab.webhookSecret.secretName is empty).
+*/}}
+{{- define "lunar.hubGitlabWebhookSecretName" -}}
+{{- .Values.hub.gitlab.webhookSecret.secretName | default (printf "%s-gitlab-webhook" (include "lunar.fullname" .)) -}}
 {{- end }}
 
 {{/*

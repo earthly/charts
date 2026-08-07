@@ -202,6 +202,39 @@ hub:
       secretName: ""
       secretKey: "webhook-secret"
     syncWindow: 2160h
+  # GitLab authentication. May be combined with hub.github (mixed-forge) or
+  # used alone — at least one forge must be configured.
+  gitlab:
+    # One entry per top-level group the Hub should serve. Identity only —
+    # the tokens themselves live in tokensSecret below.
+    #   group:   the top-level group PATH (URL segment, not display name);
+    #            lowercased. Also serves subgroups by longest-prefix match.
+    #   host:    optional; instance hostname for self-managed / GitLab
+    #            Dedicated (defaults to gitlab.com). Self-managed hosts MUST
+    #            be declared or the Hub treats them as GitHub.
+    #   baseUrl: optional; API endpoint override (advanced).
+    #   webhookSecret: optional per-entry signing-secret override (advanced;
+    #            multi-instance isolation). NOTE: this rides inline in
+    #            rendered values — most installs should leave it unset and
+    #            use hub.gitlab.webhookSecret below instead.
+    tokens: []
+    # Operator-created Secret holding one group access token per entry
+    # above, under a data key named "<lowercase group>.token". The chart
+    # does not generate this Secret — create it with kubectl, e.g.:
+    #
+    #   kubectl create secret generic lunar-gitlab-token \
+    #     --from-file=acme.token=./acme.token
+    tokensSecret:
+      secretName: "lunar-gitlab-token"
+    # Webhook signing secret (HUB_GITLAB_WEBHOOK_SECRET). Leave secretName
+    # empty to have the chart generate one (recommended; persists across
+    # upgrade and uninstall via helm.sh/resource-policy: keep). Unlike
+    # GitHub there is nothing to paste anywhere: the Hub registers project
+    # hooks itself and stamps this secret on them. GitOps users: see the
+    # README "GitOps note" — same caveats as hub.github.webhookSecret.
+    webhookSecret:
+      secretName: ""
+      secretKey: "webhook-secret"
   policyQueue:
     pollInterval: 1s
     numWorkers: 5

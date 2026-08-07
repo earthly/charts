@@ -7,7 +7,12 @@ Secrets in this namespace:
 User-managed (you must create these before pods start):
   {{ printf "%-40s" .Values.hub.db.user.secretName }}  key: {{ .Values.hub.db.user.secretKey }}
   {{ printf "%-40s" .Values.hub.db.pass.secretName }}  key: {{ .Values.hub.db.pass.secretKey }}
+{{- if include "lunar.githubConfigured" . }}
   {{ printf "%-40s" .Values.hub.github.app.privateKey.secretName }}  key: {{ .Values.hub.github.app.privateKey.secretKey }}
+{{- end }}
+{{- if gt (len .Values.hub.gitlab.tokens) 0 }}
+  {{ printf "%-40s" .Values.hub.gitlab.tokensSecret.secretName }}  keys: <group>.token per entry
+{{- end }}
   {{ printf "%-40s" .Values.hub.licence.secretName }}  key: {{ .Values.hub.licence.secretKey }}
 {{- if .Values.hub.auth.secretName }}
   {{ printf "%-40s" .Values.hub.auth.secretName }}  key: {{ .Values.hub.auth.secretKey }}
@@ -36,8 +41,11 @@ Runtime secrets (optional; only when the corresponding secretName is set):
 {{- if not .Values.hub.auth.secretName -}}
 {{- $chartManaged = append $chartManaged (printf "%s (Hub auth token)" (include "lunar.hubAuthSecretName" .)) -}}
 {{- end -}}
-{{- if not .Values.hub.github.webhookSecret.secretName -}}
+{{- if and (include "lunar.githubConfigured" .) (not .Values.hub.github.webhookSecret.secretName) -}}
 {{- $chartManaged = append $chartManaged (printf "%s (GitHub webhook)" (include "lunar.hubWebhookSecretName" .)) -}}
+{{- end -}}
+{{- if and (gt (len .Values.hub.gitlab.tokens) 0) (not .Values.hub.gitlab.webhookSecret.secretName) -}}
+{{- $chartManaged = append $chartManaged (printf "%s (GitLab webhook — no paste-back; the Hub stamps it on project hooks itself)" (include "lunar.hubGitlabWebhookSecretName" .)) -}}
 {{- end -}}
 {{- if and (eq .Values.grafana.mode "chart") (not .Values.grafana.auth.secretName) -}}
 {{- $chartManaged = append $chartManaged (printf "%s (Grafana admin)" (include "lunar.grafanaAuthSecretName" .)) -}}
