@@ -613,6 +613,21 @@ grafana:
     userKey: "username"
     passwordKey: "password"
     tokenKey: ""
+  # Serve Grafana with no login: unauthenticated visitors get the Viewer role in
+  # the default org and land straight on the dashboards (what makes the kiosk
+  # sidecar useful without handing out the admin password). The admin login form
+  # stays enabled, so Editor/Admin access is unchanged.
+  #
+  # chart mode only — [auth.anonymous] is a Grafana server setting read at boot,
+  # so the chart can only apply it to the pod it owns. Setting it in external/off
+  # mode fails the install rather than silently doing nothing.
+  #
+  # ONLY enable this when Grafana is not reachable from the internet. A Grafana
+  # Viewer can issue arbitrary queries against every provisioned datasource —
+  # restricting that is a Grafana Enterprise feature — so anonymous Viewer grants
+  # anyone who can reach the Service read access to the whole Lunar database
+  # through the read-only datasource.
+  anonymousViewer: false
   extraEnv: []
   # Stock upstream Grafana — no Lunar-built/derived image (avoids the AGPL
   # implications and maintenance of shipping a modified Grafana). Plugins,

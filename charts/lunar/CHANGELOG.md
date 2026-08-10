@@ -9,6 +9,29 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [3.9.1] - 2026-08-10
+
+### Added
+
+- **`grafana.anonymousViewer`** (default `false`) — serve the bundled Grafana
+  with no login. Unauthenticated visitors get the `Viewer` role in the default
+  org and land straight on the dashboards, which is what makes the kiosk
+  sidecar useful without handing out the admin password. Renders
+  `GF_AUTH_ANONYMOUS_ENABLED` plus `GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer` on the
+  Grafana Deployment; the role is fixed by the template rather than read from
+  values, so it can't be widened to Editor/Admin by a typo, and the admin login
+  form stays enabled for real Editor/Admin access.
+
+  `chart` mode only: `[auth.anonymous]` is a Grafana server setting read at
+  boot, so the chart can only apply it to the pod it owns. Setting it under
+  `external` or `off` now fails the install instead of silently doing nothing.
+
+  **Only enable this when Grafana is not reachable from the internet.** A
+  Grafana `Viewer` can issue arbitrary queries against every provisioned
+  datasource — restricting that is a Grafana Enterprise feature — so anonymous
+  Viewer grants anyone who can reach the Service read access to the whole Lunar
+  database through the read-only datasource.
+
 ## [3.9.0] - 2026-08-07
 
 ### Added

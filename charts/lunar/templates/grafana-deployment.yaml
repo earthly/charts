@@ -68,6 +68,15 @@ spec:
             # so the only server-level knob we set is sign-up. Override via extraEnv.
             - name: GF_USERS_ALLOW_SIGN_UP
               value: "false"
+            {{- if .anonymousViewer }}
+            # Login-less read-only access. The role is fixed here rather than
+            # read from values so it can't be widened to Editor/Admin by a typo;
+            # the login form stays on for real Editor/Admin access.
+            - name: GF_AUTH_ANONYMOUS_ENABLED
+              value: "true"
+            - name: GF_AUTH_ANONYMOUS_ORG_ROLE
+              value: "Viewer"
+            {{- end }}
             # GF_DATABASE_* for Grafana's own backend store (sessions, orgs,
             # annotations — distinct from the read-only datasource wired via
             # lunar.grafanaProvisionHubEnv on the reconverge sidecar below).
