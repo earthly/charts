@@ -745,6 +745,7 @@ Pre-built Grafana instance with dashboards for policy results, component health,
 | `grafana.auth.userKey` | Key within the secret holding the username (basic auth) | `username` |
 | `grafana.auth.passwordKey` | Key within the secret holding the password (basic auth) | `password` |
 | `grafana.auth.tokenKey` | Key holding a service-account token; when set (external mode only), the Hub uses token auth instead of basic user/password | `""` |
+| `grafana.anonymousViewer` | Serve Grafana with no login — unauthenticated visitors get the `Viewer` role and land on the dashboards; the admin login form stays available for Editor/Admin. `chart` mode only (install fails fast elsewhere, since it's a setting on the bundled pod). **Only enable when Grafana isn't reachable from the internet**: a Grafana Viewer can query every provisioned datasource directly, so this grants anyone who can reach the Service read access to the Lunar database | `false` |
 | `grafana.service.type` | Service type | `ClusterIP` |
 | `grafana.service.port` | Service port | `80` |
 | `grafana.ingress.*` | Same structure as `hub.ingress.*` | disabled |

@@ -423,6 +423,8 @@ Validate the Grafana configuration:
     pod uses basic admin auth).
   - external mode needs grafana.url and grafana.auth.secretName (the chart can't
     generate credentials for a Grafana it doesn't own).
+  - anonymousViewer is chart-mode only — it renders a server setting onto the
+    bundled pod, so elsewhere it would be a silent no-op.
 */}}
 {{- define "lunar.validateGrafana" -}}
 {{- if hasKey .Values.grafana "enabled" -}}
@@ -440,6 +442,9 @@ Validate the Grafana configuration:
 {{- $mode := .Values.grafana.mode -}}
 {{- if not (has $mode (list "chart" "external" "off")) -}}
 {{- fail (printf "grafana.mode must be one of chart | external | off (got %q)." $mode) -}}
+{{- end -}}
+{{- if and .Values.grafana.anonymousViewer (ne $mode "chart") -}}
+{{- fail (printf "grafana.anonymousViewer is only valid in grafana.mode=chart (got %q) — it renders [auth.anonymous] onto the Grafana pod the chart owns, and a Grafana reads that setting at boot. Configure anonymous access on your own Grafana instead, or switch to grafana.mode=chart." $mode) -}}
 {{- end -}}
 {{- if eq $mode "chart" -}}
   {{- if .Values.grafana.auth.tokenKey -}}
