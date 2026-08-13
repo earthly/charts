@@ -2,6 +2,16 @@ apiVersion: v1
 entries:
   lunar:
   - apiVersion: v2
+    created: "2026-08-13T18:45:24.714532202Z"
+    description: "A Helm chart for Earthly Lunar \U0001F319"
+    digest: 358e5b31fdf1edc1fde1178920d82bec6578147046c6488ce097ab12cddf3bd0
+    kubeVersion: '>=1.29.0-0'
+    name: lunar
+    type: application
+    urls:
+    - https://github.com/earthly/charts/releases/download/lunar-3.12.0/lunar-3.12.0.tgz
+    version: 3.12.0
+  - apiVersion: v2
     created: "2026-08-12T22:37:21.938348817Z"
     description: "A Helm chart for Earthly Lunar \U0001F319"
     digest: 4a2cf1a8892fded26375d0e9f5ff5c5e192daa1e93d27cbe11f4080feeb65333
@@ -665,4 +675,4 @@ entries:
     urls:
     - https://github.com/earthly/charts/releases/download/lunar-0.1.0/lunar-0.1.0.tgz
     version: 0.1.0
-generated: "2026-08-12T22:37:21.938642307Z"
+generated: "2026-08-13T18:45:24.714807798Z"
