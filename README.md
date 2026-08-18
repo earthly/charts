@@ -120,7 +120,7 @@ Hub authenticates to GitHub as a GitHub App. Two modes, mutually exclusive:
 
 - **Multi-App.** Use this when the Hub serves multiple orgs that each install their own Lunar App. List one entry per owner under `hub.github.apps`, and put all the PEM files in a single Kubernetes Secret named via `hub.github.appsSecret.secretName`. The chart looks up each entry's PEM at `<lowercase-owner>.pem` inside that Secret.
 
-  An owner may appear more than once. GitHub's REST rate limit applies per App *installation*, so a second App installed on the same org gives the Hub a second, independent budget; give each entry its own `privateKeyFile` so they don't derive the same PEM name. The Hub spreads read traffic evenly across an owner's Apps, while commit statuses and PR comments always use the first entry — GitHub only lets the App that created a check run or comment update it.
+  An owner may appear more than once, **with Hub 3.14.0 or newer** — earlier Hubs reject a repeated owner at boot. GitHub's REST rate limit applies per App *installation*, so a second App installed on the same org gives the Hub a second, independent budget; give each entry its own `privateKeyFile` so they don't derive the same PEM name. The Hub spreads read traffic evenly across an owner's Apps, while commit statuses and PR comments always use the first entry — GitHub only lets the App that created a check run or comment update it.
 
   ```yaml
   hub:

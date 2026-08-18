@@ -176,14 +176,17 @@ hub:
     #              host and baseUrl.
     #   privateKeyFile (optional) data key in appsSecret holding this entry's
     #              PEM; defaults to "<lowercase owner>.pem". Set it to give
-    #              one owner more than one App (see below).
+    #              one owner more than one App (see below), or to separate
+    #              the keys when one owner name exists on two hosts.
     #
-    # Adding REST capacity for a busy org: GitHub's rate limit applies per
-    # App *installation*, so installing a second App on the same org gives
-    # the Hub a second, independent budget. List it as another entry with
-    # the same owner and its own appId/installId, and give each entry a
-    # distinct privateKeyFile (two entries for one owner would otherwise
-    # derive the same PEM filename):
+    # Adding REST capacity for a busy org (requires Hub 3.14.0 or newer --
+    # earlier Hubs reject a repeated owner at boot with "duplicate GitHub
+    # App for owner"): GitHub's rate limit applies per App *installation*,
+    # so installing a second App on the same org gives the Hub a second,
+    # independent budget. List it as another entry with the same owner and
+    # its own appId/installId, and give each entry a distinct
+    # privateKeyFile (two entries for one owner would otherwise derive the
+    # same PEM filename):
     #
     #   apps:
     #     - owner: earthly

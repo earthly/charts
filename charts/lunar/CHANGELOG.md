@@ -25,7 +25,23 @@ history see `git log -- charts/lunar/`.
   a key. Requires Lunar Hub 3.14.0 or newer, which pools an owner's Apps and
   spreads read traffic across them; commit statuses and PR comments stay on
   the owner's first entry, because GitHub only lets the App that created a
-  check run or comment update it.
+  check run or comment update it. The version requirement is repeated in
+  `values.yaml` and the README, since those are what an operator configures
+  from.
+
+### Changed
+
+- **`hub.github.apps` uniqueness is now `(host, owner, appId)`** instead of
+  owner alone. This admits the same owner name on two hosts (a github.com
+  `earthly` and a GHES `earthly`), which the Hub has always supported and
+  the chart previously rejected.
+
+  Paired with a new guard: two *different* Apps resolving to the same PEM
+  file now fail template rendering. That covers the case the relaxation
+  would otherwise have opened up — same owner on two hosts derives one
+  default filename for two different Apps, which would have had the second
+  signing its JWT with the first's key. One App installed across several
+  orgs still shares a key, which is legitimate.
 
 ## [3.13.3] - 2026-08-19
 

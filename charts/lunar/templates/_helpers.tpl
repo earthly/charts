@@ -157,16 +157,23 @@ Called from lunar.githubAuthCheck when apps is non-empty.
 {{- end -}}
 {{- $_ := set $seen $key true -}}
 {{/*
-  Two Apps on one owner must not resolve to the same PEM, or the second
-  would authenticate with the first's key. Only checked within an owner:
-  one App installed across several orgs legitimately shares a PEM.
+  Two *different* Apps must not resolve to the same PEM, or the second would
+  sign its JWT with the first's key. Keyed on the file and storing the App
+  that claimed it, deliberately not scoped to the owner: the default name has
+  no host component, so the same owner on github.com and on GHES derives one
+  file for two genuinely different Apps -- a config the widened uniqueness
+  check above newly admits, and which 3.13.0 used to reject outright.
+
+  Storing the claiming App rather than a bare flag is what keeps the
+  legitimate case working: one App installed across several orgs shares a
+  key, and re-claiming a file for the same App is fine.
 */}}
 {{- $keyFile := $app.privateKeyFile | default (printf "%s.pem" (lower $app.owner)) -}}
-{{- $fileKey := printf "%s/%s/%s" $host (lower $app.owner) $keyFile -}}
-{{- if hasKey $seenFiles $fileKey -}}
-{{- fail (printf "hub.github.apps: owner %q has two Apps both reading %q. Set privateKeyFile on one of them so each App uses its own private key." $app.owner $keyFile) -}}
+{{- $appKey := printf "%s/%v" $host $app.appId -}}
+{{- if and (hasKey $seenFiles $keyFile) (ne (get $seenFiles $keyFile) $appKey) -}}
+{{- fail (printf "hub.github.apps: %q is claimed by two different Apps. Set privateKeyFile so each App uses its own private key." $keyFile) -}}
 {{- end -}}
-{{- $_ := set $seenFiles $fileKey true -}}
+{{- $_ := set $seenFiles $keyFile $appKey -}}
 {{- end -}}
 {{- end }}
 
