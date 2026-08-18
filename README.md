@@ -120,6 +120,8 @@ Hub authenticates to GitHub as a GitHub App. Two modes, mutually exclusive:
 
 - **Multi-App.** Use this when the Hub serves multiple orgs that each install their own Lunar App. List one entry per owner under `hub.github.apps`, and put all the PEM files in a single Kubernetes Secret named via `hub.github.appsSecret.secretName`. The chart looks up each entry's PEM at `<lowercase-owner>.pem` inside that Secret.
 
+  An owner may appear more than once. GitHub's REST rate limit applies per App *installation*, so a second App installed on the same org gives the Hub a second, independent budget; give each entry its own `privateKeyFile` so they don't derive the same PEM name. The Hub spreads read traffic evenly across an owner's Apps, while commit statuses and PR comments always use the first entry — GitHub only lets the App that created a check run or comment update it.
+
   ```yaml
   hub:
     github:
@@ -543,8 +545,8 @@ Hub authenticates as a GitHub App. App ID, install ID, and the App's private-key
 | `hub.github.app.installId` | GitHub App Installation ID (single-App mode) | `0` |
 | `hub.github.app.privateKey.secretName` | Secret containing the App private-key PEM (single-App mode) | `lunar-github-app` |
 | `hub.github.app.privateKey.secretKey` | Key within the secret | `private-key` |
-| `hub.github.apps` | Multi-App entries: list of `{owner, appId, installId}`. Mutually exclusive with `hub.github.app.*`. | `[]` |
-| `hub.github.appsSecret.secretName` | Secret holding one PEM key per `apps[].owner` (key name: `<lowercase-owner>.pem`) | `lunar-github-apps` |
+| `hub.github.apps` | Multi-App entries: list of `{owner, appId, installId}`, optionally `host`, `baseUrl`, `privateKeyFile`. Repeat an owner to pool several Apps over its REST budget. Mutually exclusive with `hub.github.app.*`. | `[]` |
+| `hub.github.appsSecret.secretName` | Secret holding one PEM key per entry (key name: `apps[].privateKeyFile`, default `<lowercase-owner>.pem`) | `lunar-github-apps` |
 | `hub.github.webhookSecret.secretName` | Secret containing the webhook secret | `lunar-github-webhook` |
 | `hub.github.webhookSecret.secretKey` | Key within the secret | `webhook-secret` |
 | `hub.github.baseUrl` | GitHub API base URL (for GitHub Enterprise Server) | `""` |

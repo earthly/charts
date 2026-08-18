@@ -174,14 +174,39 @@ hub:
     #              to the github.com API. Set to the GHES API endpoint (e.g.
     #              https://ghes.acme.com/api/v3). A GHES entry needs both
     #              host and baseUrl.
+    #   privateKeyFile (optional) data key in appsSecret holding this entry's
+    #              PEM; defaults to "<lowercase owner>.pem". Set it to give
+    #              one owner more than one App (see below).
+    #
+    # Adding REST capacity for a busy org: GitHub's rate limit applies per
+    # App *installation*, so installing a second App on the same org gives
+    # the Hub a second, independent budget. List it as another entry with
+    # the same owner and its own appId/installId, and give each entry a
+    # distinct privateKeyFile (two entries for one owner would otherwise
+    # derive the same PEM filename):
+    #
+    #   apps:
+    #     - owner: earthly
+    #       appId: 123
+    #       installId: 100
+    #     - owner: earthly
+    #       appId: 789
+    #       installId: 300
+    #       privateKeyFile: earthly-2.pem
+    #
+    # The Hub spreads read traffic evenly across every App listed for an
+    # owner. Writes — commit statuses and PR comments — always use the
+    # first entry for that owner, because GitHub only lets the App that
+    # created a check run or comment update it.
     #
     # The chart looks up each entry's PEM at
     # <appsSecret.secretName>/<lowercase-owner>.pem, mounted at
     # /secrets/github-apps inside the hub container.
     apps: []
     # Operator-created Secret holding one PEM key per entry above. Each
-    # entry expects a data key named "<lowercase owner>.pem". The chart
-    # does not generate this Secret — create it with kubectl, e.g.:
+    # entry expects a data key named "<lowercase owner>.pem", or whatever
+    # its privateKeyFile overrides that to. The chart does not generate
+    # this Secret — create it with kubectl, e.g.:
     #
     #   kubectl create secret generic lunar-github-apps \
     #     --from-file=earthly.pem=./earthly.pem \

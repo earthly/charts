@@ -131,9 +131,10 @@ Called from lunar.githubAuthCheck when apps is non-empty.
 */}}
 {{- define "lunar.githubAppsCheck" -}}
 {{- if not .Values.hub.github.appsSecret.secretName -}}
-{{- fail "hub.github.appsSecret.secretName is required when hub.github.apps is set. Create a Kubernetes secret with one PEM key per entry, named '<lowercase-owner>.pem'." -}}
+{{- fail "hub.github.appsSecret.secretName is required when hub.github.apps is set. Create a Kubernetes secret with one PEM key per entry, named '<lowercase-owner>.pem' (or whatever that entry's privateKeyFile overrides it to)." -}}
 {{- end -}}
 {{- $seen := dict -}}
+{{- $seenFiles := dict -}}
 {{- range $i, $app := .Values.hub.github.apps -}}
 {{- if not $app.owner -}}
 {{- fail (printf "hub.github.apps[%d].owner is required" $i) -}}
@@ -144,11 +145,28 @@ Called from lunar.githubAuthCheck when apps is non-empty.
 {{- if not (gt (int $app.installId) 0) -}}
 {{- fail (printf "hub.github.apps[%d] (%s): installId is required (numeric, non-zero)" $i $app.owner) -}}
 {{- end -}}
-{{- $key := lower $app.owner -}}
+{{/*
+  Uniqueness is on (host, owner, appId), matching the Hub. Repeating an
+  owner is how several Apps are pooled over one org's REST budget, and the
+  same owner name may also exist on two hosts (github.com + GHES).
+*/}}
+{{- $host := lower (default "github.com" $app.host) -}}
+{{- $key := printf "%s/%s/%v" $host (lower $app.owner) $app.appId -}}
 {{- if hasKey $seen $key -}}
-{{- fail (printf "hub.github.apps: duplicate owner %q (case-insensitive)" $app.owner) -}}
+{{- fail (printf "hub.github.apps: App %v is listed twice for owner %q on host %q. Repeat an owner only to add a *different* App." $app.appId $app.owner $host) -}}
 {{- end -}}
 {{- $_ := set $seen $key true -}}
+{{/*
+  Two Apps on one owner must not resolve to the same PEM, or the second
+  would authenticate with the first's key. Only checked within an owner:
+  one App installed across several orgs legitimately shares a PEM.
+*/}}
+{{- $keyFile := $app.privateKeyFile | default (printf "%s.pem" (lower $app.owner)) -}}
+{{- $fileKey := printf "%s/%s/%s" $host (lower $app.owner) $keyFile -}}
+{{- if hasKey $seenFiles $fileKey -}}
+{{- fail (printf "hub.github.apps: owner %q has two Apps both reading %q. Set privateKeyFile on one of them so each App uses its own private key." $app.owner $keyFile) -}}
+{{- end -}}
+{{- $_ := set $seenFiles $fileKey true -}}
 {{- end -}}
 {{- end }}
 
@@ -203,8 +221,15 @@ per-entry webhook_secret is the advanced multi-instance override only.
 
 {{/*
 Render the HUB_GITHUB_APPS JSON env value from hub.github.apps. Each
-entry's private_key_path is derived from <lowercase-owner>.pem under
-the Secret mountPath /secrets/github-apps. Used by hub-deployment.yaml.
+entry's private_key_path defaults to <lowercase-owner>.pem under the
+Secret mountPath /secrets/github-apps, and can be overridden per entry
+with privateKeyFile. Used by hub-deployment.yaml.
+
+privateKeyFile exists so one owner can carry more than one App. GitHub's
+REST rate limit is per installation, so a second App on a busy org is a
+second budget and the Hub spreads its reads across both -- but two
+entries for one owner would otherwise derive the same PEM filename and
+so share a key. Unset, entries render exactly as before.
 
 host and base_url are emitted only when set on the entry, so existing
 github.com / GHEC entries render byte-for-byte unchanged. Set both on a
@@ -214,10 +239,11 @@ talks to that host's API endpoint.
 {{- define "lunar.githubAppsJSON" -}}
 {{- $entries := list -}}
 {{- range .Values.hub.github.apps -}}
+{{- $keyFile := .privateKeyFile | default (printf "%s.pem" (lower .owner)) -}}
 {{- $entry := dict
     "owner" .owner
     "app_id" (.appId | int64)
-    "private_key_path" (printf "/secrets/github-apps/%s.pem" (lower .owner))
+    "private_key_path" (printf "/secrets/github-apps/%s" $keyFile)
     "install_id" (.installId | int64)
 -}}
 {{- if .host -}}{{- $_ := set $entry "host" .host -}}{{- end -}}

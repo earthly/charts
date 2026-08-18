@@ -9,6 +9,24 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [3.14.0] - 2026-08-19
+
+### Added
+
+- **`hub.github.apps[].privateKeyFile`** (optional) — the data key in
+  `appsSecret` holding that entry's PEM. Defaults to
+  `<lowercase-owner>.pem`, so existing values render byte-for-byte
+  unchanged.
+
+  It exists so one owner can carry more than one App. GitHub's REST rate
+  limit applies per App *installation*, so installing a second App on a busy
+  org gives the Hub a second, independent budget — but two `apps` entries
+  with the same owner would otherwise derive the same PEM filename and share
+  a key. Requires Lunar Hub 3.14.0 or newer, which pools an owner's Apps and
+  spreads read traffic across them; commit statuses and PR comments stay on
+  the owner's first entry, because GitHub only lets the App that created a
+  check run or comment update it.
+
 ## [3.13.3] - 2026-08-19
 
 ### Added
