@@ -9,6 +9,29 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [3.13.3] - 2026-08-19
+
+### Added
+
+- **`hub.migrateJobActiveDeadlineSeconds`** (default `600`, unchanged from the
+  previously hardcoded value) — how long the pre-install/pre-upgrade migrate
+  Job may run before Kubernetes kills it.
+
+  Migrations that build an index with `CREATE INDEX CONCURRENTLY` scale with
+  table size, so on a large install the Job can exceed a fixed ten minutes and
+  fail the hook with `DeadlineExceeded`, blocking the upgrade. Until now there
+  was no way to raise it short of forking the chart.
+
+  Raising it also avoids a sharp edge that makes the timeout worse than a plain
+  delay: a concurrent build cut short leaves an **invalid** index behind, and
+  the migration's `CREATE INDEX CONCURRENTLY IF NOT EXISTS` then *skips* it on
+  every subsequent run — so the retry reports success while the index stays
+  unusable, and it has to be dropped by hand before re-running.
+
+  Size it against the pending migrations rather than total data volume. A 17 GB
+  install upgrading 3.12.0 → 3.13.2 spent roughly eight minutes inside one
+  concurrent build on a 2.1M-row table.
+
 ## [3.9.1] - 2026-08-10
 
 ### Added

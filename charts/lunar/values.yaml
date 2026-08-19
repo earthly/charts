@@ -420,6 +420,15 @@ hub:
   # Job's container. Separate from hub.resources (the long-running
   # Deployment) since a one-shot migration typically needs less headroom.
   migrateJobResources: {}
+  # How long the pre-install/pre-upgrade migrate Job may run before Kubernetes
+  # kills it. Raise it on installs with large tables: migrations that build an
+  # index with CREATE INDEX CONCURRENTLY scale with table size, and a build cut
+  # short here leaves an INVALID index that the migration's IF NOT EXISTS then
+  # SKIPS on every later run — so the retry reports success while the index
+  # stays unusable, and has to be dropped by hand before re-running. Sized for
+  # the pending migrations, not the total data: a 17 GB install spent ~8 min in
+  # a single concurrent build.
+  migrateJobActiveDeadlineSeconds: 600
   volumeMounts: []
   volumes: []
   nodeSelector: {}
