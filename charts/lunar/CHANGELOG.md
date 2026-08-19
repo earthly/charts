@@ -9,6 +9,40 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [3.13.3] - 2026-08-19
+
+### Added
+
+- **`hub.migrateJobActiveDeadlineSeconds`** — how long the pre-install/pre-upgrade
+  migrate Job may run before Kubernetes kills it. Previously hardcoded, with no
+  way to change it short of forking the chart.
+
+### Changed
+
+- **The migrate Job's deadline is now `3600`, up from a hardcoded `600`.** The
+  old value was sized as though it were a budget for how long migrations may
+  take. It isn't: it's a backstop that reaps a wedged Job, needed because the
+  migrator's advisory lock waits forever, so a pod blocked behind another
+  session would otherwise never exit.
+
+  Sized as a budget, it fired on migrations that were healthy, just slow. Builds
+  using `CREATE INDEX CONCURRENTLY` scale with table size, and a 17 GB install
+  upgrading 3.12.0 → 3.13.2 spent roughly eight minutes inside a single
+  concurrent build on a 2.1M-row table — overrunning the ten minutes and failing
+  the hook with `DeadlineExceeded`.
+
+  Ten minutes was also the worst available number, for two reasons. It matched
+  the usual Helm timeout exactly, so the Job was killed at the precise moment
+  Helm stopped waiting — ruling out the recovery where the upgrade reports
+  failure but the work finishes in the background and the retry is a clean
+  no-op. And a concurrent build cut short leaves an **invalid** index behind,
+  which the migration's `CREATE INDEX CONCURRENTLY IF NOT EXISTS` then *skips*
+  on every later run, so the retry reports success while the index stays
+  unusable until someone drops it by hand.
+
+  **How long an upgrade waits is your Helm timeout, not this value.** Keep this
+  comfortably above it.
+
 ## [3.9.1] - 2026-08-10
 
 ### Added

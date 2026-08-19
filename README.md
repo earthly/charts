@@ -654,6 +654,7 @@ The Hub uses a PVC for state, cached repos, and script code.
 |-----|-------------|---------|
 | `hub.resources` | CPU/memory requests and limits | `{}` |
 | `hub.migrateJobResources` | CPU/memory requests and limits for the pre-install/pre-upgrade migrate Job's container | `{}` |
+| `hub.migrateJobActiveDeadlineSeconds` | Backstop that reaps a wedged pre-install/pre-upgrade migrate Job — not a budget for how long migrations may take. Keep it above your Helm timeout, which is what actually bounds how long an upgrade waits | `3600` |
 | `hub.nodeSelector` | Node selector | `{}` |
 | `hub.tolerations` | Tolerations | `[]` |
 | `hub.affinity` | Affinity rules | `{}` |

@@ -420,6 +420,17 @@ hub:
   # Job's container. Separate from hub.resources (the long-running
   # Deployment) since a one-shot migration typically needs less headroom.
   migrateJobResources: {}
+  # Backstop that reaps a wedged migrate Job — not a budget for how long
+  # migrations may take. It exists because the migrator's advisory lock waits
+  # forever: if another session holds it, the pod would otherwise never exit.
+  #
+  # How long you WAIT on an upgrade is your Helm timeout (helm --timeout, or
+  # the helm_release timeout in Terraform), not this. Keep this comfortably
+  # ABOVE that. When the two are equal the Job dies at the exact moment Helm
+  # gives up, so a slow-but-healthy migration can never finish in the
+  # background and make the retry a no-op — and a CREATE INDEX CONCURRENTLY
+  # killed midway leaves an invalid index behind.
+  migrateJobActiveDeadlineSeconds: 3600
   volumeMounts: []
   volumes: []
   nodeSelector: {}
