@@ -99,11 +99,31 @@ hub:
     # Footgun: overriding REPLACES the whole string — the default is not
     # merged in. If you pass additional options, include sslmode= yourself.
     #
-    # Also consumed by the operator (OPERATOR_DB_CONNECTION_OPTIONS), the SQL API
-    # (HUB_SQLAPI_CONNECTION_OPTIONS) and the Grafana datasource
-    # (HUB_GRAFANA_DB_CONNECTION_OPTIONS) — they all connect to the same DB, so
-    # they share this value.
+    # Also consumed by the operator (OPERATOR_DB_CONNECTION_OPTIONS) and the
+    # Grafana datasource (HUB_GRAFANA_DB_CONNECTION_OPTIONS) — they connect to
+    # the same DB the same way, so they share this value. The SQL API does not;
+    # see sqlapiConnectionOptions below.
     connectionOptions: "sslmode=require"
+    # Options for the connection string the hub VENDS to SQL API clients
+    # (HUB_SQLAPI_CONNECTION_OPTIONS, surfaced by `lunar sql`). Empty inherits
+    # connectionOptions above, which is what every install wants until the SQL
+    # API is reached over a different path than the hub's own.
+    #
+    # Format: URL query, &-separated — NOT the libpq KV syntax above. The hub
+    # interpolates this verbatim after the "?" in
+    # postgres://user:pass@host:port/db?<options>, so the two fields genuinely
+    # differ:
+    #   connectionOptions:       "sslmode=require connect_timeout=10"
+    #   sqlapiConnectionOptions: "sslmode=require&connect_timeout=10"
+    # A single option like "sslmode=require" is valid in both, which is why one
+    # shared value worked until now.
+    #
+    # Dedicated installs set this because their clients reach Postgres through
+    # a pooler on a hostname the chart never sees, and must verify it:
+    #   "sslmode=verify-full&sslrootcert=system"
+    # (sslrootcert=system needs libpq >= 16; older clients need an explicit CA
+    # path instead.)
+    sqlapiConnectionOptions: ""
     # Per-replica Postgres connection budget. Total connections to Postgres ≈
     # replicaCount × (maxOpenConns + maxPoolConns + operatorPoolSize).
     #

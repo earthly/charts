@@ -9,6 +9,30 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [3.15.0] - 2026-08-20
+
+### Added
+
+- **`hub.db.sqlapiConnectionOptions`** (optional) — connection options for the
+  string the Hub *vends* to SQL API clients (`HUB_SQLAPI_CONNECTION_OPTIONS`,
+  surfaced by `lunar sql`). Empty, the default, inherits
+  `hub.db.connectionOptions`, so every existing install renders byte-for-byte
+  unchanged.
+
+  It exists because the two fields are not the same kind of string.
+  `connectionOptions` is libpq KV syntax, space-separated, describing a
+  connection the Hub *makes*. The SQL API value is interpolated verbatim after
+  the `?` in `postgres://user:pass@host:port/db?…`, so it is URL query syntax,
+  `&`-separated. One shared value worked only while it was a single option
+  (`sslmode=require`) that happens to be valid in both grammars; anything with
+  a second option is valid in exactly one.
+
+  The install that needs them apart is one where SQL API clients reach Postgres
+  by a different route than the Hub does — for example through a connection
+  pooler on its own hostname, where the client should verify that hostname:
+  `sslmode=verify-full&sslrootcert=system`. (`sslrootcert=system` needs
+  libpq 16 or newer; older clients need an explicit CA path.)
+
 ## [3.14.0] - 2026-08-19
 
 ### Added

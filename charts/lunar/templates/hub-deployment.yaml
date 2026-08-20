@@ -76,10 +76,13 @@ spec:
               value: {{ .db.waitSecs | quote }}
             - name: HUB_DB_CONNECTION_OPTIONS
               value: {{ .db.connectionOptions | quote }}
-            # sqlapi_user connects to the same DB as the hub, so it shares the
-            # hub's connection options (SSL mode, etc.).
+            # Options for the string the hub VENDS to SQL API clients, not for a
+            # connection the hub makes. Inherits db.connectionOptions unless
+            # overridden — note the two use different syntax (URL query here,
+            # libpq KV above), so they can only share a value while it is a
+            # single option like sslmode=require.
             - name: HUB_SQLAPI_CONNECTION_OPTIONS
-              value: {{ .db.connectionOptions | quote }}
+              value: {{ .db.sqlapiConnectionOptions | default .db.connectionOptions | quote }}
             - name: HUB_DB_MAX_OPEN_CONNS
               value: {{ .db.maxOpenConns | quote }}
             - name: HUB_DB_MAX_POOL_CONNS

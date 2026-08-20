@@ -521,6 +521,7 @@ See also `grafana.url` (under [Grafana](#grafana)) for the Grafana-side equivale
 | `hub.db.pass.secretName` | Secret containing the DB password | `lunar-db` |
 | `hub.db.pass.secretKey` | Key within the secret | `password` |
 | `hub.db.connectionOptions` | Extra options appended to the Postgres connection string (libpq KV format, space-separated). Default works against managed Postgres with forced TLS (RDS, Aurora, Cloud SQL); set to `"sslmode=disable"` for plain cluster-local Postgres. Also consumed by the operator. | `"sslmode=require"` |
+| `hub.db.sqlapiConnectionOptions` | Options for the connection string the Hub *vends* to SQL API clients (surfaced by `lunar sql`). URL query format, `&`-separated. Empty inherits `hub.db.connectionOptions`. | `""` |
 
 > **Override footgun:** setting `hub.db.connectionOptions` **replaces** the whole string — the default is not merged in. If passing additional options (`connect_timeout`, `application_name`, etc.), include `sslmode=` yourself, space-separated:
 > ```yaml
@@ -533,6 +534,15 @@ See also `grafana.url` (under [Grafana](#grafana)) for the Grafana-side equivale
 >   db:
 >     connectionOptions: "connect_timeout=10"
 > ```
+
+> **The two connection-option fields use different syntax.** `connectionOptions` describes a connection the Hub *makes* (libpq KV, space-separated). `sqlapiConnectionOptions` is interpolated verbatim after the `?` in `postgres://user:pass@host:port/db?…`, so it is a URL query (`&`-separated). A single option such as `sslmode=require` is valid in both, which is why one shared value sufficed before 3.15.0 — anything with a second option is not:
+> ```yaml
+> hub:
+>   db:
+>     connectionOptions: "sslmode=require connect_timeout=10"        # libpq KV
+>     sqlapiConnectionOptions: "sslmode=require&connect_timeout=10"  # URL query
+> ```
+> Set `sqlapiConnectionOptions` when SQL API clients reach Postgres by a different route than the Hub does — for example through a connection pooler on its own hostname that clients should verify: `"sslmode=verify-full&sslrootcert=system"`. (`sslrootcert=system` needs libpq 16+; older clients need an explicit CA path.)
 
 **GitHub**
 
