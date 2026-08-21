@@ -45,7 +45,9 @@ history see `git log -- charts/lunar/`.
   `grafanaConnectionOptions: "sslmode=require&connect_timeout=10"` fixes that
   from the chart. The parser is Hub-side, so this release supplies a way to
   express the correct value, not a repair of the inheritance path — a
-  single-option `connectionOptions` is still the only one safe to inherit.
+  single-option `connectionOptions` is still the only one safe to inherit. Only
+  `sslmode` is read out of the vended URL, so the field corrects the
+  datasource's TLS mode rather than passing arbitrary options to Grafana.
 
 ### Fixed
 

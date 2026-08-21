@@ -126,6 +126,10 @@ hub:
     #     -> datasource sslmode = "require connect_timeout=10"   # broken
     #   grafanaConnectionOptions: "sslmode=require&connect_timeout=10"
     #     -> datasource sslmode = "require"                      # correct
+    #
+    # Only sslmode is read out of the URL; the rest of the query is discarded.
+    # This field corrects the datasource's TLS mode, it does not pass arbitrary
+    # options through to Grafana.
     grafanaConnectionOptions: ""
     # Options for the connection string the hub VENDS to SQL API clients
     # (HUB_SQLAPI_CONNECTION_OPTIONS, surfaced by `lunar sql`). Empty inherits
