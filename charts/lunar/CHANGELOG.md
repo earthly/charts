@@ -9,29 +9,52 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
-## [3.15.0] - 2026-08-20
+## [3.15.0] - 2026-08-21
 
 ### Added
 
-- **`hub.db.sqlapiConnectionOptions`** (optional) — connection options for the
-  string the Hub *vends* to SQL API clients (`HUB_SQLAPI_CONNECTION_OPTIONS`,
-  surfaced by `lunar sql`). Empty, the default, inherits
-  `hub.db.connectionOptions`, so every existing install renders byte-for-byte
-  unchanged.
+- **`hub.db.sqlapiConnectionOptions`** and **`hub.db.grafanaConnectionOptions`**
+  (both optional) — connection options for the two strings the Hub *vends*
+  rather than uses: the one surfaced to SQL API clients by `lunar sql`
+  (`HUB_SQLAPI_CONNECTION_OPTIONS`) and the read-only datasource string handed
+  to the Grafana provisioning tool (`HUB_GRAFANA_DB_CONNECTION_OPTIONS`).
+  Empty, the default for both, inherits `hub.db.connectionOptions`, so no
+  existing install's rendered configuration changes (the only manifest diff
+  against 3.14.0 is the chart label and the explanatory comments).
 
-  It exists because the two fields are not the same kind of string.
-  `connectionOptions` is libpq KV syntax, space-separated, describing a
-  connection the Hub *makes*. The SQL API value is interpolated verbatim after
-  the `?` in `postgres://user:pass@host:port/db?…`, so it is URL query syntax,
+  They exist because `connectionOptions` has four consumers in two grammars. It
+  is libpq KV syntax, space-separated, describing connections the Hub and the
+  operator *make*. The other two are interpolated verbatim after the `?` in
+  `postgres://user:pass@host:port/db?…`, so they are URL query syntax,
   `&`-separated. One shared value worked only while it was a single option
   (`sslmode=require`) that happens to be valid in both grammars; anything with
   a second option is valid in exactly one.
 
-  The install that needs them apart is one where SQL API clients reach Postgres
-  by a different route than the Hub does — for example through a connection
-  pooler on its own hostname, where the client should verify that hostname:
-  `sslmode=verify-full&sslrootcert=system`. (`sslrootcert=system` needs
-  libpq 16 or newer; older clients need an explicit CA path.)
+  The SQL API install that needs its own value is one where clients reach
+  Postgres by a different route than the Hub does — for example through a
+  connection pooler on its own hostname, where the client should verify that
+  hostname: `sslmode=verify-full&sslrootcert=system`. (`sslrootcert=system`
+  needs libpq 16 or newer; older clients need an explicit CA path.)
+
+  For Grafana it is worth checking against an install you already run. The
+  provisioning tool extracts `sslmode` from the vended URL with a pattern that
+  stops at `&`, so an inherited space-separated value is captured whole: an
+  install on `connectionOptions: "sslmode=require connect_timeout=10"` has a
+  datasource configured with `sslmode: "require connect_timeout=10"`, which
+  cannot connect and reports nothing.
+  `grafanaConnectionOptions: "sslmode=require&connect_timeout=10"` fixes that
+  from the chart. The parser is Hub-side, so this release supplies a way to
+  express the correct value, not a repair of the inheritance path — a
+  single-option `connectionOptions` is still the only one safe to inherit.
+
+### Fixed
+
+- **`values.yaml` and the README described the wrong grouping.** They said the
+  operator, the Grafana datasource and the SQL API all connect to the same
+  database and therefore share `connectionOptions`. Only the operator makes a
+  connection; the other two are strings the Hub vends, in a different syntax.
+  No rendered manifest changes — the guidance was simply wrong about which
+  values are safe to put where.
 
 ## [3.14.0] - 2026-08-19
 
