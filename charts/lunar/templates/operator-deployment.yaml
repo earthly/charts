@@ -162,6 +162,10 @@ spec:
             - name: OPERATOR_SNIPPET_POD_SECURITY_CONTEXT
               value: {{ .Values.operator.scriptPodSecurityContext | toJson | quote }}
             {{- end }}
+            {{- if .Values.operator.scriptPodTopologySpreadConstraints }}
+            - name: OPERATOR_SNIPPET_POD_TOPOLOGY_SPREAD_CONSTRAINTS
+              value: {{ .Values.operator.scriptPodTopologySpreadConstraints | toJson | quote }}
+            {{- end }}
             {{- with .Values.operator.extraEnv }}
               {{- toYaml . | nindent 12 }}
             {{- end }}
