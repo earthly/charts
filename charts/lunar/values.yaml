@@ -592,6 +592,30 @@ operator:
   #       type: RuntimeDefault
   scriptPodAnnotations: {}
   scriptPodSecurityContext: {}
+  # Topology-spread constraints applied to every script pod the operator
+  # creates. NOTE: distinct from operator.topologySpreadConstraints below, which
+  # spreads the operator's OWN Deployment replicas — not the script pods.
+  #
+  # Prefer whenUnsatisfiable: ScheduleAnyway. Script pods are ephemeral,
+  # high-churn and single-shot: with DoNotSchedule, a cluster that cannot
+  # satisfy the constraint leaves them Pending until the operator times them out
+  # (OPERATOR_PENDING_POD_TIMEOUT, 10m by default) and script throughput
+  # silently drops.
+  #
+  # labelSelector is optional — when omitted, the operator selects its own
+  # script pods (app.kubernetes.io/managed-by: lunar-snippet-operator). Set it
+  # explicitly only to narrow the spread, e.g. to one script type via
+  # lunar.earthly.dev/snippet-type: collector|policy|cataloger.
+  #
+  # Spreading redistributes pods; it does not add capacity. For per-subnet IP
+  # exhaustion it helps when the pressure is lopsided, but prefix delegation and
+  # subnet sizing remain the actual supply levers.
+  # Example:
+  #   scriptPodTopologySpreadConstraints:
+  #     - maxSkew: 1
+  #       topologyKey: topology.kubernetes.io/zone
+  #       whenUnsatisfiable: ScheduleAnyway
+  scriptPodTopologySpreadConstraints: []
   extraEnv: []
   resources: {}
   annotations: {}
@@ -608,6 +632,10 @@ operator:
   # constraints. Set it (maxSkew / topologyKey / whenUnsatisfiable / ...) when
   # running the operator with replicaCount > 1 to spread its pods across nodes
   # or zones.
+  #
+  # This spreads the operator's OWN Deployment replicas ONLY. To spread the
+  # script pods the operator creates at runtime, use
+  # operator.scriptPodTopologySpreadConstraints above.
   topologySpreadConstraints: []
 grafana:
   # How Grafana is provided. One of:

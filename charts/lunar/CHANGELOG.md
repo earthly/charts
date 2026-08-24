@@ -9,6 +9,50 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [3.15.0] - 2026-08-24
+
+### Added
+
+- **`operator.scriptPodTopologySpreadConstraints`** — spread the script pods the
+  operator creates at runtime across zones, nodes or subnets, instead of letting
+  the scheduler pile them onto whichever node it likes best. Joins the existing
+  `scriptPodNodeSelector`, `scriptPodTolerations`, `scriptPodPriorityClassName`,
+  `scriptPodAnnotations` and `scriptPodSecurityContext`.
+
+  Two conveniences worth knowing about:
+
+  - `labelSelector` is optional. Kubernetes treats an omitted `labelSelector` as
+    matching *no* pods, which makes the constraint a silent no-op, so the
+    operator fills in its own script-pod selector
+    (`app.kubernetes.io/managed-by: lunar-snippet-operator`) when one is not
+    given. Set it explicitly only to narrow the spread — for example to a single
+    script type via `lunar.earthly.dev/snippet-type`.
+  - `maxSkew`, `topologyKey` and `whenUnsatisfiable` are validated when the
+    operator starts, so a bad value fails the operator's boot with a clear
+    message instead of having the API server reject every script pod it goes on
+    to build.
+
+  **Prefer `whenUnsatisfiable: ScheduleAnyway`.** Script pods are ephemeral,
+  high-churn and single-shot: under `DoNotSchedule`, a cluster that cannot
+  satisfy the constraint leaves them Pending until the operator's pending-pod
+  timeout and script throughput silently drops.
+
+  Note this is a *distribution* control, not a *supply* one — it helps when
+  something like per-subnet IP pressure is lopsided, but it adds no capacity.
+
+  Requires an operator image that reads
+  `OPERATOR_SNIPPET_POD_TOPOLOGY_SPREAD_CONSTRAINTS` — pin `operator.image.tag`
+  to a release that includes it. The empty default (`[]`) emits no env var, so
+  an existing install's rendered operator Deployment is unchanged apart from the
+  usual `helm.sh/chart` version label.
+
+### Changed
+
+- **`operator.topologySpreadConstraints`** — documented that it spreads the
+  operator Deployment's own replicas only, and cross-referenced the new
+  `scriptPodTopologySpreadConstraints` for script pods. Comment-only; no
+  rendered output changes.
+
 ## [3.14.0] - 2026-08-19
 
 ### Added
