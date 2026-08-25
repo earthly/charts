@@ -516,6 +516,21 @@ hub:
   # background and make the retry a no-op — and a CREATE INDEX CONCURRENTLY
   # killed midway leaves an invalid index behind.
   migrateJobActiveDeadlineSeconds: 3600
+  # How many times the migrate Job may retry before the release fails.
+  #
+  # This is the retry for lock contention. Changing a foreign key takes ACCESS
+  # EXCLUSIVE on both tables involved, so against a database still serving
+  # traffic the migration can lose a lock race — a deadlock, or a lock_timeout
+  # once the Hub bounds its wait. Both are transient: the next attempt usually
+  # gets the lock.
+  #
+  # 10 rather than the old 2 because three attempts is not a retry budget for
+  # something contention-driven. Kubernetes backs off exponentially between
+  # attempts (10s, doubling, capped at 6m), so a full 10 fits inside the default
+  # activeDeadlineSeconds above with room to spare — and a migration that is
+  # genuinely broken, rather than unlucky, still fails on its first attempt and
+  # every one after, so this costs nothing in the case that matters.
+  migrateJobBackoffLimit: 10
   volumeMounts: []
   volumes: []
   nodeSelector: {}

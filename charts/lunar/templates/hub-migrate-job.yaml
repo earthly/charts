@@ -25,7 +25,7 @@ metadata:
       {{- toYaml . | nindent 4 }}
     {{- end }}
 spec:
-  backoffLimit: 2
+  backoffLimit: {{ .Values.hub.migrateJobBackoffLimit }}
   activeDeadlineSeconds: {{ .Values.hub.migrateJobActiveDeadlineSeconds }}
   template:
     metadata:

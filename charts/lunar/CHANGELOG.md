@@ -13,6 +13,22 @@ history see `git log -- charts/lunar/`.
 
 ### Added
 
+- **`hub.migrateJobBackoffLimit`** (default `10`, up from a hardcoded `2`) — how
+  many times the migrate Job may retry before the release fails.
+
+  This is the retry for lock contention. Changing a foreign key takes
+  `ACCESS EXCLUSIVE` on **both** tables involved, so against a database still
+  serving traffic a migration can lose a lock race — a deadlock, or a
+  `lock_timeout` now that the Hub bounds how long its migrator will wait. Both
+  are transient, and the next attempt usually gets the lock.
+
+  Two attempts was not a budget for something contention-driven. Kubernetes
+  backs off exponentially between attempts (10s, doubling, capped at 6m), so a
+  full ten fits inside the default `migrateJobActiveDeadlineSeconds` with room
+  to spare. A migration that is genuinely broken rather than unlucky still fails
+  on the first attempt and every one after, so this costs nothing in the case
+  that matters.
+
 - **`hub.retention`** — first-class values for Hub data retention, which
   previously had to be passed as raw `hub.extraEnv`.
 
