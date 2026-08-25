@@ -582,8 +582,13 @@ hub:
   # This is the retry for lock contention. Changing a foreign key takes ACCESS
   # EXCLUSIVE on both tables involved, so against a database still serving
   # traffic the migration can lose a lock race — a deadlock, or a lock_timeout
-  # once the Hub bounds its wait. Both are transient: the next attempt usually
-  # gets the lock.
+  # where the migration bounds its own wait. Both are transient: the next
+  # attempt usually gets the lock.
+  #
+  # That bound is per-migration, not migrator-wide, so how cheap a losing
+  # attempt is varies by migration: a bounded one declines in seconds, an
+  # unbounded one queues on ACCESS EXCLUSIVE and blocks every reader behind
+  # it. Retrying only helps in the first case.
   #
   # 10 rather than the old 2 because three attempts is not a retry budget for
   # something contention-driven. Kubernetes backs off exponentially between
