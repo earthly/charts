@@ -84,41 +84,65 @@ URLs wired by the chart:
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 {{- /*
-  A string is handed to all five consumers verbatim, and three of them read
-  it as libpq while two read it as a URL query. One option is valid either
-  way -- which is why the single shared string went unnoticed for so long --
-  so warn on exactly the case that isn't: a space in a string value.
+  Two different things can be true of a string value, and they need different
+  urgency. ANY non-empty string is deprecated, and it makes Helm itself log
+  "cannot overwrite table with non table" -- alarming, unexplained, and the
+  first thing an operator will ask about, so answer it here. A string carrying
+  more than one option is additionally WRONG: it reaches all five consumers
+  verbatim, three of which read libpq and two of which read a URL query. One
+  option is valid either way, which is why the single shared string went
+  unnoticed for so long.
+
+  An empty string is excluded: it carries no options, so it is a harmless way
+  of spelling "inherit" and not worth nagging about.
 */}}
 {{- $stringOptions := list -}}
-{{- if and (kindIs "string" .Values.hub.db.connectionOptions) (contains " " .Values.hub.db.connectionOptions) -}}
+{{- $multiOption := list -}}
+{{- if and (kindIs "string" .Values.hub.db.connectionOptions) (ne .Values.hub.db.connectionOptions "") -}}
 {{- $stringOptions = append $stringOptions (printf "hub.db.connectionOptions: %q" .Values.hub.db.connectionOptions) -}}
+{{- if contains " " .Values.hub.db.connectionOptions -}}
+{{- $multiOption = append $multiOption "hub.db.connectionOptions" -}}
 {{- end -}}
-{{- if and (kindIs "string" .Values.hub.db.sqlapiConnectionOptions) (contains " " .Values.hub.db.sqlapiConnectionOptions) -}}
+{{- end -}}
+{{- if and (kindIs "string" .Values.hub.db.sqlapiConnectionOptions) (ne .Values.hub.db.sqlapiConnectionOptions "") -}}
 {{- $stringOptions = append $stringOptions (printf "hub.db.sqlapiConnectionOptions: %q" .Values.hub.db.sqlapiConnectionOptions) -}}
+{{- if contains " " .Values.hub.db.sqlapiConnectionOptions -}}
+{{- $multiOption = append $multiOption "hub.db.sqlapiConnectionOptions" -}}
+{{- end -}}
 {{- end -}}
 {{- if $stringOptions }}
 
-Warning — multi-option connection string:
+Deprecated — connection options written as a string:
 {{- range $stringOptions }}
   {{ . }}
 {{- end }}
 
-  Written as a string, that value reaches every consumer unchanged. The hub,
-  the migrate Job and the operator read it as libpq keyword/value pairs, where
-  options separate on a space; the SQL API and the Grafana datasource receive
-  it as the query of a postgres:// URL, where they separate on "&". A single
-  option is valid both ways. A second one is valid in exactly one, so the
-  others are configured with a value they cannot parse — silently.
+  Helm logs "cannot overwrite table with non table" for these. That line is
+  expected and your value IS applied — it appears only because the chart's
+  default is a map now. Strings are accepted for the rest of chart 3.x and
+  removed in 4.0.0.
 
-  Write a map and the chart renders each consumer's syntax for you:
+  As a map, the chart renders each consumer's syntax for you:
 
     hub:
       db:
         connectionOptions:
           sslmode: require
-          connect_timeout: 10
+{{- if $multiOption }}
 
-  Strings are accepted for the rest of chart 3.x and removed in 4.0.0.
+  More urgently, these carry more than one option, which is not merely
+  deprecated but wrong today:
+{{- range $multiOption }}
+  {{ . }}
+{{- end }}
+
+  A string reaches all five consumers unchanged. The hub, the migrate Job and
+  the operator read libpq keyword/value pairs, separated by spaces; the SQL
+  API and the Grafana datasource receive the query of a postgres:// URL,
+  separated by "&". One option is valid both ways. A second is valid in
+  exactly one, so the rest are configured with a value they cannot parse —
+  silently.
+{{- end }}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 {{- end }}

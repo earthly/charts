@@ -523,7 +523,14 @@ See also `grafana.url` (under [Grafana](#grafana)) for the Grafana-side equivale
 | `hub.db.connectionOptions` | How Lunar itself reaches Postgres, as a map of connection parameters. Used by the Hub, the migrate Job and the operator, and inherited by the SQL API. Default works against managed Postgres with forced TLS (RDS, Aurora, Cloud SQL); use `sslmode: disable` for plain cluster-local Postgres. | `{sslmode: require}` |
 | `hub.db.sqlapiConnectionOptions` | What the Hub hands to SQL API clients (surfaced by `lunar sql`). Empty inherits `hub.db.connectionOptions`. | `{}` |
 
-> **Override footgun:** setting `hub.db.connectionOptions` **replaces** the whole map — the default is not merged in. Keep `sslmode` when you add options:
+> **Override footgun:** setting `hub.db.connectionOptions` **replaces** the whole map — the default is not merged in, so an override that only means to add something quietly takes `sslmode` away with it:
+> ```yaml
+> hub:
+>   db:
+>     connectionOptions:
+>       connect_timeout: 10   # BAD — sslmode is gone, so TLS is no longer required
+> ```
+> Restate `sslmode` whenever you add options:
 > ```yaml
 > hub:
 >   db:
