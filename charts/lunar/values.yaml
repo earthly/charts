@@ -282,6 +282,108 @@ hub:
   policyQueue:
     pollInterval: 1s
     numWorkers: 5
+  # Data retention. OFF by default: leave `enabled` false and the Hub keeps run
+  # history forever, which is the behaviour every install had before this block
+  # existed.
+  #
+  # `window` and `configWindow` are Go durations extended with `d` (24h) and `w`
+  # (7d). WRITE THEM IN DAYS. `m` is still Go's MINUTES, so `12m` is a
+  # twelve-minute window that passes every validation and deletes essentially
+  # all run history on the first sweep. Twelve months is `365d`.
+  #
+  # That extension covers ONLY those two. `interval` and `vacuumLockTimeout` are
+  # plain Go durations — hours, minutes and seconds, no `d` or `w`. The chart
+  # renders `interval: 1d` happily and the Hub then fails to parse it
+  # (`unknown unit "d"`) and crashloops, after the migrate Job has already run.
+  # A daily sweep is `24h`.
+  retention:
+    # Master switch for the run-history sweep: the runs and derived tiers, the
+    # config-generation prune and `cascadeEnabled` are all inert while this is
+    # false.
+    #
+    # `vacuumEnabled` is the one exception. It has its own queue and its own
+    # flag and never consults this switch, so it compacts on schedule even with
+    # retention off — see the note there.
+    enabled: false
+    # How far back a run stays visible. Sets HUB_RETENTION_RUNS and
+    # HUB_RETENTION_DERIVED to the SAME value, deliberately, from one key.
+    #
+    # The Hub does not merely default them equal — it REFUSES TO BOOT when they
+    # differ, because two of the derived surfaces are rebuilt from the run
+    # tables and would silently truncate themselves back to the runs window
+    # within a day. One key makes that unrepresentable. When divergence becomes
+    # supported, a separate `derivedWindow` can be added without breaking this.
+    #
+    # `0` means keep forever. Note it also switches OFF the config-generation
+    # prune and the Git tier below: the sweep returns on a zero runs window,
+    # before `configWindow` and `cascadeEnabled` are ever consulted. There is
+    # currently no way to prune config generations while keeping every run.
+    window: 90d
+    # How long superseded config generations are kept. Independent of `window`:
+    # config history and run history are kept for different reasons. `0` keeps
+    # them forever. A repository's newest generation is never pruned at any
+    # age — it is that repository's live configuration.
+    #
+    # Only takes effect with `cascadeEnabled` true.
+    configWindow: 90d
+    # Prunes superseded manifest generations and the components, domains and
+    # script definitions under them, plus commits, pull requests and
+    # repositories nothing references any more.
+    #
+    # Separate from `enabled` because it is a different kind of delete: the runs
+    # window removes history, this removes the definitions that history points
+    # at. It is the only part of retention that deletes a component.
+    cascadeEnabled: false
+    # Sweep pacing. These bound the FIRST sweep far more than the steady state.
+    # An install turning retention on has years of accumulated rows to remove,
+    # and taking them in one pass is the shape that caused ENG-1427; once caught
+    # up, the delete rate equals the insert rate and autovacuum absorbs it. The
+    # defaults grind a backlog down over days rather than clearing it overnight.
+    #
+    # `maxBatchesPerRun` is the rate limit and the one to reach for. It is a
+    # budget for the WHOLE tick, shared across the six runs-tier tables in
+    # order, not a per-table allowance — so the ceiling is
+    # batchSize x maxBatchesPerRun rows per tick, 500k at these defaults, one
+    # tick every `interval`.
+    #
+    # Lower `maxBatchesPerRun` if the first sweep hurts. Note that a tick which
+    # spends its whole budget on the runs tier skips the config-generation
+    # prune and the Git tier entirely, which during the initial backfill is
+    # every tick — so a too-low budget starves those two indefinitely.
+    #
+    # All three are validated at boot even when `enabled` is false: each must be
+    # > 0, so none of them can be zeroed to disable anything.
+    interval: 1h
+    batchSize: 5000
+    maxBatchesPerRun: 100
+    # Reclaims disk from the deletions above with a threshold-gated nightly
+    # VACUUM FULL. Deleting rows does not shrink a table on its own — the space
+    # is reusable but not returned to the filesystem.
+    #
+    # NOT gated by `enabled` above. Setting this true on an install with
+    # retention off still runs the nightly pass against whatever bloat is
+    # already there.
+    #
+    # VACUUM FULL takes ACCESS EXCLUSIVE on each table it rewrites: readers
+    # stall for the duration and then succeed rather than erroring. It also
+    # needs free disk of roughly the SURVIVING data size. A table is only
+    # rewritten once its estimated reclaimable space clears both
+    # HUB_RETENTION_VACUUM_MIN_BYTES (1Gi) and HUB_RETENTION_VACUUM_MIN_RATIO
+    # (0.2) — Hub-side settings this chart does not expose — so the pass looks
+    # nightly and should rarely act.
+    vacuumEnabled: false
+    # How long the compaction waits for ACCESS EXCLUSIVE before giving up until
+    # tomorrow. This is the setting that keeps a compaction from becoming an
+    # incident: the lock queues behind any in-flight transaction, and while it
+    # waits every subsequent query queues behind IT, so without a short timeout
+    # one long-running read turns a bounded stall into an unbounded one that
+    # starts before the vacuum does. Short and yielding is right — there is
+    # always another night.
+    #
+    # Sent to Postgres as whole milliseconds. Must be >= 1ms: 0 means "wait
+    # forever" there, so the Hub rejects it at boot rather than accept the one
+    # value that removes the bound.
+    vacuumLockTimeout: 5s
   # Worker caps for Hub's script-feeding queues. 0 means unlimited.
   maxWorkers:
     collect: 10
@@ -475,6 +577,36 @@ hub:
   # background and make the retry a no-op — and a CREATE INDEX CONCURRENTLY
   # killed midway leaves an invalid index behind.
   migrateJobActiveDeadlineSeconds: 3600
+  # How many times the migrate Job may retry before the release fails.
+  #
+  # This is the retry for lock contention. Changing a foreign key takes ACCESS
+  # EXCLUSIVE on both tables involved, so against a database still serving
+  # traffic the migration can lose a lock race — a deadlock, or a lock_timeout
+  # where the migration bounds its own wait. Both are transient: the next
+  # attempt usually gets the lock.
+  #
+  # That bound is per-migration, not migrator-wide, so how cheap a losing
+  # attempt is varies by migration: a bounded one declines in seconds, an
+  # unbounded one queues on ACCESS EXCLUSIVE and blocks every reader behind
+  # it. Retrying only helps in the first case.
+  #
+  # 10 rather than the old 2 because three attempts is not a retry budget for
+  # something contention-driven. Kubernetes backs off exponentially between
+  # attempts (10s, doubling, capped at 6m), which lands them at roughly
+  # t = 0, 12, 32, 72, 152, 312s.
+  #
+  # So 10 is a ceiling, not what an upgrade actually spends. The bound that
+  # bites first is your Helm timeout, not the activeDeadlineSeconds above:
+  # at the 5m default, attempt 6 falls outside it, so a default `helm upgrade`
+  # gets 5 attempts. The real gain here is 3 -> 5. Raise `--timeout` if you
+  # want the tail. `hook-delete-policy: before-hook-creation` compounds it —
+  # a subsequent `helm upgrade` deletes the still-cycling Job — so the later
+  # attempts only ever run if nobody retries after Helm gives up.
+  #
+  # A migration that is genuinely broken, rather than unlucky, still fails on
+  # its first attempt and every one after, so this costs nothing in the case
+  # that matters.
+  migrateJobBackoffLimit: 10
   volumeMounts: []
   volumes: []
   nodeSelector: {}

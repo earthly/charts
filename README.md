@@ -622,6 +622,37 @@ Hub logging uses the top-level global `logging.*` values. Tenant and telemetry r
 | `hub.policyQueue.pollInterval` | How often the queue is polled | `1s` |
 | `hub.policyQueue.numWorkers` | Number of concurrent policy evaluation workers | `5` |
 
+**Data retention**
+
+Off by default: leave `hub.retention.enabled` false and the Hub keeps run
+history forever. Windows are Go durations extended with `d` (24h) and `w`
+(7d) — **write them in days**, because `m` is still Go's *minutes*, so `12m`
+is a twelve-minute window that passes validation and deletes essentially all
+run history on the first sweep. Twelve months is `365d`.
+
+| Key | Description | Default |
+|-----|-------------|---------|
+| `hub.retention.enabled` | Master switch for the run-history sweep. Also gates the config-generation prune and `cascadeEnabled`; does **not** gate `vacuumEnabled` | `false` |
+| `hub.retention.window` | How far back a run stays visible. Sets `HUB_RETENTION_RUNS` and `HUB_RETENTION_DERIVED` to the same value from one key — the Hub refuses to boot when they differ. `0` keeps runs forever, and also switches the config prune and Git tier off (the sweep returns before reaching them) | `90d` |
+| `hub.retention.configWindow` | How long superseded config generations are kept (`0` = forever). Only acts with `cascadeEnabled` true **and** a non-zero `window`; a repository's newest generation is never pruned | `90d` |
+| `hub.retention.cascadeEnabled` | Also prune superseded manifest generations and the components, domains and script definitions under them, plus unreferenced commits, pull requests and repositories. The only part of retention that deletes a component | `false` |
+| `hub.retention.vacuumEnabled` | Reclaim freed disk with a threshold-gated nightly `VACUUM FULL`. Takes ACCESS EXCLUSIVE on each table it rewrites (readers stall, then succeed) and needs free disk of roughly the surviving data size. Independent of `enabled` | `false` |
+| `hub.retention.interval` | How often the sweep runs. A plain Go duration — hours/minutes/seconds only, no `d` or `w`; a daily sweep is `24h` | `1h` |
+| `hub.retention.batchSize` | Rows removed per `DELETE` statement | `5000` |
+| `hub.retention.maxBatchesPerRun` | Batch budget for one tick, shared across the six runs-tier tables rather than per-table — so `batchSize` × this is the rows-per-tick ceiling. The rate limit on the initial backfill, and the knob to lower if the first sweep hurts | `100` |
+| `hub.retention.vacuumLockTimeout` | How long the compaction waits for ACCESS EXCLUSIVE before giving up until tomorrow. Keeps one long-running read from turning a bounded stall into an unbounded one. A plain Go duration (no `d`/`w`), and must be `>= 1ms` | `5s` |
+
+`interval`, `batchSize` and `maxBatchesPerRun` are validated at boot **even
+when `enabled` is false** — each must be greater than zero, so none of them
+can be zeroed to turn something off. A tick that spends its whole batch budget
+on the runs tier skips the config-generation prune and the Git tier, which
+during an initial backfill is every tick.
+
+Requires a Hub image with the retention workers; on older images these
+variables are simply unread. If you already set `HUB_RETENTION_*` through
+`hub.extraEnv`, remove those entries when you adopt these values — otherwise
+the same names are emitted twice.
+
 **Persistence**
 
 The Hub uses a PVC for state, cached repos, and script code.
@@ -674,6 +705,7 @@ The Hub uses a PVC for state, cached repos, and script code.
 | `hub.resources` | CPU/memory requests and limits | `{}` |
 | `hub.migrateJobResources` | CPU/memory requests and limits for the pre-install/pre-upgrade migrate Job's container | `{}` |
 | `hub.migrateJobActiveDeadlineSeconds` | Backstop that reaps a wedged pre-install/pre-upgrade migrate Job — not a budget for how long migrations may take. Keep it above your Helm timeout, which is what actually bounds how long an upgrade waits | `3600` |
+| `hub.migrateJobBackoffLimit` | Ceiling on migrate Job retries. This is the retry for transient lock contention; Kubernetes backs off exponentially (10s, doubling, capped at 6m), putting attempts at roughly `t = 0, 12, 32, 72, 152, 312s`. Your Helm timeout bounds this before `migrateJobActiveDeadlineSeconds` does — at the `5m` default only five attempts fit | `10` |
 | `hub.nodeSelector` | Node selector | `{}` |
 | `hub.tolerations` | Tolerations | `[]` |
 | `hub.affinity` | Affinity rules | `{}` |

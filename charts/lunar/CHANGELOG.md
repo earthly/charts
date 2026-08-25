@@ -9,6 +9,111 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [3.17.0] - 2026-08-25
+
+### Added
+
+- **`hub.migrateJobBackoffLimit`** (default `10`, up from a hardcoded `2`) — how
+  many times the migrate Job may retry before the release fails.
+
+  This is the retry for lock contention. Changing a foreign key takes
+  `ACCESS EXCLUSIVE` on **both** tables involved, so against a database still
+  serving traffic a migration can lose a lock race — a deadlock, or a
+  `lock_timeout` where the migration bounds its own wait. Both are transient,
+  and the next attempt usually gets the lock.
+
+  **How cheap a losing attempt is depends on the migration, not on the Hub
+  version alone.** The bound is set by the individual migrations that want it
+  rather than across the migrator, and deliberately so: a migrator-wide bound
+  would also reach the concurrent index builds beside them, where
+  `lock_timeout` aborts a `CREATE INDEX CONCURRENTLY` partway and leaves the
+  index invalid. A bounded migration declines in seconds and retrying it is
+  cheap. An unbounded one still queues on `ACCESS EXCLUSIVE`, and a queued
+  `ACCESS EXCLUSIVE` blocks every reader behind it — so there a larger budget
+  buys a longer block rather than a cheaper retry. No released Hub carries the
+  bounded migrations yet.
+
+  Two attempts was not a budget for something contention-driven. Kubernetes
+  backs off exponentially between attempts (10s, doubling, capped at 6m),
+  landing them at roughly `t = 0, 12, 32, 72, 152, 312s`. Ten is therefore a
+  ceiling rather than what an upgrade spends: the bound that bites first is
+  your Helm timeout, not `migrateJobActiveDeadlineSeconds`, and at the `5m`
+  default attempt 6 falls outside it — **so a default `helm upgrade` gets five
+  attempts, and the real gain is three to five.** Raise `--timeout` for the
+  tail. A migration that is genuinely broken rather than unlucky still fails on
+  the first attempt and every one after, so this costs nothing in the case that
+  matters.
+
+- **`hub.retention`** — first-class values for Hub data retention, which
+  previously had to be passed as raw `hub.extraEnv`.
+
+  ```yaml
+  hub:
+    retention:
+      enabled: false        # master switch for the run-history sweep
+      window: 90d           # how far back a run stays visible
+      configWindow: 90d     # how long superseded config generations are kept
+      cascadeEnabled: false # also prune those generations, and the Git tables
+      vacuumEnabled: false  # reclaim the freed disk with a nightly VACUUM FULL
+  ```
+
+  **Off by default.** An install that sets none of these keeps run history
+  forever, exactly as before this block existed, so upgrading changes nothing on
+  its own.
+
+  **`window` sets `HUB_RETENTION_RUNS` and `HUB_RETENTION_DERIVED` to the same
+  value from one key, deliberately.** The Hub does not merely default them
+  equal — it refuses to boot when they differ, because two of the derived
+  surfaces are rebuilt from the run tables and would silently truncate
+  themselves back to the runs window within a day. Exposing two keys would be
+  exposing a boot failure. A separate `derivedWindow` can be added later,
+  without a breaking change, once divergence is supported.
+
+  **Write windows in days.** The grammar is Go's durations extended with `d`
+  (24h) and `w` (7d), so `m` is still Go's *minutes*: `12m` is a twelve-minute
+  window that passes every validation and deletes essentially all run history on
+  the first sweep. Twelve months is `365d`.
+
+  Two of these delete more than run rows, which is why they are separate
+  switches rather than folded into `enabled`. `cascadeEnabled` removes the
+  *definitions* history points at, and is the only thing that deletes a
+  component. `vacuumEnabled` runs `VACUUM FULL`, which takes ACCESS EXCLUSIVE on
+  each table it rewrites — readers stall for the duration and then succeed — and
+  needs free disk of roughly the surviving data size. It is threshold-gated, so
+  it runs on schedule and should rarely act.
+
+  Four further keys expose the pace rather than the policy.
+  `interval` (`1h`), `batchSize` (`5000`) and `maxBatchesPerRun` (`100`) bound
+  the sweep; `vacuumLockTimeout` (`5s`) bounds the compaction's wait for
+  ACCESS EXCLUSIVE. These matter most on the **first** sweep: an install
+  turning retention on has years of rows to remove, and `maxBatchesPerRun` is
+  the rate limit on that backfill — a budget for the whole tick, shared across
+  the six runs-tier tables rather than per-table, so `batchSize` ×
+  `maxBatchesPerRun` is the rows-per-tick ceiling. Lower it if the first sweep
+  hurts, but note that a tick spending its whole budget on the runs tier skips
+  the config-generation prune and the Git tier. The three sweep keys are
+  validated at boot even when `enabled` is false, and none may be zero.
+
+  `vacuumEnabled` is **not** gated by `enabled`. The compaction pass has its own
+  queue and its own flag and never consults the master switch, so
+  `enabled: false` with `vacuumEnabled: true` still compacts nightly.
+
+  Requires a Hub image with the retention workers; on older images the variables
+  are simply unread.
+
+### Upgrading
+
+- **Drop any `HUB_RETENTION_*` entries from `hub.extraEnv` when you adopt
+  `hub.retention`.** `extraEnv` renders after this block, so keeping both emits
+  the same variable names twice in the Hub container. A plain `helm upgrade` is
+  last-wins and survives it — your `extraEnv` value still takes effect, and the
+  API server only warns `hides previous definition of "HUB_RETENTION_ENABLED",
+  which may be dropped when using apply`. **Server-side apply rejects the object
+  outright** (`duplicate entries for key [name="HUB_RETENTION_ENABLED"]`), so a
+  GitOps install running `ServerSideApply=true` fails its next sync rather than
+  degrading quietly. Installs that never set these through `extraEnv` are
+  unaffected.
+
 ## [3.16.0] - 2026-08-24
 
 ### Changed
@@ -67,6 +172,7 @@ history see `git log -- charts/lunar/`.
   - A string carrying more than one option is wrong for some consumers, since
     they do not share a separator. The install notes flag it. Switching that
     value to a map fixes it.
+
 
 ## [3.15.0] - 2026-08-24
 

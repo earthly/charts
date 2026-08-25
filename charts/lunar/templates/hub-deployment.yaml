@@ -132,6 +132,29 @@ spec:
               value: {{ .policyQueue.pollInterval | quote }}
             - name: HUB_POLICY_QUEUE_NUM_WORKERS
               value: {{ .policyQueue.numWorkers | quote }}
+            {{- with .retention }}
+            - name: HUB_RETENTION_ENABLED
+              value: {{ .enabled | quote }}
+            {{- /* One key feeds both: the Hub refuses to boot when they differ. */}}
+            - name: HUB_RETENTION_RUNS
+              value: {{ .window | quote }}
+            - name: HUB_RETENTION_DERIVED
+              value: {{ .window | quote }}
+            - name: HUB_RETENTION_CONFIG
+              value: {{ .configWindow | quote }}
+            - name: HUB_RETENTION_CASCADE_ENABLED
+              value: {{ .cascadeEnabled | quote }}
+            - name: HUB_RETENTION_INTERVAL
+              value: {{ .interval | quote }}
+            - name: HUB_RETENTION_BATCH_SIZE
+              value: {{ .batchSize | quote }}
+            - name: HUB_RETENTION_MAX_BATCHES_PER_RUN
+              value: {{ .maxBatchesPerRun | quote }}
+            - name: HUB_RETENTION_VACUUM_ENABLED
+              value: {{ .vacuumEnabled | quote }}
+            - name: HUB_RETENTION_VACUUM_LOCK_TIMEOUT
+              value: {{ .vacuumLockTimeout | quote }}
+            {{- end }}
             - name: HUB_AUTH_TOKEN
               valueFrom:
                 secretKeyRef:
