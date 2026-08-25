@@ -9,54 +9,49 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
-## [3.15.0] - 2026-08-21
+## [3.15.0] - 2026-08-24
 
 ### Added
 
-- **`hub.db.sqlapiConnectionOptions`** and **`hub.db.grafanaConnectionOptions`**
-  (both optional) — connection options for the two strings the Hub *vends*
-  rather than uses: the one surfaced to SQL API clients by `lunar sql`
-  (`HUB_SQLAPI_CONNECTION_OPTIONS`) and the read-only datasource string handed
-  to the Grafana provisioning tool (`HUB_GRAFANA_DB_CONNECTION_OPTIONS`).
-  Empty, the default for both, inherits `hub.db.connectionOptions`, so no
-  existing install's rendered configuration changes (the only manifest diff
-  against 3.14.0 is the chart label and the explanatory comments).
+- **`operator.scriptPodTopologySpreadConstraints`** — spread the script pods the
+  operator creates at runtime across zones, nodes or subnets, instead of letting
+  the scheduler pile them onto whichever node it likes best. Joins the existing
+  `scriptPodNodeSelector`, `scriptPodTolerations`, `scriptPodPriorityClassName`,
+  `scriptPodAnnotations` and `scriptPodSecurityContext`.
 
-  They exist because `connectionOptions` has four consumers in two grammars. It
-  is libpq KV syntax, space-separated, describing connections the Hub and the
-  operator *make*. The other two are interpolated verbatim after the `?` in
-  `postgres://user:pass@host:port/db?…`, so they are URL query syntax,
-  `&`-separated. One shared value worked only while it was a single option
-  (`sslmode=require`) that happens to be valid in both grammars; anything with
-  a second option is valid in exactly one.
+  Two conveniences worth knowing about:
 
-  The SQL API install that needs its own value is one where clients reach
-  Postgres by a different route than the Hub does — for example through a
-  connection pooler on its own hostname, where the client should verify that
-  hostname: `sslmode=verify-full&sslrootcert=system`. (`sslrootcert=system`
-  needs libpq 16 or newer; older clients need an explicit CA path.)
+  - `labelSelector` is optional. Kubernetes treats an omitted `labelSelector` as
+    matching *no* pods, which makes the constraint a silent no-op, so the
+    operator fills in its own script-pod selector
+    (`app.kubernetes.io/managed-by: lunar-snippet-operator`) when one is not
+    given. Set it explicitly only to narrow the spread — for example to a single
+    script type via `lunar.earthly.dev/snippet-type`.
+  - `maxSkew`, `topologyKey` and `whenUnsatisfiable` are validated when the
+    operator starts, so a bad value fails the operator's boot with a clear
+    message instead of having the API server reject every script pod it goes on
+    to build.
 
-  For Grafana it is worth checking against an install you already run. The
-  provisioning tool extracts `sslmode` from the vended URL with a pattern that
-  stops at `&`, so an inherited space-separated value is captured whole: an
-  install on `connectionOptions: "sslmode=require connect_timeout=10"` has a
-  datasource configured with `sslmode: "require connect_timeout=10"`, which
-  cannot connect and reports nothing.
-  `grafanaConnectionOptions: "sslmode=require&connect_timeout=10"` fixes that
-  from the chart. The parser is Hub-side, so this release supplies a way to
-  express the correct value, not a repair of the inheritance path — a
-  single-option `connectionOptions` is still the only one safe to inherit. Only
-  `sslmode` is read out of the vended URL, so the field corrects the
-  datasource's TLS mode rather than passing arbitrary options to Grafana.
+  **Prefer `whenUnsatisfiable: ScheduleAnyway`.** Script pods are ephemeral,
+  high-churn and single-shot: under `DoNotSchedule`, a cluster that cannot
+  satisfy the constraint leaves them Pending until the operator's pending-pod
+  timeout and script throughput silently drops.
 
-### Fixed
+  Note this is a *distribution* control, not a *supply* one — it helps when
+  something like per-subnet IP pressure is lopsided, but it adds no capacity.
 
-- **`values.yaml` and the README described the wrong grouping.** They said the
-  operator, the Grafana datasource and the SQL API all connect to the same
-  database and therefore share `connectionOptions`. Only the operator makes a
-  connection; the other two are strings the Hub vends, in a different syntax.
-  No rendered manifest changes — the guidance was simply wrong about which
-  values are safe to put where.
+  Requires an operator image that reads
+  `OPERATOR_SNIPPET_POD_TOPOLOGY_SPREAD_CONSTRAINTS` — pin `operator.image.tag`
+  to a release that includes it. The empty default (`[]`) emits no env var, so
+  an existing install's rendered operator Deployment is unchanged apart from the
+  usual `helm.sh/chart` version label.
+
+### Changed
+
+- **`operator.topologySpreadConstraints`** — documented that it spreads the
+  operator Deployment's own replicas only, and cross-referenced the new
+  `scriptPodTopologySpreadConstraints` for script pods. Comment-only; no
+  rendered output changes.
 
 ## [3.14.0] - 2026-08-19
 

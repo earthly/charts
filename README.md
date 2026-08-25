@@ -734,6 +734,7 @@ Watches for script execution jobs and creates Kubernetes pods to run them.
 | `operator.scriptPodPriorityClassName` | PriorityClass name for script pods; empty leaves the cluster default | `""` |
 | `operator.scriptPodAnnotations` | Annotations applied to script pods | `{}` |
 | `operator.scriptPodSecurityContext` | Pod-level `securityContext` for script pods (`fsGroup`, `runAsUser`, `seccompProfile`, …); container-level context comes from `scriptContainerSpec*` | `{}` |
+| `operator.scriptPodTopologySpreadConstraints` | Topology-spread constraints for script pods. Prefer `whenUnsatisfiable: ScheduleAnyway`; `labelSelector` defaults to the operator's own script pods. Distinct from `operator.topologySpreadConstraints`, which spreads the operator Deployment's replicas | `[]` |
 
 **Logging**
 
