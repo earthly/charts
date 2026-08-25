@@ -86,66 +86,40 @@ hub:
     host: ""
     port: 5432
     waitSecs: 45
-    # Extra options appended to the Postgres connection string. Defaults to
-    # sslmode=require so fresh managed-Postgres installs (RDS / Aurora /
-    # Cloud SQL, all of which default to forced TLS) just work. Set to
-    # "sslmode=disable" for plain cluster-local Postgres without TLS.
+    # How Lunar itself reaches Postgres — the hub, the migrate Job and the
+    # operator. A map of Postgres connection parameters; the chart renders it
+    # into the syntax each consumer expects, so you never write a separator.
     #
-    # Format: libpq KV pairs, space-separated. NOT URL query syntax.
-    #   OK:  "sslmode=require"
-    #   OK:  "sslmode=require connect_timeout=10"
-    #   BAD: "sslmode=require&connect_timeout=10"   # will fail to parse
+    # Defaults to sslmode=require so fresh managed-Postgres installs (RDS /
+    # Aurora / Cloud SQL, all of which default to forced TLS) just work. Use
+    # "sslmode: disable" for plain cluster-local Postgres without TLS.
     #
-    # Footgun: overriding REPLACES the whole string — the default is not
-    # merged in. If you pass additional options, include sslmode= yourself.
+    # Footgun: overriding REPLACES the whole map — the default is not merged
+    # in. If you add options, keep sslmode:
+    #   connectionOptions:
+    #     sslmode: require
+    #     connect_timeout: 10
     #
-    # Three other env vars are fed from this value, and they do NOT all speak
-    # the grammar above. The operator (OPERATOR_DB_CONNECTION_OPTIONS) makes its
-    # own libpq connection just like the hub, so it wants libpq KV. The Grafana
-    # datasource (HUB_GRAFANA_DB_CONNECTION_OPTIONS) and the SQL API
-    # (HUB_SQLAPI_CONNECTION_OPTIONS) are not connections the hub makes at all:
-    # the hub interpolates each verbatim after the "?" of a postgres:// URL it
-    # hands out, so both of those are URL query, &-separated.
+    # DEPRECATED: a plain string ("sslmode=require") is still accepted and
+    # reaches every consumer verbatim, exactly as in chart 3.15.0 and earlier.
+    # Removed in 4.0.0. A string carrying more than one option is wrong for at
+    # least one consumer, because they do not all separate options the same
+    # way — the install notes say so at upgrade time. A map is always right.
+    connectionOptions:
+      sslmode: require
+    # What the hub hands to SQL API clients (the string surfaced by
+    # `lunar sql`). Empty inherits connectionOptions above, which is what
+    # every install wants until SQL API clients reach Postgres by a different
+    # route than the hub does — for example through a connection pooler on a
+    # hostname of its own, which clients should verify:
+    #   sqlapiConnectionOptions:
+    #     sslmode: verify-full
+    #     sslrootcert: system
+    # (sslrootcert: system needs libpq >= 16; older clients need an explicit
+    # CA path instead.)
     #
-    # A lone "sslmode=require" is valid in both grammars, which is why one
-    # shared value has worked so far. A second option is valid in exactly one,
-    # so override grafanaConnectionOptions / sqlapiConnectionOptions below
-    # whenever this carries more than one option.
-    connectionOptions: "sslmode=require"
-    # Options for the read-only connection string the hub VENDS to the Grafana
-    # provisioning tool (HUB_GRAFANA_DB_CONNECTION_OPTIONS). Empty inherits
-    # connectionOptions above.
-    #
-    # Format: URL query, &-separated — NOT the libpq KV syntax above.
-    #
-    # Set this whenever connectionOptions carries more than one option. The
-    # provisioning tool parses sslmode out of the URL with a pattern that stops
-    # at "&", so a space-separated value bleeds into the capture and Grafana
-    # gets a datasource with a nonsense sslmode:
-    #   connectionOptions:        "sslmode=require connect_timeout=10"
-    #     -> datasource sslmode = "require connect_timeout=10"   # broken
-    #   grafanaConnectionOptions: "sslmode=require&connect_timeout=10"
-    #     -> datasource sslmode = "require"                      # correct
-    #
-    # Only sslmode is read out of the URL; the rest of the query is discarded.
-    # This field corrects the datasource's TLS mode, it does not pass arbitrary
-    # options through to Grafana.
-    grafanaConnectionOptions: ""
-    # Options for the connection string the hub VENDS to SQL API clients
-    # (HUB_SQLAPI_CONNECTION_OPTIONS, surfaced by `lunar sql`). Empty inherits
-    # connectionOptions above, which is what every install wants until the SQL
-    # API is reached over a different path than the hub's own.
-    #
-    # Format: URL query, &-separated — NOT the libpq KV syntax above.
-    #   connectionOptions:       "sslmode=require connect_timeout=10"
-    #   sqlapiConnectionOptions: "sslmode=require&connect_timeout=10"
-    #
-    # Dedicated installs set this because their clients reach Postgres through
-    # a pooler on a hostname the chart never sees, and must verify it:
-    #   "sslmode=verify-full&sslrootcert=system"
-    # (sslrootcert=system needs libpq >= 16; older clients need an explicit CA
-    # path instead.)
-    sqlapiConnectionOptions: ""
+    # Same map-or-string rule as connectionOptions.
+    sqlapiConnectionOptions: {}
     # Per-replica Postgres connection budget. Total connections to Postgres ≈
     # replicaCount × (maxOpenConns + maxPoolConns + operatorPoolSize).
     #

@@ -261,6 +261,56 @@ talks to that host's API endpoint.
 {{- end }}
 
 {{/*
+Render Postgres connection options as libpq keyword/value pairs, "k=v"
+joined by spaces. This is what a component wants when it MAKES the
+connection itself: the hub's pool, the migrate Job, the operator.
+
+Takes the options value directly. A map is rendered; a string is passed
+through verbatim (the pre-3.16.0 shape, removed in 4.0.0).
+
+Helm ranges a map in sorted key order, so a given map always renders the
+same string -- no spurious pod restarts on upgrade.
+
+Usage:
+  {{ include "lunar.libpqOptions" .Values.hub.db.connectionOptions | quote }}
+*/}}
+{{- define "lunar.libpqOptions" -}}
+{{- if kindIs "string" . -}}
+{{- . -}}
+{{- else -}}
+{{- $pairs := list -}}
+{{- range $k, $v := . -}}
+{{- $pairs = append $pairs (printf "%s=%v" $k $v) -}}
+{{- end -}}
+{{- join " " $pairs -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Render Postgres connection options as a URL query, "k=v" joined by "&".
+This is what a consumer wants when the hub VENDS it a connection string:
+the options land after the "?" of a postgres://user:pass@host:port/db URL,
+where a space is not a separator. Used for the SQL API and the Grafana
+datasource.
+
+Same input contract and key ordering as lunar.libpqOptions.
+
+Usage:
+  {{ include "lunar.urlQueryOptions" .Values.hub.db.connectionOptions | quote }}
+*/}}
+{{- define "lunar.urlQueryOptions" -}}
+{{- if kindIs "string" . -}}
+{{- . -}}
+{{- else -}}
+{{- $pairs := list -}}
+{{- range $k, $v := . -}}
+{{- $pairs = append $pairs (printf "%s=%v" $k $v) -}}
+{{- end -}}
+{{- join "&" $pairs -}}
+{{- end -}}
+{{- end }}
+
+{{/*
 Fail fast when licence mount configuration is invalid.
 */}}
 {{- define "lunar.hubLicenceCheck" -}}

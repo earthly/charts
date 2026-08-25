@@ -102,7 +102,7 @@ spec:
             - name: HUB_DB_WAIT_SECS
               value: {{ .db.waitSecs | quote }}
             - name: HUB_DB_CONNECTION_OPTIONS
-              value: {{ .db.connectionOptions | quote }}
+              value: {{ include "lunar.libpqOptions" .db.connectionOptions | quote }}
             - name: HUB_DB_MIGRATIONS_PATH
               value: "/usr/share/migrations"
             # Licence carries the Elastic telemetry creds; with it, migration

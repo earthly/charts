@@ -520,40 +520,29 @@ See also `grafana.url` (under [Grafana](#grafana)) for the Grafana-side equivale
 | `hub.db.user.secretKey` | Key within the secret | `username` |
 | `hub.db.pass.secretName` | Secret containing the DB password | `lunar-db` |
 | `hub.db.pass.secretKey` | Key within the secret | `password` |
-| `hub.db.connectionOptions` | Extra options appended to the Postgres connection string (libpq KV format, space-separated). Default works against managed Postgres with forced TLS (RDS, Aurora, Cloud SQL); set to `"sslmode=disable"` for plain cluster-local Postgres. Also the fallback for the operator, the Grafana datasource and the SQL API — see the syntax note below. | `"sslmode=require"` |
-| `hub.db.grafanaConnectionOptions` | Options for the read-only connection string the Hub *vends* to the Grafana provisioning tool. URL query format, `&`-separated. Empty inherits `hub.db.connectionOptions`. | `""` |
-| `hub.db.sqlapiConnectionOptions` | Options for the connection string the Hub *vends* to SQL API clients (surfaced by `lunar sql`). URL query format, `&`-separated. Empty inherits `hub.db.connectionOptions`. | `""` |
+| `hub.db.connectionOptions` | How Lunar itself reaches Postgres, as a map of connection parameters. Used by the Hub, the migrate Job and the operator, and inherited by the SQL API. Default works against managed Postgres with forced TLS (RDS, Aurora, Cloud SQL); use `sslmode: disable` for plain cluster-local Postgres. | `{sslmode: require}` |
+| `hub.db.sqlapiConnectionOptions` | What the Hub hands to SQL API clients (surfaced by `lunar sql`). Empty inherits `hub.db.connectionOptions`. | `{}` |
 
-> **Override footgun:** setting `hub.db.connectionOptions` **replaces** the whole string — the default is not merged in. If passing additional options (`connect_timeout`, `application_name`, etc.), include `sslmode=` yourself, space-separated:
-> ```yaml
-> # OK
-> hub:
->   db:
->     connectionOptions: "sslmode=require connect_timeout=10"
-> # BAD — silently drops sslmode=require
-> hub:
->   db:
->     connectionOptions: "connect_timeout=10"
-> ```
-> The `# OK` case above is only half the job. That value is libpq syntax, and two of the four things fed from it want URL query — set the companion fields below alongside it.
-
-> **Four consumers, two grammars.** `connectionOptions` is libpq KV, space-separated, because it describes connections the Hub and the operator *make*. The Grafana datasource and the SQL API instead receive strings the Hub *vends*: it interpolates the options verbatim after the `?` in `postgres://user:pass@host:port/db?…`, so both of those are a URL query, `&`-separated.
->
-> - `HUB_DB_CONNECTION_OPTIONS` (Hub) and `OPERATOR_DB_CONNECTION_OPTIONS` (operator) — libpq KV, always `connectionOptions`.
-> - `HUB_GRAFANA_DB_CONNECTION_OPTIONS` — URL query, `grafanaConnectionOptions` if set, else `connectionOptions`.
-> - `HUB_SQLAPI_CONNECTION_OPTIONS` — URL query, `sqlapiConnectionOptions` if set, else `connectionOptions`.
->
-> A single option such as `sslmode=require` is valid in both grammars, which is why one shared value sufficed before 3.15.0 — anything with a second option is valid in exactly one:
+> **Override footgun:** setting `hub.db.connectionOptions` **replaces** the whole map — the default is not merged in. Keep `sslmode` when you add options:
 > ```yaml
 > hub:
 >   db:
->     connectionOptions: "sslmode=require connect_timeout=10"         # libpq KV
->     grafanaConnectionOptions: "sslmode=require&connect_timeout=10"  # URL query
->     sqlapiConnectionOptions: "sslmode=require&connect_timeout=10"   # URL query
+>     connectionOptions:
+>       sslmode: require
+>       connect_timeout: 10
 > ```
-> **For Grafana that is a break, not a nicety.** The provisioning tool pulls `sslmode` out of the URL the Hub vends with a pattern that stops at `&`, so a space-separated value is captured whole: `sslmode=require connect_timeout=10` reaches the datasource as `sslmode: "require connect_timeout=10"`, which cannot connect, and nothing warns you. Setting `grafanaConnectionOptions` in URL-query form is the fix available from the chart. The parser itself is Hub-side, so 3.15.0 gives you a way to express the right value — it does not repair the inheritance path. Note also that the tool reads only `sslmode` out of that URL and discards the rest of the query, so this field corrects the datasource's TLS mode; it is not a way to plumb arbitrary options into Grafana.
 >
-> Set `sqlapiConnectionOptions` on its own when SQL API clients reach Postgres by a different route than the Hub does — for example through a connection pooler on its own hostname that clients should verify: `"sslmode=verify-full&sslrootcert=system"`. (`sslrootcert=system` needs libpq 16+; older clients need an explicit CA path.)
+> Set `sqlapiConnectionOptions` only when SQL API clients reach Postgres by a different route than the Hub does — through a connection pooler on a hostname of its own, say, which clients should verify:
+> ```yaml
+> hub:
+>   db:
+>     sqlapiConnectionOptions:
+>       sslmode: verify-full
+>       sslrootcert: system
+> ```
+> (`sslrootcert: system` needs libpq 16+; older clients need an explicit CA path.)
+
+> **Deprecated: the string form.** Either field also accepts a plain string, which reaches every consumer verbatim exactly as it did in chart 3.15.0 and earlier. Strings are removed in 4.0.0. They are worth migrating off because the consumers do not agree on a separator: the Hub, the migrate Job and the operator read libpq keyword/value pairs, space-separated, while the SQL API and the Grafana datasource receive a URL query, `&`-separated. One option is valid either way — which is why a single shared `sslmode=require` never caused trouble — and a second option is valid in exactly one, leaving the others with a value they cannot parse. The install notes flag it if yours has more than one. Written as a map, each consumer gets its own syntax.
 
 **GitHub**
 
