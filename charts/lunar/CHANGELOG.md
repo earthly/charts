@@ -38,7 +38,12 @@ history see `git log -- charts/lunar/`.
   second option is valid in exactly one, leaving the rest silently
   misconfigured. As a map, the separator stops being something you have to get
   right. Helm iterates a map in key order, so a given map always renders the
-  same string and an upgrade does not churn pods.
+  same string rather than reshuffling from one render to the next.
+
+  Note that key order is sorted, not the order you wrote: migrating an existing
+  multi-option string to a map may reorder it (`sslmode=require
+  connect_timeout=10` becomes `connect_timeout=10 sslmode=require`). Neither
+  libpq nor a URL query cares about order, so this is cosmetic.
 
   **The Grafana datasource deliberately has no field of its own.** The Hub
   fills in its host, port and database name from the Hub's own configuration,

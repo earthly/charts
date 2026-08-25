@@ -269,7 +269,8 @@ Takes the options value directly. A map is rendered; a string is passed
 through verbatim (the pre-3.16.0 shape, removed in 4.0.0).
 
 Helm ranges a map in sorted key order, so a given map always renders the
-same string -- no spurious pod restarts on upgrade.
+same string -- the env value is stable across renders rather than
+reshuffling on each one.
 
 Usage:
   {{ include "lunar.libpqOptions" .Values.hub.db.connectionOptions | quote }}
