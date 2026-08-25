@@ -86,24 +86,40 @@ hub:
     host: ""
     port: 5432
     waitSecs: 45
-    # Extra options appended to the Postgres connection string. Defaults to
-    # sslmode=require so fresh managed-Postgres installs (RDS / Aurora /
-    # Cloud SQL, all of which default to forced TLS) just work. Set to
-    # "sslmode=disable" for plain cluster-local Postgres without TLS.
+    # How Lunar itself reaches Postgres — the hub, the migrate Job and the
+    # operator. A map of Postgres connection parameters; the chart renders it
+    # into the syntax each consumer expects, so you never write a separator.
     #
-    # Format: libpq KV pairs, space-separated. NOT URL query syntax.
-    #   OK:  "sslmode=require"
-    #   OK:  "sslmode=require connect_timeout=10"
-    #   BAD: "sslmode=require&connect_timeout=10"   # will fail to parse
+    # Defaults to sslmode=require so fresh managed-Postgres installs (RDS /
+    # Aurora / Cloud SQL, all of which default to forced TLS) just work. Use
+    # "sslmode: disable" for plain cluster-local Postgres without TLS.
     #
-    # Footgun: overriding REPLACES the whole string — the default is not
-    # merged in. If you pass additional options, include sslmode= yourself.
+    # Footgun: overriding REPLACES the whole map — the default is not merged
+    # in. If you add options, keep sslmode:
+    #   connectionOptions:
+    #     sslmode: require
+    #     connect_timeout: 10
     #
-    # Also consumed by the operator (OPERATOR_DB_CONNECTION_OPTIONS), the SQL API
-    # (HUB_SQLAPI_CONNECTION_OPTIONS) and the Grafana datasource
-    # (HUB_GRAFANA_DB_CONNECTION_OPTIONS) — they all connect to the same DB, so
-    # they share this value.
-    connectionOptions: "sslmode=require"
+    # DEPRECATED: a plain string ("sslmode=require") is still accepted and
+    # reaches every consumer verbatim, exactly as in chart 3.15.0 and earlier.
+    # Removed in 4.0.0. A string carrying more than one option is wrong for at
+    # least one consumer, because they do not all separate options the same
+    # way — the install notes say so at upgrade time. A map is always right.
+    connectionOptions:
+      sslmode: require
+    # What the hub hands to SQL API clients (the string surfaced by
+    # `lunar sql`). Empty inherits connectionOptions above, which is what
+    # every install wants until SQL API clients reach Postgres by a different
+    # route than the hub does — for example through a connection pooler on a
+    # hostname of its own, which clients should verify:
+    #   sqlapiConnectionOptions:
+    #     sslmode: verify-full
+    #     sslrootcert: system
+    # (sslrootcert: system needs libpq >= 16; older clients need an explicit
+    # CA path instead.)
+    #
+    # Same map-or-string rule as connectionOptions.
+    sqlapiConnectionOptions: {}
     # Per-replica Postgres connection budget. Total connections to Postgres ≈
     # replicaCount × (maxOpenConns + maxPoolConns + operatorPoolSize).
     #

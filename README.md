@@ -520,19 +520,36 @@ See also `grafana.url` (under [Grafana](#grafana)) for the Grafana-side equivale
 | `hub.db.user.secretKey` | Key within the secret | `username` |
 | `hub.db.pass.secretName` | Secret containing the DB password | `lunar-db` |
 | `hub.db.pass.secretKey` | Key within the secret | `password` |
-| `hub.db.connectionOptions` | Extra options appended to the Postgres connection string (libpq KV format, space-separated). Default works against managed Postgres with forced TLS (RDS, Aurora, Cloud SQL); set to `"sslmode=disable"` for plain cluster-local Postgres. Also consumed by the operator. | `"sslmode=require"` |
+| `hub.db.connectionOptions` | How Lunar itself reaches Postgres, as a map of connection parameters. Used by the Hub, the migrate Job and the operator, and inherited by the SQL API. Default works against managed Postgres with forced TLS (RDS, Aurora, Cloud SQL); use `sslmode: disable` for plain cluster-local Postgres. | `{sslmode: require}` |
+| `hub.db.sqlapiConnectionOptions` | What the Hub hands to SQL API clients (surfaced by `lunar sql`). Empty inherits `hub.db.connectionOptions`. | `{}` |
 
-> **Override footgun:** setting `hub.db.connectionOptions` **replaces** the whole string — the default is not merged in. If passing additional options (`connect_timeout`, `application_name`, etc.), include `sslmode=` yourself, space-separated:
+> **Override footgun:** setting `hub.db.connectionOptions` **replaces** the whole map — the default is not merged in, so an override that only means to add something quietly takes `sslmode` away with it:
 > ```yaml
-> # OK
 > hub:
 >   db:
->     connectionOptions: "sslmode=require connect_timeout=10"
-> # BAD — silently drops sslmode=require
-> hub:
->   db:
->     connectionOptions: "connect_timeout=10"
+>     connectionOptions:
+>       connect_timeout: 10   # BAD — sslmode is gone, so TLS is no longer required
 > ```
+> Restate `sslmode` whenever you add options:
+> ```yaml
+> hub:
+>   db:
+>     connectionOptions:
+>       sslmode: require
+>       connect_timeout: 10
+> ```
+>
+> Set `sqlapiConnectionOptions` only when SQL API clients reach Postgres by a different route than the Hub does — through a connection pooler on a hostname of its own, say, which clients should verify:
+> ```yaml
+> hub:
+>   db:
+>     sqlapiConnectionOptions:
+>       sslmode: verify-full
+>       sslrootcert: system
+> ```
+> (`sslrootcert: system` needs libpq 16+; older clients need an explicit CA path.)
+
+> **Deprecated: the string form.** Either field also accepts a plain string, which reaches every consumer verbatim exactly as it did in chart 3.15.0 and earlier. Strings are removed in 4.0.0. They are worth migrating off because the consumers do not agree on a separator: the Hub, the migrate Job and the operator read libpq keyword/value pairs, space-separated, while the SQL API and the Grafana datasource receive a URL query, `&`-separated. One option is valid either way — which is why a single shared `sslmode=require` never caused trouble — and a second option is valid in exactly one, leaving the others with a value they cannot parse. The install notes flag it if yours has more than one. Written as a map, each consumer gets its own syntax.
 
 **GitHub**
 

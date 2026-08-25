@@ -9,6 +9,65 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [3.16.0] - 2026-08-24
+
+### Changed
+
+- **`hub.db.connectionOptions` is now a map** of Postgres connection
+  parameters. Not every consumer separates options the same way, and the chart
+  now renders the right syntax for each, so the separator is no longer yours to
+  get right:
+
+  ```yaml
+  hub:
+    db:
+      # How Lunar reaches its own database.
+      connectionOptions:
+        sslmode: require
+      # What the Hub hands to SQL API clients. Empty inherits the above.
+      sqlapiConnectionOptions: {}
+  ```
+
+  Keys render in sorted order rather than the order written, so migrating an
+  existing multi-option string may reorder it. Nothing reads connection options
+  positionally, so this is cosmetic.
+
+### Added
+
+- **`hub.db.sqlapiConnectionOptions`** (optional) — the connection options the
+  Hub hands to SQL API clients, surfaced by `lunar sql`. Empty, the default,
+  inherits `hub.db.connectionOptions`, so nothing about an existing install
+  changes.
+
+  Set it when SQL API clients reach Postgres by a different route than the Hub
+  does — through a connection pooler on a hostname of its own, say, which
+  clients should verify:
+
+  ```yaml
+  hub:
+    db:
+      sqlapiConnectionOptions:
+        sslmode: verify-full
+        sslrootcert: system
+  ```
+
+  (`sslrootcert: system` needs libpq 16 or newer; older clients need an
+  explicit CA path.) It moves `HUB_SQLAPI_CONNECTION_OPTIONS` and nothing else.
+
+### Deprecated
+
+- **A plain string is still accepted for either field** and reaches every
+  consumer verbatim, so upgrading from 3.15.0 renders unchanged. Strings are
+  removed in 4.0.0.
+
+  While you pass one:
+
+  - Helm logs `warning: cannot overwrite table with non table`. It is
+    informational; your string is applied.
+  - A string carrying more than one option is wrong for some consumers, since
+    they do not share a separator. The install notes flag it. Switching that
+    value to a map fixes it.
+
 ## [3.15.0] - 2026-08-24
 
 ### Added

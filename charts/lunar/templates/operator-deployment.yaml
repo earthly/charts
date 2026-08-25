@@ -76,7 +76,7 @@ spec:
                   name: {{ .Values.hub.db.pass.secretName }}
                   key: {{ .Values.hub.db.pass.secretKey }}
             - name: OPERATOR_DB_CONNECTION_OPTIONS
-              value: {{ .Values.hub.db.connectionOptions | quote }}
+              value: {{ include "lunar.libpqOptions" .Values.hub.db.connectionOptions | quote }}
             - name: OPERATOR_NAMESPACE
               value: {{ include "lunar.scriptNamespace" . | quote }}
             - name: OPERATOR_MAX_CONCURRENT

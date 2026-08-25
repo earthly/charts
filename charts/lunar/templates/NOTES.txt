@@ -83,3 +83,50 @@ URLs wired by the chart:
 {{- end }}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{{- /*
+  Two severities. Any non-empty string is deprecated AND makes Helm log
+  "cannot overwrite table with non table", which is alarming and unexplained,
+  so answer it here. A string with more than one option is additionally wrong
+  today: the consumers do not share a separator. An empty string is excluded --
+  it carries no options, so it is a harmless way of spelling "inherit".
+*/}}
+{{- $stringOptions := list -}}
+{{- $multiOption := list -}}
+{{- if and (kindIs "string" .Values.hub.db.connectionOptions) (ne .Values.hub.db.connectionOptions "") -}}
+{{- $stringOptions = append $stringOptions (printf "hub.db.connectionOptions: %q" .Values.hub.db.connectionOptions) -}}
+{{- if contains " " .Values.hub.db.connectionOptions -}}
+{{- $multiOption = append $multiOption "hub.db.connectionOptions" -}}
+{{- end -}}
+{{- end -}}
+{{- if and (kindIs "string" .Values.hub.db.sqlapiConnectionOptions) (ne .Values.hub.db.sqlapiConnectionOptions "") -}}
+{{- $stringOptions = append $stringOptions (printf "hub.db.sqlapiConnectionOptions: %q" .Values.hub.db.sqlapiConnectionOptions) -}}
+{{- if contains " " .Values.hub.db.sqlapiConnectionOptions -}}
+{{- $multiOption = append $multiOption "hub.db.sqlapiConnectionOptions" -}}
+{{- end -}}
+{{- end -}}
+{{- if $stringOptions }}
+
+Deprecated — connection options written as a string:
+{{- range $stringOptions }}
+  {{ . }}
+{{- end }}
+
+  Helm's "cannot overwrite table with non table" line refers to these and is
+  informational; your value is applied. Strings are removed in chart 4.0.0. As
+  a map, the chart renders each consumer's syntax:
+
+    hub:
+      db:
+        connectionOptions:
+          sslmode: require
+{{- if $multiOption }}
+
+  More than one option in a string is wrong today — the consumers do not share
+  a separator, so some receive a value they cannot parse:
+{{- range $multiOption }}
+  {{ . }}
+{{- end }}
+{{- end }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{{- end }}
