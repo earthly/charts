@@ -14,8 +14,9 @@ history see `git log -- charts/lunar/`.
 ### Changed
 
 - **`hub.db.connectionOptions` is now a map** of Postgres connection
-  parameters, and the chart renders it into whatever syntax each consumer
-  wants:
+  parameters. Not every consumer separates options the same way, and the chart
+  now renders the right syntax for each, so the separator is no longer yours to
+  get right:
 
   ```yaml
   hub:
@@ -23,45 +24,24 @@ history see `git log -- charts/lunar/`.
       # How Lunar reaches its own database.
       connectionOptions:
         sslmode: require
-      # What the hub hands to SQL API clients. Empty inherits the above.
+      # What the Hub hands to SQL API clients. Empty inherits the above.
       sqlapiConnectionOptions: {}
   ```
 
-  One string used to feed five environment variables that read it two
-  different ways. `HUB_DB_CONNECTION_OPTIONS` (Hub and migrate Job) and
-  `OPERATOR_DB_CONNECTION_OPTIONS` describe connections those components
-  *make*, so they are libpq keyword/value pairs, space-separated.
-  `HUB_SQLAPI_CONNECTION_OPTIONS` and `HUB_GRAFANA_DB_CONNECTION_OPTIONS` are
-  strings the Hub *vends*, interpolated after the `?` of a `postgres://` URL,
-  so they are a URL query, `&`-separated. A lone `sslmode=require` is valid in
-  both grammars, which is why the shared string went unnoticed for so long; a
-  second option is valid in exactly one, leaving the rest silently
-  misconfigured. As a map, the separator stops being something you have to get
-  right. Helm iterates a map in key order, so a given map always renders the
-  same string rather than reshuffling from one render to the next.
-
-  Note that key order is sorted, not the order you wrote: migrating an existing
-  multi-option string to a map may reorder it (`sslmode=require
-  connect_timeout=10` becomes `connect_timeout=10 sslmode=require`). Neither
-  libpq nor a URL query cares about order, so this is cosmetic.
-
-  **The Grafana datasource deliberately has no field of its own.** The Hub
-  fills in its host, port and database name from the Hub's own configuration,
-  so it is internal by construction and takes `connectionOptions` along with
-  the Hub and the operator. It only ever looked like it needed separate
-  handling because of the syntax, and the syntax is now the chart's job.
+  Keys render in sorted order rather than the order written, so migrating an
+  existing multi-option string may reorder it. Nothing reads connection options
+  positionally, so this is cosmetic.
 
 ### Added
 
-- **`hub.db.sqlapiConnectionOptions`** (optional) — what the Hub hands to SQL
-  API clients, the string surfaced by `lunar sql`. Empty, the default, inherits
-  `hub.db.connectionOptions` and nothing about an existing install changes.
+- **`hub.db.sqlapiConnectionOptions`** (optional) — the connection options the
+  Hub hands to SQL API clients, surfaced by `lunar sql`. Empty, the default,
+  inherits `hub.db.connectionOptions`, so nothing about an existing install
+  changes.
 
-  The pair splits by audience rather than by syntax: `connectionOptions` is how
-  Lunar reaches its own database, and this is what Lunar tells someone else to
-  use. Set it when SQL API clients reach Postgres by a different route than the
-  Hub does — through a connection pooler on a hostname of its own, for
-  instance, which clients should verify:
+  Set it when SQL API clients reach Postgres by a different route than the Hub
+  does — through a connection pooler on a hostname of its own, say, which
+  clients should verify:
 
   ```yaml
   hub:
@@ -72,28 +52,21 @@ history see `git log -- charts/lunar/`.
   ```
 
   (`sslrootcert: system` needs libpq 16 or newer; older clients need an
-  explicit CA path.) It moves `HUB_SQLAPI_CONNECTION_OPTIONS` alone — the Hub's
-  own connection, the migrate Job, the operator and the Grafana datasource all
-  keep following `connectionOptions`.
+  explicit CA path.) It moves `HUB_SQLAPI_CONNECTION_OPTIONS` and nothing else.
 
 ### Deprecated
 
-- **A plain string is still accepted for either field**, and still reaches all
-  five consumers verbatim, so an install upgrading from 3.15.0 renders every
-  affected environment variable byte-for-byte unchanged. Strings are removed in
-  4.0.0.
+- **A plain string is still accepted for either field** and reaches every
+  consumer verbatim, so upgrading from 3.15.0 renders unchanged. Strings are
+  removed in 4.0.0.
 
-  Two things to expect for as long as you pass one:
+  While you pass one:
 
-  - Helm logs `warning: cannot overwrite table with non table for
-    hub.db.connectionOptions` on each render, because a string is replacing a
-    map default. It is informational — your string wins and the output is
-    correct.
-  - The install notes warn when a string carries more than one option, which is
-    precisely the case that misconfigures the SQL API and the Grafana
-    datasource. The chart does not refuse to render: a wrong Grafana datasource
-    is a better outcome than a blocked upgrade. Switching that value to a map
-    fixes both consumers.
+  - Helm logs `warning: cannot overwrite table with non table`. It is
+    informational; your string is applied.
+  - A string carrying more than one option is wrong for some consumers, since
+    they do not share a separator. The install notes flag it. Switching that
+    value to a map fixes it.
 
 ## [3.15.0] - 2026-08-24
 

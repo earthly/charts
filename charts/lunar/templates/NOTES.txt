@@ -84,17 +84,11 @@ URLs wired by the chart:
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 {{- /*
-  Two different things can be true of a string value, and they need different
-  urgency. ANY non-empty string is deprecated, and it makes Helm itself log
-  "cannot overwrite table with non table" -- alarming, unexplained, and the
-  first thing an operator will ask about, so answer it here. A string carrying
-  more than one option is additionally WRONG: it reaches all five consumers
-  verbatim, three of which read libpq and two of which read a URL query. One
-  option is valid either way, which is why the single shared string went
-  unnoticed for so long.
-
-  An empty string is excluded: it carries no options, so it is a harmless way
-  of spelling "inherit" and not worth nagging about.
+  Two severities. Any non-empty string is deprecated AND makes Helm log
+  "cannot overwrite table with non table", which is alarming and unexplained,
+  so answer it here. A string with more than one option is additionally wrong
+  today: the consumers do not share a separator. An empty string is excluded --
+  it carries no options, so it is a harmless way of spelling "inherit".
 */}}
 {{- $stringOptions := list -}}
 {{- $multiOption := list -}}
@@ -117,12 +111,9 @@ Deprecated — connection options written as a string:
   {{ . }}
 {{- end }}
 
-  Helm logs "cannot overwrite table with non table" for these. That line is
-  expected and your value IS applied — it appears only because the chart's
-  default is a map now. Strings are accepted for the rest of chart 3.x and
-  removed in 4.0.0.
-
-  As a map, the chart renders each consumer's syntax for you:
+  Helm's "cannot overwrite table with non table" line refers to these and is
+  informational; your value is applied. Strings are removed in chart 4.0.0. As
+  a map, the chart renders each consumer's syntax:
 
     hub:
       db:
@@ -130,18 +121,11 @@ Deprecated — connection options written as a string:
           sslmode: require
 {{- if $multiOption }}
 
-  More urgently, these carry more than one option, which is not merely
-  deprecated but wrong today:
+  More than one option in a string is wrong today — the consumers do not share
+  a separator, so some receive a value they cannot parse:
 {{- range $multiOption }}
   {{ . }}
 {{- end }}
-
-  A string reaches all five consumers unchanged. The hub, the migrate Job and
-  the operator read libpq keyword/value pairs, separated by spaces; the SQL
-  API and the Grafana datasource receive the query of a postgres:// URL,
-  separated by "&". One option is valid both ways. A second is valid in
-  exactly one, so the rest are configured with a value they cannot parse —
-  silently.
 {{- end }}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
