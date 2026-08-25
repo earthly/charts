@@ -9,6 +9,51 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [3.17.0] - 2026-08-25
+
+### Added
+
+- **`hub.retention`** — first-class values for Hub data retention, which
+  previously had to be passed as raw `hub.extraEnv`.
+
+  ```yaml
+  hub:
+    retention:
+      enabled: false        # master switch for the run-history sweep
+      window: 90d           # how far back a run stays visible
+      configWindow: 90d     # how long superseded config generations are kept
+      cascadeEnabled: false # also prune those generations, and the Git tables
+      vacuumEnabled: false  # reclaim the freed disk with a nightly VACUUM FULL
+  ```
+
+  **Off by default.** An install that sets none of these keeps run history
+  forever, exactly as before this block existed, so upgrading changes nothing on
+  its own.
+
+  **`window` sets `HUB_RETENTION_RUNS` and `HUB_RETENTION_DERIVED` to the same
+  value from one key, deliberately.** The Hub does not merely default them
+  equal — it refuses to boot when they differ, because two of the derived
+  surfaces are rebuilt from the run tables and would silently truncate
+  themselves back to the runs window within a day. Exposing two keys would be
+  exposing a boot failure. A separate `derivedWindow` can be added later,
+  without a breaking change, once divergence is supported.
+
+  **Write windows in days.** The grammar is Go's durations extended with `d`
+  (24h) and `w` (7d), so `m` is still Go's *minutes*: `12m` is a twelve-minute
+  window that passes every validation and deletes essentially all run history on
+  the first sweep. Twelve months is `365d`.
+
+  Two of these delete more than run rows, which is why they are separate
+  switches rather than folded into `enabled`. `cascadeEnabled` removes the
+  *definitions* history points at, and is the only thing that deletes a
+  component. `vacuumEnabled` runs `VACUUM FULL`, which takes ACCESS EXCLUSIVE on
+  each table it rewrites — readers stall for the duration and then succeed — and
+  needs free disk of roughly the surviving data size. It is threshold-gated, so
+  it runs on schedule and should rarely act.
+
+  Requires a Hub image with the retention workers; on older images the variables
+  are simply unread.
+
 ## [3.16.0] - 2026-08-24
 
 ### Changed
@@ -67,6 +112,7 @@ history see `git log -- charts/lunar/`.
   - A string carrying more than one option is wrong for some consumers, since
     they do not share a separator. The install notes flag it. Switching that
     value to a map fixes it.
+
 
 ## [3.15.0] - 2026-08-24
 

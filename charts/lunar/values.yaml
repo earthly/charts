@@ -282,6 +282,47 @@ hub:
   policyQueue:
     pollInterval: 1s
     numWorkers: 5
+  # Data retention. OFF by default: leave `enabled` false and the Hub keeps run
+  # history forever, which is the behaviour every install had before this block
+  # existed.
+  #
+  # Windows are Go durations extended with `d` (24h) and `w` (7d). WRITE THEM IN
+  # DAYS. `m` is still Go's MINUTES, so `12m` is a twelve-minute window that
+  # passes every validation and deletes essentially all run history on the first
+  # sweep. Twelve months is `365d`.
+  retention:
+    # Master switch for the run-history sweep. Nothing below deletes anything
+    # while this is false.
+    enabled: false
+    # How far back a run stays visible. Sets HUB_RETENTION_RUNS and
+    # HUB_RETENTION_DERIVED to the SAME value, deliberately, from one key.
+    #
+    # The Hub does not merely default them equal — it REFUSES TO BOOT when they
+    # differ, because two of the derived surfaces are rebuilt from the run
+    # tables and would silently truncate themselves back to the runs window
+    # within a day. One key makes that unrepresentable. When divergence becomes
+    # supported, a separate `derivedWindow` can be added without breaking this.
+    window: 90d
+    # How long superseded config generations are kept. Independent of `window`:
+    # config history and run history are kept for different reasons.
+    configWindow: 90d
+    # Prunes superseded manifest generations and the components, domains and
+    # script definitions under them, plus commits, pull requests and
+    # repositories nothing references any more.
+    #
+    # Separate from `enabled` because it is a different kind of delete: the runs
+    # window removes history, this removes the definitions that history points
+    # at. It is the only part of retention that deletes a component.
+    cascadeEnabled: false
+    # Reclaims disk from the deletions above with a threshold-gated nightly
+    # VACUUM FULL. Deleting rows does not shrink a table on its own — the space
+    # is reusable but not returned to the filesystem.
+    #
+    # VACUUM FULL takes ACCESS EXCLUSIVE on each table it rewrites: readers
+    # stall for the duration and then succeed rather than erroring. It also
+    # needs free disk of roughly the SURVIVING data size. Gated on the
+    # thresholds below, so it runs on schedule and should rarely act.
+    vacuumEnabled: false
   # Worker caps for Hub's script-feeding queues. 0 means unlimited.
   maxWorkers:
     collect: 10
