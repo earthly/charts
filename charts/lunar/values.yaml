@@ -291,8 +291,13 @@ hub:
   # passes every validation and deletes essentially all run history on the first
   # sweep. Twelve months is `365d`.
   retention:
-    # Master switch for the run-history sweep. Nothing below deletes anything
-    # while this is false.
+    # Master switch for the run-history sweep: the runs and derived tiers, the
+    # config-generation prune and `cascadeEnabled` are all inert while this is
+    # false.
+    #
+    # `vacuumEnabled` is the one exception. It has its own queue and its own
+    # flag and never consults this switch, so it compacts on schedule even with
+    # retention off — see the note there.
     enabled: false
     # How far back a run stays visible. Sets HUB_RETENTION_RUNS and
     # HUB_RETENTION_DERIVED to the SAME value, deliberately, from one key.
@@ -302,9 +307,16 @@ hub:
     # tables and would silently truncate themselves back to the runs window
     # within a day. One key makes that unrepresentable. When divergence becomes
     # supported, a separate `derivedWindow` can be added without breaking this.
+    #
+    # `0` means keep forever. That is the way to prune superseded config
+    # generations (`configWindow` + `cascadeEnabled`) while keeping every run.
     window: 90d
     # How long superseded config generations are kept. Independent of `window`:
-    # config history and run history are kept for different reasons.
+    # config history and run history are kept for different reasons. `0` keeps
+    # them forever. A repository's newest generation is never pruned at any
+    # age — it is that repository's live configuration.
+    #
+    # Only takes effect with `cascadeEnabled` true.
     configWindow: 90d
     # Prunes superseded manifest generations and the components, domains and
     # script definitions under them, plus commits, pull requests and
@@ -318,10 +330,17 @@ hub:
     # VACUUM FULL. Deleting rows does not shrink a table on its own — the space
     # is reusable but not returned to the filesystem.
     #
+    # NOT gated by `enabled` above. Setting this true on an install with
+    # retention off still runs the nightly pass against whatever bloat is
+    # already there.
+    #
     # VACUUM FULL takes ACCESS EXCLUSIVE on each table it rewrites: readers
     # stall for the duration and then succeed rather than erroring. It also
-    # needs free disk of roughly the SURVIVING data size. Gated on the
-    # thresholds below, so it runs on schedule and should rarely act.
+    # needs free disk of roughly the SURVIVING data size. A table is only
+    # rewritten once its estimated reclaimable space clears both
+    # HUB_RETENTION_VACUUM_MIN_BYTES (1Gi) and HUB_RETENTION_VACUUM_MIN_RATIO
+    # (0.2) — Hub-side settings this chart does not expose — so the pass looks
+    # nightly and should rarely act.
     vacuumEnabled: false
   # Worker caps for Hub's script-feeding queues. 0 means unlimited.
   maxWorkers:

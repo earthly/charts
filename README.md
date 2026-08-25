@@ -622,6 +622,27 @@ Hub logging uses the top-level global `logging.*` values. Tenant and telemetry r
 | `hub.policyQueue.pollInterval` | How often the queue is polled | `1s` |
 | `hub.policyQueue.numWorkers` | Number of concurrent policy evaluation workers | `5` |
 
+**Data retention**
+
+Off by default: leave `hub.retention.enabled` false and the Hub keeps run
+history forever. Windows are Go durations extended with `d` (24h) and `w`
+(7d) — **write them in days**, because `m` is still Go's *minutes*, so `12m`
+is a twelve-minute window that passes validation and deletes essentially all
+run history on the first sweep. Twelve months is `365d`.
+
+| Key | Description | Default |
+|-----|-------------|---------|
+| `hub.retention.enabled` | Master switch for the run-history sweep. Also gates the config-generation prune and `cascadeEnabled`; does **not** gate `vacuumEnabled` | `false` |
+| `hub.retention.window` | How far back a run stays visible. Sets `HUB_RETENTION_RUNS` and `HUB_RETENTION_DERIVED` to the same value from one key — the Hub refuses to boot when they differ. `0` keeps runs forever | `90d` |
+| `hub.retention.configWindow` | How long superseded config generations are kept (`0` = forever). Only acts with `cascadeEnabled` true; a repository's newest generation is never pruned | `90d` |
+| `hub.retention.cascadeEnabled` | Also prune superseded manifest generations and the components, domains and script definitions under them, plus unreferenced commits, pull requests and repositories. The only part of retention that deletes a component | `false` |
+| `hub.retention.vacuumEnabled` | Reclaim freed disk with a threshold-gated nightly `VACUUM FULL`. Takes ACCESS EXCLUSIVE on each table it rewrites (readers stall, then succeed) and needs free disk of roughly the surviving data size. Independent of `enabled` | `false` |
+
+Requires a Hub image with the retention workers; on older images these
+variables are simply unread. If you already set `HUB_RETENTION_*` through
+`hub.extraEnv`, remove those entries when you adopt these values — otherwise
+the same names are emitted twice.
+
 **Persistence**
 
 The Hub uses a PVC for state, cached repos, and script code.

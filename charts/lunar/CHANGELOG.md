@@ -67,8 +67,25 @@ history see `git log -- charts/lunar/`.
   needs free disk of roughly the surviving data size. It is threshold-gated, so
   it runs on schedule and should rarely act.
 
+  `vacuumEnabled` is **not** gated by `enabled`. The compaction pass has its own
+  queue and its own flag and never consults the master switch, so
+  `enabled: false` with `vacuumEnabled: true` still compacts nightly.
+
   Requires a Hub image with the retention workers; on older images the variables
   are simply unread.
+
+### Upgrading
+
+- **Drop any `HUB_RETENTION_*` entries from `hub.extraEnv` when you adopt
+  `hub.retention`.** `extraEnv` renders after this block, so keeping both emits
+  the same variable names twice in the Hub container. A plain `helm upgrade` is
+  last-wins and survives it — your `extraEnv` value still takes effect, and the
+  API server only warns `hides previous definition of "HUB_RETENTION_ENABLED",
+  which may be dropped when using apply`. **Server-side apply rejects the object
+  outright** (`duplicate entries for key [name="HUB_RETENTION_ENABLED"]`), so a
+  GitOps install running `ServerSideApply=true` fails its next sync rather than
+  degrading quietly. Installs that never set these through `extraEnv` are
+  unaffected.
 
 ## [3.16.0] - 2026-08-24
 
