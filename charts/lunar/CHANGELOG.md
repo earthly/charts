@@ -19,15 +19,25 @@ history see `git log -- charts/lunar/`.
   This is the retry for lock contention. Changing a foreign key takes
   `ACCESS EXCLUSIVE` on **both** tables involved, so against a database still
   serving traffic a migration can lose a lock race — a deadlock, or a
-  `lock_timeout` now that the Hub bounds how long its migrator will wait. Both
-  are transient, and the next attempt usually gets the lock.
+  `lock_timeout` once the Hub bounds how long its migrator will wait
+  (earthly/lunar#2758, merged but not in every released image yet). Both are
+  transient, and the next attempt usually gets the lock.
+
+  That Hub half is what makes each attempt cheap. Without it a contended
+  attempt does not decline in 5s — it queues on `ACCESS EXCLUSIVE`, and a
+  queued `ACCESS EXCLUSIVE` blocks every reader behind it, so on an older Hub
+  image a larger budget buys a longer block rather than a cheaper retry.
 
   Two attempts was not a budget for something contention-driven. Kubernetes
-  backs off exponentially between attempts (10s, doubling, capped at 6m), so a
-  full ten fits inside the default `migrateJobActiveDeadlineSeconds` with room
-  to spare. A migration that is genuinely broken rather than unlucky still fails
-  on the first attempt and every one after, so this costs nothing in the case
-  that matters.
+  backs off exponentially between attempts (10s, doubling, capped at 6m),
+  landing them at roughly `t = 0, 12, 32, 72, 152, 312s`. Ten is therefore a
+  ceiling rather than what an upgrade spends: the bound that bites first is
+  your Helm timeout, not `migrateJobActiveDeadlineSeconds`, and at the `5m`
+  default attempt 6 falls outside it — **so a default `helm upgrade` gets five
+  attempts, and the real gain is three to five.** Raise `--timeout` for the
+  tail. A migration that is genuinely broken rather than unlucky still fails on
+  the first attempt and every one after, so this costs nothing in the case that
+  matters.
 
 - **`hub.retention`** — first-class values for Hub data retention, which
   previously had to be passed as raw `hub.extraEnv`.

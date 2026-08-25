@@ -286,10 +286,16 @@ hub:
   # history forever, which is the behaviour every install had before this block
   # existed.
   #
-  # Windows are Go durations extended with `d` (24h) and `w` (7d). WRITE THEM IN
-  # DAYS. `m` is still Go's MINUTES, so `12m` is a twelve-minute window that
-  # passes every validation and deletes essentially all run history on the first
-  # sweep. Twelve months is `365d`.
+  # `window` and `configWindow` are Go durations extended with `d` (24h) and `w`
+  # (7d). WRITE THEM IN DAYS. `m` is still Go's MINUTES, so `12m` is a
+  # twelve-minute window that passes every validation and deletes essentially
+  # all run history on the first sweep. Twelve months is `365d`.
+  #
+  # That extension covers ONLY those two. `interval` and `vacuumLockTimeout` are
+  # plain Go durations — hours, minutes and seconds, no `d` or `w`. The chart
+  # renders `interval: 1d` happily and the Hub then fails to parse it
+  # (`unknown unit "d"`) and crashloops, after the migrate Job has already run.
+  # A daily sweep is `24h`.
   retention:
     # Master switch for the run-history sweep: the runs and derived tiers, the
     # config-generation prune and `cascadeEnabled` are all inert while this is
@@ -308,8 +314,10 @@ hub:
     # within a day. One key makes that unrepresentable. When divergence becomes
     # supported, a separate `derivedWindow` can be added without breaking this.
     #
-    # `0` means keep forever. That is the way to prune superseded config
-    # generations (`configWindow` + `cascadeEnabled`) while keeping every run.
+    # `0` means keep forever. Note it also switches OFF the config-generation
+    # prune and the Git tier below: the sweep returns on a zero runs window,
+    # before `configWindow` and `cascadeEnabled` are ever consulted. There is
+    # currently no way to prune config generations while keeping every run.
     window: 90d
     # How long superseded config generations are kept. Independent of `window`:
     # config history and run history are kept for different reasons. `0` keeps
@@ -579,10 +587,20 @@ hub:
   #
   # 10 rather than the old 2 because three attempts is not a retry budget for
   # something contention-driven. Kubernetes backs off exponentially between
-  # attempts (10s, doubling, capped at 6m), so a full 10 fits inside the default
-  # activeDeadlineSeconds above with room to spare — and a migration that is
-  # genuinely broken, rather than unlucky, still fails on its first attempt and
-  # every one after, so this costs nothing in the case that matters.
+  # attempts (10s, doubling, capped at 6m), which lands them at roughly
+  # t = 0, 12, 32, 72, 152, 312s.
+  #
+  # So 10 is a ceiling, not what an upgrade actually spends. The bound that
+  # bites first is your Helm timeout, not the activeDeadlineSeconds above:
+  # at the 5m default, attempt 6 falls outside it, so a default `helm upgrade`
+  # gets 5 attempts. The real gain here is 3 -> 5. Raise `--timeout` if you
+  # want the tail. `hook-delete-policy: before-hook-creation` compounds it —
+  # a subsequent `helm upgrade` deletes the still-cycling Job — so the later
+  # attempts only ever run if nobody retries after Helm gives up.
+  #
+  # A migration that is genuinely broken, rather than unlucky, still fails on
+  # its first attempt and every one after, so this costs nothing in the case
+  # that matters.
   migrateJobBackoffLimit: 10
   volumeMounts: []
   volumes: []
