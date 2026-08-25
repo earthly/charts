@@ -326,6 +326,28 @@ hub:
     # window removes history, this removes the definitions that history points
     # at. It is the only part of retention that deletes a component.
     cascadeEnabled: false
+    # Sweep pacing. These bound the FIRST sweep far more than the steady state.
+    # An install turning retention on has years of accumulated rows to remove,
+    # and taking them in one pass is the shape that caused ENG-1427; once caught
+    # up, the delete rate equals the insert rate and autovacuum absorbs it. The
+    # defaults grind a backlog down over days rather than clearing it overnight.
+    #
+    # `maxBatchesPerRun` is the rate limit and the one to reach for. It is a
+    # budget for the WHOLE tick, shared across the six runs-tier tables in
+    # order, not a per-table allowance — so the ceiling is
+    # batchSize x maxBatchesPerRun rows per tick, 500k at these defaults, one
+    # tick every `interval`.
+    #
+    # Lower `maxBatchesPerRun` if the first sweep hurts. Note that a tick which
+    # spends its whole budget on the runs tier skips the config-generation
+    # prune and the Git tier entirely, which during the initial backfill is
+    # every tick — so a too-low budget starves those two indefinitely.
+    #
+    # All three are validated at boot even when `enabled` is false: each must be
+    # > 0, so none of them can be zeroed to disable anything.
+    interval: 1h
+    batchSize: 5000
+    maxBatchesPerRun: 100
     # Reclaims disk from the deletions above with a threshold-gated nightly
     # VACUUM FULL. Deleting rows does not shrink a table on its own — the space
     # is reusable but not returned to the filesystem.
@@ -342,6 +364,18 @@ hub:
     # (0.2) — Hub-side settings this chart does not expose — so the pass looks
     # nightly and should rarely act.
     vacuumEnabled: false
+    # How long the compaction waits for ACCESS EXCLUSIVE before giving up until
+    # tomorrow. This is the setting that keeps a compaction from becoming an
+    # incident: the lock queues behind any in-flight transaction, and while it
+    # waits every subsequent query queues behind IT, so without a short timeout
+    # one long-running read turns a bounded stall into an unbounded one that
+    # starts before the vacuum does. Short and yielding is right — there is
+    # always another night.
+    #
+    # Sent to Postgres as whole milliseconds. Must be >= 1ms: 0 means "wait
+    # forever" there, so the Hub rejects it at boot rather than accept the one
+    # value that removes the bound.
+    vacuumLockTimeout: 5s
   # Worker caps for Hub's script-feeding queues. 0 means unlimited.
   maxWorkers:
     collect: 10

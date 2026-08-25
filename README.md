@@ -637,6 +637,16 @@ run history on the first sweep. Twelve months is `365d`.
 | `hub.retention.configWindow` | How long superseded config generations are kept (`0` = forever). Only acts with `cascadeEnabled` true; a repository's newest generation is never pruned | `90d` |
 | `hub.retention.cascadeEnabled` | Also prune superseded manifest generations and the components, domains and script definitions under them, plus unreferenced commits, pull requests and repositories. The only part of retention that deletes a component | `false` |
 | `hub.retention.vacuumEnabled` | Reclaim freed disk with a threshold-gated nightly `VACUUM FULL`. Takes ACCESS EXCLUSIVE on each table it rewrites (readers stall, then succeed) and needs free disk of roughly the surviving data size. Independent of `enabled` | `false` |
+| `hub.retention.interval` | How often the sweep runs | `1h` |
+| `hub.retention.batchSize` | Rows removed per `DELETE` statement | `5000` |
+| `hub.retention.maxBatchesPerRun` | Batch budget for one tick, shared across the six runs-tier tables rather than per-table — so `batchSize` × this is the rows-per-tick ceiling. The rate limit on the initial backfill, and the knob to lower if the first sweep hurts | `100` |
+| `hub.retention.vacuumLockTimeout` | How long the compaction waits for ACCESS EXCLUSIVE before giving up until tomorrow. Keeps one long-running read from turning a bounded stall into an unbounded one. Must be `>= 1ms` | `5s` |
+
+`interval`, `batchSize` and `maxBatchesPerRun` are validated at boot **even
+when `enabled` is false** — each must be greater than zero, so none of them
+can be zeroed to turn something off. A tick that spends its whole batch budget
+on the runs tier skips the config-generation prune and the Git tier, which
+during an initial backfill is every tick.
 
 Requires a Hub image with the retention workers; on older images these
 variables are simply unread. If you already set `HUB_RETENTION_*` through

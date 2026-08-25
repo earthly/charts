@@ -67,6 +67,18 @@ history see `git log -- charts/lunar/`.
   needs free disk of roughly the surviving data size. It is threshold-gated, so
   it runs on schedule and should rarely act.
 
+  Four further keys expose the pace rather than the policy.
+  `interval` (`1h`), `batchSize` (`5000`) and `maxBatchesPerRun` (`100`) bound
+  the sweep; `vacuumLockTimeout` (`5s`) bounds the compaction's wait for
+  ACCESS EXCLUSIVE. These matter most on the **first** sweep: an install
+  turning retention on has years of rows to remove, and `maxBatchesPerRun` is
+  the rate limit on that backfill — a budget for the whole tick, shared across
+  the six runs-tier tables rather than per-table, so `batchSize` ×
+  `maxBatchesPerRun` is the rows-per-tick ceiling. Lower it if the first sweep
+  hurts, but note that a tick spending its whole budget on the runs tier skips
+  the config-generation prune and the Git tier. The three sweep keys are
+  validated at boot even when `enabled` is false, and none may be zero.
+
   `vacuumEnabled` is **not** gated by `enabled`. The compaction pass has its own
   queue and its own flag and never consults the master switch, so
   `enabled: false` with `vacuumEnabled: true` still compacts nightly.

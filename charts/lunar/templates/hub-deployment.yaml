@@ -144,8 +144,16 @@ spec:
               value: {{ .configWindow | quote }}
             - name: HUB_RETENTION_CASCADE_ENABLED
               value: {{ .cascadeEnabled | quote }}
+            - name: HUB_RETENTION_INTERVAL
+              value: {{ .interval | quote }}
+            - name: HUB_RETENTION_BATCH_SIZE
+              value: {{ .batchSize | quote }}
+            - name: HUB_RETENTION_MAX_BATCHES_PER_RUN
+              value: {{ .maxBatchesPerRun | quote }}
             - name: HUB_RETENTION_VACUUM_ENABLED
               value: {{ .vacuumEnabled | quote }}
+            - name: HUB_RETENTION_VACUUM_LOCK_TIMEOUT
+              value: {{ .vacuumLockTimeout | quote }}
             {{- end }}
             - name: HUB_AUTH_TOKEN
               valueFrom:
