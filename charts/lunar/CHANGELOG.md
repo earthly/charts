@@ -63,6 +63,22 @@ history see `git log -- charts/lunar/`.
   The tool has honoured `SKIP_PLUGINS` all along; it just wasn't reachable from
   chart values.
 
+  Under `runner: out-of-band` there is no workload to set it on, so it adds
+  `-e SKIP_PLUGINS=true` to the command `NOTES.txt` prints instead. Pass the
+  variable yourself if you don't use that command.
+
+### Upgrading
+
+Nothing changes for an existing install. Both new values default to today's
+behaviour, and `chart`, `external` and `"off"` each render byte-for-byte
+identically to 3.18.0 — verified by diffing the rendered output of all three
+against the previous chart with generated secrets pinned.
+
+That is why `skipPlugins: false` renders no environment variable rather than an
+explicit `"false"`: adding one would change the Grafana pod template, and a
+changed pod template rolls the pod, so upgrading would restart Grafana over a
+setting nobody chose. `deploy.sh` already defaults it to false.
+
 ### Fixed
 
 - **README:** the Grafana server image row still described the retired

@@ -126,7 +126,9 @@ spec:
             - name: GRAFANA_URL
               value: "http://{{ include "lunar.fullname" . }}-grafana:{{ .Values.grafana.service.port }}"
             {{- end }}
+            {{- if .Values.grafana.provisioning.skipPlugins }}
             {{- include "lunar.grafanaProvisionSkipPlugins" . | nindent 12 }}
+            {{- end }}
             {{- include "lunar.grafanaProvisionHubEnv" . | nindent 12 }}
           {{- with .Values.grafana.provisioning.resources }}
           resources:

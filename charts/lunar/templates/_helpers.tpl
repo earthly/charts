@@ -419,16 +419,21 @@ Job and the reconverge sidecar). deploy.sh uses it to resolve the Grafana endpoi
 {{- end }}
 
 {{/*
-SKIP_PLUGINS env for the lunar-dashboards provisioning tool. Rendered
-unconditionally — deploy.sh reads "true"/"false" and defaults to false, so the
-disabled case is a real value rather than an absent variable, and the setting is
-visible in `kubectl describe` either way. Emitted on the containers that actually
-run deploy.sh — the provisioning Job's `provision` container and the reconverge
-sidecar — not the init containers, which only wait on dependencies.
+SKIP_PLUGINS env for the lunar-dashboards provisioning tool. Emitted on the
+containers that actually run deploy.sh — the provisioning Job's `provision`
+container and the reconverge sidecar — not the init containers, which only wait
+on dependencies.
+
+Callers guard the include on the value rather than this rendering "false", so an
+install that never sets it renders exactly as it did before this value existed.
+Emitting the default would add an env var to the Grafana pod template, and a
+changed pod template rolls the pod — an upgrade would restart Grafana over a
+setting nobody chose. deploy.sh defaults SKIP_PLUGINS to false itself, so the
+absent case already means the same thing.
 */}}
 {{- define "lunar.grafanaProvisionSkipPlugins" -}}
 - name: SKIP_PLUGINS
-  value: {{ .Values.grafana.provisioning.skipPlugins | quote }}
+  value: "true"
 {{- end }}
 
 {{/*
