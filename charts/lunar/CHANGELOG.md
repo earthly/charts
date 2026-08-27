@@ -48,6 +48,13 @@ history see `git log -- charts/lunar/`.
   Hub that installed them, and whichever Hub upgraded last would otherwise
   overwrite the other's.
 
+  A suffixed release also stops claiming Grafana's default **home dashboard**.
+  That is one org-wide preference, so with several Hubs installed every deploy
+  would take the landing page off the previous one. Each Hub's dashboards are
+  reachable in its own folder; set the org (or per-user) home dashboard by hand
+  if you want one of them to be the default. Unsuffixed releases still set it,
+  unchanged.
+
   Needs a Hub image that understands `HUB_GRAFANA_RESOURCE_SUFFIX`. Against an
   older Hub the dashboards are still namespaced correctly, but its deep links
   keep pointing at the unsuffixed UIDs.
