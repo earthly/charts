@@ -857,7 +857,8 @@ grafana:
   # It resolves the target Grafana endpoint + a read-only DB connection from the
   # Hub over gRPC, so it needs no Grafana/DB args here.
   #
-  # Runs on every Hub install/upgrade whenever grafana.mode != off, targeting the
+  # Runs on every Hub install/upgrade whenever grafana.mode != off and runner is
+  # in-cluster (below), targeting the
   # chart's own Grafana pod (mode=chart: provisioned directly via the in-cluster
   # Service, admin auth auto-wired from the grafana-admin secret; a reconverge
   # sidecar on the pod also re-applies on every pod start, so a recreated pod
@@ -865,6 +866,43 @@ grafana:
   # (mode=external: endpoint resolved from the Hub). The read-only grafana_user DB
   # password (dbPassword below) is chart-generated — no operator config needed.
   provisioning:
+    # Where the provisioning tool runs. Orthogonal to grafana.mode: mode says who
+    # operates Grafana, runner says who opens the connection to it.
+    #   in-cluster  — the chart runs it as a post-install/post-upgrade hook Job
+    #                 (default). The Job dials the target Grafana's HTTP API from
+    #                 inside the cluster.
+    #   out-of-band — the chart renders no Job. You run the lunar-dashboards image
+    #                 yourself, from anywhere that can reach Grafana: an operator
+    #                 workstation, a bastion, a CI job. Everything the tool needs
+    #                 stays wired exactly as in-cluster — the read-only
+    #                 grafana_user role and its password, and the Hub's
+    #                 GetGrafanaEndpoint / GetGrafanaConnectionString — so the
+    #                 only thing that moves is who makes the call.
+    #
+    # out-of-band is for networks that don't permit the cluster to open a
+    # connection to Grafana, but do permit an operator to. It is external mode
+    # only: in chart mode the target is the Grafana pod the chart just created, so
+    # there is no connection to move out of the cluster (install fails fast).
+    #
+    # NOTE: nothing re-applies on your behalf under out-of-band. Dashboards are
+    # versioned against the Hub image, so re-run the tool after every Lunar
+    # upgrade — re-running is the update mechanism, every step is idempotent.
+    runner: in-cluster
+    # Skip the plugin-install step (deploy.sh SKIP_PLUGINS). Installing a plugin
+    # makes GRAFANA fetch it from grafana.com, so a Grafana without that egress
+    # must pre-install the three panel plugins out of band —
+    # marcusolsson-dynamictext-panel, yesoreyeram-infinity-datasource,
+    # volkovlabs-echarts-panel — via GF_INSTALL_PLUGINS, a vendored .zip, or an
+    # internal catalog mirror, and set this so the tool stops trying.
+    #
+    # Datasources and dashboards still deploy; panels backed by a plugin that
+    # isn't actually present render an error instead of a visualization.
+    #
+    # Also the escape hatch when the Grafana credential can't install plugins at
+    # all: an org-scoped service-account token cannot hold plugins:install, which
+    # the tool otherwise fails fast on rather than pushing dashboards that would
+    # not render.
+    skipPlugins: false
     image:
       repository: "ghcr.io/earthly/lunar-dashboards"
       pullPolicy: IfNotPresent

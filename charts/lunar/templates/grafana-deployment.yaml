@@ -208,6 +208,7 @@ spec:
           env:
             - name: GRAFANA_URL
               value: "http://localhost:3000"
+            {{- include "lunar.grafanaProvisionSkipPlugins" . | nindent 12 }}
             {{- include "lunar.grafanaProvisionHubEnv" . | nindent 12 }}
           {{- with .Values.grafana.provisioning.resources }}
           resources:

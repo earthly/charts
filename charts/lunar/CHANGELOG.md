@@ -9,6 +9,74 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [3.19.0] - 2026-08-27
+
+### Added
+
+- **`grafana.provisioning.runner`** (`in-cluster` | `out-of-band`, default
+  `in-cluster`) — where the `lunar-dashboards` provisioning tool runs.
+
+  Lunar's dashboards are installed by a tool that calls Grafana's HTTP API, and
+  until now the chart always ran it as a post-install/post-upgrade Job — so the
+  connection to Grafana was always opened *from inside the cluster*. Some
+  networks don't permit that direction, even though an operator elsewhere can
+  reach the same Grafana.
+
+  There was no configuration for it. `mode: external` wires everything correctly
+  and then schedules exactly the call that can't complete; the Job is gated on
+  `mode != off`, so it can't be opted out of. `mode: "off"` does skip the Job,
+  but it also drops `HUB_GRAFANA_DB_PASSWORD` from the migrate Job — which is
+  what creates the read-only `grafana_user` role on a fresh database — along
+  with the `grafana-db` secret and the Hub's `GetGrafanaEndpoint` /
+  `GetGrafanaConnectionString` inputs. So it left an operator hand-supplying a
+  Grafana URL, credentials and five `POSTGRES_*` values against a database role
+  that might not exist.
+
+  `runner: out-of-band` renders no Job and changes nothing else: the
+  `grafana_user` role and its password, the secret, and both Hub RPCs stay
+  exactly as they are under `in-cluster`. Only the caller moves. Run the same
+  image yourself from a workstation, bastion or CI job — it contacts your
+  Grafana and the Hub, and resolves the Grafana credentials and the read-only
+  database connection from the Hub over gRPC. `NOTES.txt` prints the command,
+  filled in for your release.
+
+  `external` mode only: in `chart` mode the target is the Grafana pod the chart
+  just created, so there is no connection to move out of the cluster. Install
+  fails fast rather than rendering a Grafana nothing ever provisions.
+
+  **Nothing re-applies on your behalf in this mode.** Dashboards are versioned
+  against the Hub image, so re-run the tool after every Lunar upgrade.
+  Re-running is the update mechanism — every step is idempotent.
+
+- **`grafana.provisioning.skipPlugins`** (default `false`) — skip the
+  plugin-install step.
+
+  Installing a panel plugin makes *Grafana* fetch it from `grafana.com`. A
+  Grafana without that egress has to pre-install the three plugins out of band
+  (`GF_INSTALL_PLUGINS`, a vendored `.zip`, an internal catalog mirror); this
+  stops the tool trying and failing. It's also the escape hatch when the
+  credential can't install plugins at all — an org-scoped service-account token
+  cannot hold `plugins:install`, which the tool otherwise fails fast on rather
+  than pushing dashboards whose panels wouldn't render. Datasources and
+  dashboards still deploy either way.
+
+  The tool has honoured `SKIP_PLUGINS` all along; it just wasn't reachable from
+  chart values.
+
+### Fixed
+
+- **README:** the Grafana server image row still described the retired
+  `ghcr.io/earthly/lunar-grafana` at `2.1.1`. The chart has run stock
+  `grafana/grafana` since 3.0.0 — currently `13.1.0`.
+- **README:** `grafana.mode` was written as a bare `off` in three places. YAML
+  reads that as the boolean `false`, and the chart then fails with a type error
+  from a template rather than the intended mode, so the documented spelling
+  didn't work. Now quoted, with the reason. (The templates still only accept the
+  string; making them tolerate the boolean is tracked separately.)
+- The values table gained the `grafana.provisioning.*` rows, which it had been
+  missing since the block was introduced in 3.0.0 — including
+  `grafana.provisioning.dbPassword`, which another row already pointed at.
+
 ## [3.17.0] - 2026-08-25
 
 ### Added

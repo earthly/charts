@@ -13,8 +13,14 @@ reconverge sidecar (chart pod) + next upgrade re-converge. hook-weight 5 runs it
 after the hub Deployment; an init container waits for the Hub's gRPC (and, for the
 chart pod, Grafana's API) before deploy.sh runs, so it doesn't race the hub becoming
 Ready on a fresh install.
+
+Skipped entirely under grafana.provisioning.runner=out-of-band, where the operator
+runs the same image themselves from outside the cluster. Only the Job goes away —
+the Hub-side wiring it would have consumed (GetGrafanaEndpoint,
+GetGrafanaConnectionString, the read-only grafana_user role) is keyed off
+grafana.mode and is untouched, which is what makes the out-of-cluster run work.
 */}}
-{{- if ne .Values.grafana.mode "off" -}}
+{{- if and (ne .Values.grafana.mode "off") (eq .Values.grafana.provisioning.runner "in-cluster") -}}
 {{- $img := include "lunar.provisioningImage" . -}}
 apiVersion: batch/v1
 kind: Job
@@ -120,6 +126,7 @@ spec:
             - name: GRAFANA_URL
               value: "http://{{ include "lunar.fullname" . }}-grafana:{{ .Values.grafana.service.port }}"
             {{- end }}
+            {{- include "lunar.grafanaProvisionSkipPlugins" . | nindent 12 }}
             {{- include "lunar.grafanaProvisionHubEnv" . | nindent 12 }}
           {{- with .Values.grafana.provisioning.resources }}
           resources:

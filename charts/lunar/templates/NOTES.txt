@@ -82,6 +82,35 @@ URLs wired by the chart:
 {{- end }}
 {{- end }}
 
+{{- if eq .Values.grafana.provisioning.runner "out-of-band" }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ACTION REQUIRED — this release installed no dashboards.
+
+grafana.provisioning.runner is "out-of-band", so the chart rendered no
+provisioning Job. Run the tool yourself from somewhere that can reach your
+Grafana ({{ .Values.grafana.url }}) and the Hub. Those are
+the only two it contacts: the Grafana credentials and the read-only database
+connection both come from the Hub over gRPC.
+
+  # ghcr.io/earthly/lunar-dashboards is private — authenticate first:
+  #   docker login ghcr.io
+
+  export LUNAR_HUB_TOKEN=$(kubectl -n {{ .Release.Namespace }} get secret \
+    {{ include "lunar.hubAuthSecretName" . }} \
+    -o jsonpath='{.data.{{ .Values.hub.auth.secretKey }}}' | base64 -d)
+
+  docker run --rm \
+    -e LUNAR_HUB_HOST={{ .Values.hub.ingress.api.host | default "<hub host reachable from here>" }} \
+    -e LUNAR_HUB_TOKEN \
+    {{ include "lunar.provisioningImage" . }}
+
+Re-run it after every Lunar upgrade: the dashboards are versioned against the
+Hub image and nothing re-applies them for you in this mode. Re-running is the
+update mechanism — every step is idempotent.
+{{- end }}
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 {{- /*
   Two severities. Any non-empty string is deprecated AND makes Helm log
