@@ -203,6 +203,13 @@ spec:
             - name: HUB_GRAFANA_URL_BASE
               value: {{ . | quote }}
             {{- end }}
+            {{- with include "lunar.grafanaResourceSuffix" $ }}
+            # Same suffix the provisioning tool namespaces dashboard UIDs with, so
+            # the Hub's [More Details] links resolve to THIS release's dashboards
+            # rather than whichever Hub owns the unsuffixed ones.
+            - name: HUB_GRAFANA_RESOURCE_SUFFIX
+              value: {{ . | quote }}
+            {{- end }}
             {{- if eq $.Values.grafana.mode "chart" }}
             # Bundled pod: basic admin creds (generated or BYO) the Hub vends to the
             # lunar-dashboards provisioning tool via GetGrafanaEndpoint.

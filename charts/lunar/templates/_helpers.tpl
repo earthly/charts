@@ -398,9 +398,30 @@ done
 {{- end }}
 
 {{/*
+grafana.resourceSuffix, validated. Namespaces the Grafana objects a release owns
+so several Hubs can share one Grafana. Validated here — once, wherever it is
+consumed — so a typo fails at template time rather than after the deploy tool has
+already started writing to a live Grafana. Mirrors the checks in deploy.sh and
+in the Hub's config.
+*/}}
+{{- define "lunar.grafanaResourceSuffix" -}}
+{{- $suffix := .Values.grafana.resourceSuffix | default "" -}}
+{{- if $suffix -}}
+{{- if not (regexMatch "^[A-Za-z0-9_-]+$" $suffix) -}}
+{{- fail (printf "grafana.resourceSuffix may only contain letters, digits, '-' and '_' (got %q)" $suffix) -}}
+{{- end -}}
+{{- if gt (len $suffix) 24 -}}
+{{- fail (printf "grafana.resourceSuffix is %d characters; max is 24 (Grafana caps UIDs at 40)" (len $suffix)) -}}
+{{- end -}}
+{{- end -}}
+{{- $suffix -}}
+{{- end }}
+
+{{/*
 LUNAR_HUB_* env for the lunar-dashboards provisioning tool (the provisioning hook
 Job and the reconverge sidecar). deploy.sh uses it to resolve the Grafana endpoint
 + a read-only DB connection from the Hub over gRPC. Only LUNAR_HUB_TOKEN is sensitive.
+GRAFANA_RESOURCE_SUFFIX rides along so both callers namespace identically.
 */}}
 {{- define "lunar.grafanaProvisionHubEnv" -}}
 - name: LUNAR_HUB_HOST
@@ -416,6 +437,12 @@ Job and the reconverge sidecar). deploy.sh uses it to resolve the Grafana endpoi
     secretKeyRef:
       name: {{ include "lunar.hubAuthSecretName" . }}
       key: {{ .Values.hub.auth.secretKey }}
+{{- /* Trailing, not leading: a leading `with` emits a newline when the suffix
+       is unset, which the callers' `nindent` then pads into a stray blank line. */}}
+{{- with include "lunar.grafanaResourceSuffix" . }}
+- name: GRAFANA_RESOURCE_SUFFIX
+  value: {{ . | quote }}
+{{- end }}
 {{- end }}
 
 {{/*

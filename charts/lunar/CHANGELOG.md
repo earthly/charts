@@ -9,6 +9,63 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [3.19.0] - 2026-08-27
+
+### Added
+
+- **`grafana.resourceSuffix` — several Hubs can now share one Grafana.**
+  Every Grafana object a release owns was previously created under a fixed
+  global identifier: the folder `lunar`, the datasources `lunar-postgresql`
+  and `lunar-infinity`, and a hardcoded UID per dashboard. Pointing a second
+  Hub (staging, another region, another business unit — each with its own
+  Postgres) at the same Grafana therefore overwrote the first Hub's.
+
+  Nothing errored when that happened, which is the point of this change: the
+  datasource upsert is by UID, so the second install rewrote the first's
+  connection details in place and the first Hub's dashboards carried on
+  rendering — against the second Hub's database.
+
+  Set a distinct suffix per release and they coexist:
+
+  ```yaml
+  # release "lunar-prod"                  # release "lunar-staging"
+  grafana:                                grafana:
+    mode: external                          mode: external
+    url: "https://grafana.example.com"      url: "https://grafana.example.com"
+    resourceSuffix: "-prod"                 resourceSuffix: "-staging"
+  ```
+
+  The suffix is applied to the folder, both datasources, and every dashboard
+  UID, and the chart passes it to the Hub as `HUB_GRAFANA_RESOURCE_SUFFIX` so
+  the `[More Details]` links in PR comments resolve to that release's
+  dashboards rather than whichever Hub owns the unsuffixed ones. Letters,
+  digits, `-` and `_`, up to 24 characters (Grafana caps a UID at 40); the
+  chart rejects anything else at template time.
+
+  Each Hub gets its own full copy of the dashboard set. That is deliberate
+  rather than one shared copy behind a datasource picker: two Hubs are rarely
+  on the same Lunar version, the dashboards have to match the schema of the
+  Hub that installed them, and whichever Hub upgraded last would otherwise
+  overwrite the other's.
+
+  A suffixed release also stops claiming Grafana's default **home dashboard**.
+  That is one org-wide preference, so with several Hubs installed every deploy
+  would take the landing page off the previous one. Each Hub's dashboards are
+  reachable in its own folder; set the org (or per-user) home dashboard by hand
+  if you want one of them to be the default. Unsuffixed releases still set it,
+  unchanged.
+
+  Needs a Hub image that understands `HUB_GRAFANA_RESOURCE_SUFFIX`. Against an
+  older Hub the dashboards are still namespaced correctly, but its deep links
+  keep pointing at the unsuffixed UIDs.
+
+  **Set it at first install and leave it alone.** Changing or removing it on an
+  existing release re-keys everything: the release installs a fresh set under
+  the new identifiers and orphans the old folder, dashboards, and datasources
+  for you to delete by hand. Unset (the default) keeps the identifiers a
+  single-Hub install has always used — an existing release renders
+  byte-for-byte the same manifests as 3.18.0.
+
 ## [3.17.0] - 2026-08-25
 
 ### Added

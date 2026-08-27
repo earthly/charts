@@ -828,6 +828,29 @@ grafana:
     userKey: "username"
     passwordKey: "password"
     tokenKey: ""
+  # Namespaces every Grafana object this release owns, so SEVERAL Hubs can share
+  # one Grafana. Without it each release installs under the same fixed
+  # identifiers, and a second Hub silently overwrites the first's datasources and
+  # dashboards — the first Hub's dashboards keep rendering, against the second
+  # Hub's database.
+  #
+  # Set a short distinct token per release (e.g. "-prod" / "-staging"). It is
+  # applied to the folder (Lunar-prod), the Postgres/Infinity datasources
+  # (lunar-postgresql-prod), and every dashboard UID; the chart passes the same
+  # value to the Hub (HUB_GRAFANA_RESOURCE_SUFFIX) so its [More Details] links
+  # resolve to this release's dashboards. Each Hub gets its own complete copy of
+  # the dashboard set — deliberate, since a shared copy would be overwritten by
+  # whichever Hub upgraded last and the dashboards must match the schema of the
+  # Hub that installed them.
+  #
+  # Letters, digits, "-" and "_", max 24 chars (Grafana caps a UID at 40).
+  #
+  # Set it at first install and leave it alone: changing or removing it on an
+  # existing release re-keys everything, installing a fresh set under the new
+  # identifiers and orphaning the old folder/dashboards/datasources for you to
+  # delete by hand. Empty (the default) keeps the identifiers a single-Hub
+  # install has always used, so upgrades are unaffected.
+  resourceSuffix: ""
   # Serve Grafana with no login: unauthenticated visitors get the Viewer role in
   # the default org and land straight on the dashboards (what makes the kiosk
   # sidecar useful without handing out the admin password). The admin login form
