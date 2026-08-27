@@ -419,6 +419,24 @@ Job and the reconverge sidecar). deploy.sh uses it to resolve the Grafana endpoi
 {{- end }}
 
 {{/*
+SKIP_PLUGINS env for the lunar-dashboards provisioning tool. Emitted on the
+containers that actually run deploy.sh — the provisioning Job's `provision`
+container and the reconverge sidecar — not the init containers, which only wait
+on dependencies.
+
+Callers guard the include on the value rather than this rendering "false", so an
+install that never sets it renders exactly as it did before this value existed.
+Emitting the default would add an env var to the Grafana pod template, and a
+changed pod template rolls the pod — an upgrade would restart Grafana over a
+setting nobody chose. deploy.sh defaults SKIP_PLUGINS to false itself, so the
+absent case already means the same thing.
+*/}}
+{{- define "lunar.grafanaProvisionSkipPlugins" -}}
+- name: SKIP_PLUGINS
+  value: "true"
+{{- end }}
+
+{{/*
 In-cluster DNS name for the Hub service, in `<svc>.<ns>.svc.<clusterDomain>`
 form so it resolves from any namespace (the operator's scriptNamespace, in
 particular). Callers that need to honor a per-component override should do
@@ -509,6 +527,9 @@ Validate the Grafana configuration:
     generate credentials for a Grafana it doesn't own).
   - anonymousViewer is chart-mode only — it renders a server setting onto the
     bundled pod, so elsewhere it would be a silent no-op.
+  - provisioning.runner must be one of in-cluster | out-of-band, and out-of-band
+    is external-mode only: it exists to move the Grafana call out of the cluster,
+    and in chart mode the target is the pod the chart itself created.
 */}}
 {{- define "lunar.validateGrafana" -}}
 {{- if hasKey .Values.grafana "enabled" -}}
@@ -529,6 +550,13 @@ Validate the Grafana configuration:
 {{- end -}}
 {{- if and .Values.grafana.anonymousViewer (ne $mode "chart") -}}
 {{- fail (printf "grafana.anonymousViewer is only valid in grafana.mode=chart (got %q) — it renders [auth.anonymous] onto the Grafana pod the chart owns, and a Grafana reads that setting at boot. Configure anonymous access on your own Grafana instead, or switch to grafana.mode=chart." $mode) -}}
+{{- end -}}
+{{- $runner := .Values.grafana.provisioning.runner -}}
+{{- if not (has $runner (list "in-cluster" "out-of-band")) -}}
+{{- fail (printf "grafana.provisioning.runner must be one of in-cluster | out-of-band (got %q)." $runner) -}}
+{{- end -}}
+{{- if and (eq $runner "out-of-band") (ne $mode "external") -}}
+{{- fail (printf "grafana.provisioning.runner=out-of-band is only valid with grafana.mode=external (got mode %q). It moves the connection to Grafana out of the cluster, which only means something for a Grafana the chart doesn't run: in chart mode the target is the pod this chart just created, and in off mode nothing is provisioned at all." $mode) -}}
 {{- end -}}
 {{- if eq $mode "chart" -}}
   {{- if .Values.grafana.auth.tokenKey -}}
