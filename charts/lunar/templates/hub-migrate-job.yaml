@@ -121,13 +121,25 @@ spec:
                   name: {{ include "lunar.grafanaDBSecretName" $ }}
                   key: {{ $.Values.grafana.provisioning.dbPassword.passwordKey }}
             {{- end }}
-            # Same extraEnv as the hub Deployment. Required so the migrator sees
-            # HUB_SQLAPI_PASSWORD (the chart supplies SQL-API creds only via
-            # extraEnv): 01_sqlapi/user.sql creates the sqlapi_user role, and on a
-            # *fresh* database (greenfield install) that role must be created WITH
-            # its password or the SQL API can't authenticate. (An already-migrated
-            # DB — e.g. an upgrade — doesn't re-run it, so this only bites first
-            # installs; it went unnoticed until then.)
+            {{- if ne .db.sqlapiPassword.mode "unmanaged" }}
+            # sqlapi_user (01_sqlapi/user.sql) is created WITH this password on a
+            # fresh DB, and has it re-applied on an existing one — the read-only
+            # role behind `lunar sql connection-string`. Omitting it doesn't yield
+            # an empty password, it yields a role with a NULL verifier that can't
+            # authenticate at all, which is why the chart now always supplies one.
+            # mode=unmanaged is the deliberate exception: the operator pre-created
+            # the role, so rendering ALTER ROLE ... PASSWORD here would both touch
+            # a credential the Hub doesn't own and fail for want of CREATEROLE —
+            # aborting the upgrade, since this Job is a pre-upgrade hook.
+            - name: HUB_SQLAPI_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "lunar.sqlapiDBSecretName" $ }}
+                  key: {{ .db.sqlapiPassword.passwordKey }}
+            {{- end }}
+            # Same extraEnv as the hub Deployment, so operator-supplied variables
+            # reach the migrator too. HUB_SQLAPI_PASSWORD is no longer among them:
+            # the chart owns it (hub.db.sqlapiPassword) and rejects it in extraEnv.
             {{- with .extraEnv }}
               {{- toYaml . | nindent 12 }}
             {{- end }}

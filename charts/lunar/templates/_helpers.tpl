@@ -368,6 +368,16 @@ password secret, used by the lunar-dashboards provisioning tool's datasource.
 {{- end }}
 
 {{/*
+Resolved name for the sqlapi_user password secret — the read-only DB role behind
+`lunar sql connection-string`. Honors hub.db.sqlapiPassword.secretName (mode
+secret); otherwise derives the chart-managed name (mode generate). Unused in
+mode unmanaged, where no env var is rendered at all.
+*/}}
+{{- define "lunar.sqlapiDBSecretName" -}}
+{{- .Values.hub.db.sqlapiPassword.secretName | default (printf "%s-sqlapi-db" (include "lunar.fullname" .)) -}}
+{{- end }}
+
+{{/*
 lunar-dashboards provisioning image ref (repository:tag). The tag defaults to the
 hub image tag so dashboards match the running Hub's schema. Shared by the
 provisioning Job and the reconverge sidecar.
@@ -548,6 +558,34 @@ Validate the Grafana configuration:
   {{- if not .Values.grafana.auth.secretName -}}
     {{- fail "grafana.auth.secretName is required when grafana.mode is \"external\" — the chart can't generate credentials for a Grafana it doesn't own. Provide a secret with basic creds (auth.userKey + auth.passwordKey) or a service-account token (set auth.tokenKey to the token's key)." -}}
   {{- end -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Validate hub.db.sqlapiPassword, and reserve HUB_SQLAPI_PASSWORD in hub.extraEnv.
+
+extraEnv was the ONLY way to supply the SQL API credential before chart 3.19.0,
+so a values file still carrying it there is the old shape rather than a mistake —
+the message names its replacement instead of just rejecting it.
+
+Failing beats quietly preferring one source. Kubernetes permits a duplicate env
+name and the last one wins, and extraEnv renders last in both the Deployment and
+the migrate Job, so an unhandled collision would keep working by ordering alone —
+until someone reordered the template and rotated a live credential by accident.
+Same reasoning as the reserved-name check over grafana.volumes.
+*/}}
+{{- define "lunar.validateSQLAPIPassword" -}}
+{{- $mode := .Values.hub.db.sqlapiPassword.mode -}}
+{{- if not (has $mode (list "generate" "secret" "unmanaged")) -}}
+{{- fail (printf "hub.db.sqlapiPassword.mode must be one of generate | secret | unmanaged (got %q).\n  - generate   the chart creates and keeps a random password (default)\n  - secret     read it from a Secret you manage (secretName + passwordKey)\n  - unmanaged  set nothing; you pre-created sqlapi_user and own its credential" $mode) -}}
+{{- end -}}
+{{- if and (eq $mode "secret") (not .Values.hub.db.sqlapiPassword.secretName) -}}
+{{- fail "hub.db.sqlapiPassword.secretName is required when mode is \"secret\". Create a Kubernetes secret holding the sqlapi_user password, or use mode=generate to let the chart manage it." -}}
+{{- end -}}
+{{- range .Values.hub.extraEnv -}}
+{{- if eq .name "HUB_SQLAPI_PASSWORD" -}}
+{{- fail "HUB_SQLAPI_PASSWORD is set in hub.extraEnv, but the chart owns it as of 3.19.0. Move it to:\n\n  hub:\n    db:\n      sqlapiPassword:\n        mode: secret\n        secretName: <the secret you already reference>\n        passwordKey: <its key>\n\nPointing secretName at the SAME secret keeps the existing password, so nothing rotates and existing connection strings keep working. Use mode=unmanaged instead if you pre-created the sqlapi_user role and manage its credential outside Lunar." -}}
+{{- end -}}
 {{- end -}}
 {{- end }}
 

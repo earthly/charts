@@ -2,6 +2,7 @@
 {{- include "lunar.hubLicenceCheck" . }}
 {{- include "lunar.rejectLegacyIngressShape" . }}
 {{- include "lunar.validateGrafana" . }}
+{{- include "lunar.validateSQLAPIPassword" . }}
 {{- $webhookURL := include "lunar.webhookURL" . -}}
 {{- $grafanaURL := include "lunar.grafanaURL" . -}}
 apiVersion: apps/v1
@@ -82,6 +83,18 @@ spec:
             # hub's own options.
             - name: HUB_SQLAPI_CONNECTION_OPTIONS
               value: {{ include "lunar.urlQueryOptions" (.db.sqlapiConnectionOptions | default .db.connectionOptions) | quote }}
+            {{- if ne .db.sqlapiPassword.mode "unmanaged" }}
+            # Read-only sqlapi_user password: the Hub embeds it in the connection
+            # string GetSQLAPIConnectionString vends to `lunar sql`. Chart-generated
+            # (sqlapi-db secret) unless mode=secret names one you manage.
+            # mode=unmanaged omits it, and the vended string then carries an empty
+            # password by design — the Hub doesn't know a credential it doesn't own.
+            - name: HUB_SQLAPI_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "lunar.sqlapiDBSecretName" $ }}
+                  key: {{ .db.sqlapiPassword.passwordKey }}
+            {{- end }}
             - name: HUB_DB_MAX_OPEN_CONNS
               value: {{ .db.maxOpenConns | quote }}
             - name: HUB_DB_MAX_POOL_CONNS

@@ -9,6 +9,56 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [3.19.0] - 2026-08-27
+
+### Added
+
+- **`hub.db.sqlapiPassword`** — the chart now supplies the password for
+  `sqlapi_user`, the read-only Postgres role behind `lunar sql connection-string`.
+
+  There was no chart value for it before this release. The password came in
+  through `hub.extraEnv`, and an install that never set one did not get an empty
+  password: `01_sqlapi/user.sql` omits the `PASSWORD` clause entirely, so a fresh
+  database got a role with a NULL verifier that could not authenticate by any
+  means, while the Hub went on vending `postgres://sqlapi_user:@…`. Only
+  greenfield installs were affected — an already-migrated database keeps the
+  password it was first created with — which is why this went unnoticed.
+
+  | `mode` | Behavior |
+  |---|---|
+  | `generate` (default) | The chart creates a random 32-character password and keeps it across upgrades |
+  | `secret` | Read from a Secret you manage (`secretName` + `passwordKey`) |
+  | `unmanaged` | No environment variable at all — you pre-created the role and own its credential |
+
+  `unmanaged` is the shared-Postgres-cluster case, where the Hub's DB role has no
+  `CREATEROLE` and you created `sqlapi_user` yourself. The other two modes render
+  `ALTER ROLE … PASSWORD` during migration, which that role cannot execute, and
+  the migrate Job is a pre-upgrade hook — so the failure would abort the upgrade
+  rather than just skipping the statement.
+
+  The generated password is alphanumeric because the Hub builds the connection
+  string without percent-encoding; a symbol in it would produce a URL that
+  clients cannot parse.
+
+### Changed
+
+- **`HUB_SQLAPI_PASSWORD` set in `hub.extraEnv` now fails the render**, naming the
+  values to move it to. The chart owns the variable as of this release, and
+  Kubernetes would otherwise accept both copies and silently let the last one win.
+
+  Point `hub.db.sqlapiPassword.secretName` at the same secret you referenced
+  before and the password is unchanged, so connection strings already in use keep
+  working:
+
+  ```yaml
+  hub:
+    db:
+      sqlapiPassword:
+        mode: secret
+        secretName: lunar-sqlapi
+        passwordKey: password
+  ```
+
 ## [3.17.0] - 2026-08-25
 
 ### Added
