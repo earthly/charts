@@ -483,10 +483,11 @@ Notes:
   Hub reached through its API ingress. Only set `LUNAR_HUB_INSECURE=true` for a
   plaintext Hub — the chart sets it for the in-cluster Job, but it is wrong for an
   ingress.
-- **If the Hub isn't reachable** the tool says so and stops, rather than reporting a
-  missing variable. If you'd rather not depend on the Hub at all, supply
+- **If the run fails, check the Hub connection first** — an unreachable Hub, a
+  plaintext/TLS mismatch, or a bad token all stop the tool before it reaches
+  Grafana. To take the Hub out of the picture, supply the values yourself:
   `GRAFANA_URL`, the Grafana credentials (`GRAFANA_USER`+`GRAFANA_PASSWORD`, or
-  `GRAFANA_TOKEN`) and the `POSTGRES_*` connection explicitly — anything you set
+  `GRAFANA_TOKEN`) and the `POSTGRES_*` connection. Anything you set explicitly
   wins over what the Hub would vend. `LUNAR_HUB_HOST` is still required even then:
   it isn't only dialled, it's written into the Infinity datasource as the address
   **Grafana** uses to reach the Hub. `lunar sql connection-string --grafana` prints
