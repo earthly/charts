@@ -902,6 +902,11 @@ grafana:
     # all: an org-scoped service-account token cannot hold plugins:install, which
     # the tool otherwise fails fast on rather than pushing dashboards that would
     # not render.
+    #
+    # Under runner=out-of-band the chart runs nothing to set this on, so it can
+    # only affect the command NOTES.txt prints for you — which it does, adding
+    # -e SKIP_PLUGINS=true. If you don't use that command, pass the variable
+    # yourself; the value here reaches nothing on its own.
     skipPlugins: false
     image:
       repository: "ghcr.io/earthly/lunar-dashboards"

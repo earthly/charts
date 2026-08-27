@@ -104,6 +104,9 @@ come from the Hub over gRPC.
   docker run --rm \
     -e LUNAR_HUB_HOST={{ .Values.hub.ingress.api.host | default "<hub host reachable from here>" }} \
     -e LUNAR_HUB_TOKEN \
+{{- if .Values.grafana.provisioning.skipPlugins }}
+    -e SKIP_PLUGINS=true \
+{{- end }}
     {{ include "lunar.provisioningImage" . }}
 
 Re-run it after every Lunar upgrade: the dashboards are versioned against the

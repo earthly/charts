@@ -493,8 +493,11 @@ Notes:
   **Grafana** uses to reach the Hub. `lunar sql connection-string --grafana` prints
   the database half.
 - **Plugins are fetched by Grafana, not by this tool.** If your Grafana has no
-  `grafana.com` egress, pre-install the three panel plugins there and set
-  `grafana.provisioning.skipPlugins: true` (see the [Grafana values](#values-reference)).
+  `grafana.com` egress, pre-install the three panel plugins there and pass
+  **`-e SKIP_PLUGINS=true`** on the `docker run` above. Setting
+  `grafana.provisioning.skipPlugins: true` does not reach a run you launch
+  yourself — with no Job to set it on, all it does is add that flag to the
+  command `NOTES.txt` prints.
 
 ## Upgrading
 
@@ -873,7 +876,7 @@ Pre-built Grafana instance with dashboards for policy results, component health,
 | `grafana.replicaCount` | Number of Grafana replicas. Requires `grafana.db.host` (below) when > 1 — install fails fast otherwise, since the default per-pod SQLite backend can't be shared across replicas | `1` |
 | `grafana.db` | Grafana's own backend store (sessions, orgs, annotations — NOT the read-only dashboard datasource, see `grafana.provisioning.dbPassword`). Empty keeps the built-in SQLite (single-replica only); set `host`/`port`/`name`/`sslMode` plus `user`/`pass` secret refs (`{secretName, secretKey}` — see values.yaml for the full shape) to point it at Postgres and share state across replicas | `{}` |
 | `grafana.provisioning.runner` | Where the `lunar-dashboards` provisioning tool runs. `in-cluster` — the chart runs it as a post-install/post-upgrade Job, which dials Grafana's HTTP API from inside the cluster. `out-of-band` — the chart renders no Job and you run the same image yourself, from a workstation/bastion/CI job that can reach Grafana. For networks that don't allow the cluster to open a connection to Grafana. `external` mode only; see [Provisioning dashboards from outside the cluster](#provisioning-dashboards-from-outside-the-cluster) | `in-cluster` |
-| `grafana.provisioning.skipPlugins` | Skip the plugin-install step. Installing a plugin makes **Grafana** fetch it from `grafana.com`; a Grafana without that egress must pre-install the three panel plugins out of band (`GF_INSTALL_PLUGINS`, a vendored `.zip`, or an internal catalog mirror) and set this. Also the escape hatch when the credential can't install plugins at all — an org-scoped service-account token cannot hold `plugins:install`. Datasources and dashboards still deploy | `false` |
+| `grafana.provisioning.skipPlugins` | Skip the plugin-install step. Installing a plugin makes **Grafana** fetch it from `grafana.com`; a Grafana without that egress must pre-install the three panel plugins out of band (`GF_INSTALL_PLUGINS`, a vendored `.zip`, or an internal catalog mirror) and set this. Also the escape hatch when the credential can't install plugins at all — an org-scoped service-account token cannot hold `plugins:install`. Datasources and dashboards still deploy. Under `runner: out-of-band` the chart runs nothing to set it on, so it only adds `-e SKIP_PLUGINS=true` to the command `NOTES.txt` prints | `false` |
 | `grafana.provisioning.image.repository` / `.tag` | The provisioning tool image. Private — an out-of-band run needs `docker login ghcr.io`. Tag defaults to `hub.image.tag` so dashboards match the running Hub's schema | `ghcr.io/earthly/lunar-dashboards` / `""` (hub tag) |
 | `grafana.provisioning.dbPassword.secretName` / `.passwordKey` | Password for the read-only `grafana_user` DB role backing the dashboard datasource. Empty = chart-generated and persisted across upgrades; set it to bring your own (recommended for GitOps) | `""` / `password` |
 | `grafana.provisioning.resources` / `.securityContext` / `.podSecurityContext` | Sizing and security context for the provisioning workloads (the Job's containers and the reconverge sidecar) — separate from the `grafana.*` equivalents, which size the Grafana server | `{}` |
