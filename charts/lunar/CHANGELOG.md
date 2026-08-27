@@ -40,6 +40,15 @@ history see `git log -- charts/lunar/`.
   string without percent-encoding; a symbol in it would produce a URL that
   clients cannot parse.
 
+  **An install already broken by this repairs itself on upgrade.** A
+  `sqlapi_user` left with no password gets one as soon as the chart supplies it:
+  the SQL API code package is re-applied in full on every migrate run, so the
+  role's password is reset to the chart's value. There is no manual `ALTER ROLE`
+  to run and nothing to clean up. Verified against a real database by
+  `TestSQLAPIPasswordHealsAPasswordlessRole` in the Lunar repo, which also pins
+  the reverse: with `mode: unmanaged` a role you pre-created keeps the password
+  you gave it.
+
 ### Changed
 
 - **`HUB_SQLAPI_PASSWORD` set in `hub.extraEnv` now fails the render**, naming the
