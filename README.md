@@ -536,7 +536,7 @@ See also `grafana.url` (under [Grafana](#grafana)) for the Grafana-side equivale
 >       passwordKey: password
 > ```
 
-> **`unmanaged` is the shared-cluster case.** If the Hub's DB role has no `CREATEROLE` and you pre-created `sqlapi_user` yourself, set `mode: unmanaged`. The other two modes render `ALTER ROLE … PASSWORD` during migration, which that role cannot execute — and because the migrate Job is a pre-upgrade hook, that failure aborts the whole upgrade. In this mode the Hub does not know the credential, so the connection string it vends carries an empty password and you supply your own.
+> **`unmanaged` is the shared-cluster case.** If the Hub's DB role has no `CREATEROLE` and you [pre-created `sqlapi_user` yourself](https://docs-lunar.earthly.dev/install/hub/self-hosted/prerequisites#step-3-provision-postgresql), set `mode: unmanaged`. The other two modes render `ALTER ROLE … PASSWORD` during migration, which that role cannot execute — and because the migrate Job is a pre-upgrade hook, that failure aborts the whole upgrade. In this mode the Hub does not know the credential, so the connection string it vends carries an empty password and you supply your own.
 
 > **Override footgun:** setting `hub.db.connectionOptions` **replaces** the whole map — the default is not merged in, so an override that only means to add something quietly takes `sslmode` away with it:
 > ```yaml

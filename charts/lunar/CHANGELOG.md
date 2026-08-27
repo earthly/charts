@@ -55,8 +55,9 @@ history see `git log -- charts/lunar/`.
   upgrading.** This is a required action rather than a mode you might choose, and it
   is the one change here that fails *after* the upgrade has started.
 
-  `prerequisites.md` tells operators who cannot grant cluster-wide `CREATEROLE` to
-  pre-create `sqlapi_user` themselves and leave the password unset. Until now "unset"
+  The [self-hosted prerequisites](https://docs-lunar.earthly.dev/install/hub/self-hosted/prerequisites#step-3-provision-postgresql)
+  tell operators who cannot grant cluster-wide `CREATEROLE` to pre-create
+  `sqlapi_user` themselves and leave the password unset. Until now "unset"
   was simply what happened when you set nothing. It is now spelled `mode: unmanaged`,
   and the default is `generate` — which makes the migration issue
   `ALTER ROLE sqlapi_user PASSWORD …` against a role the Hub's DB role has no
