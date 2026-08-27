@@ -120,6 +120,31 @@ hub:
     #
     # Same map-or-string rule as connectionOptions.
     sqlapiConnectionOptions: {}
+    # The password for sqlapi_user — the read-only role behind the connection
+    # string `lunar sql connection-string` vends.
+    #
+    #   generate   the chart creates a random password and keeps it (default)
+    #   secret     read it from a Secret you manage (secretName + passwordKey)
+    #   unmanaged  set nothing at all; you own the role and its credential
+    #
+    # Use "unmanaged" on a shared Postgres cluster where the Hub's DB role has no
+    # CREATEROLE and you pre-created sqlapi_user yourself. The other two modes
+    # render ALTER ROLE ... PASSWORD during migration, which that role cannot
+    # execute — and the migrate Job is a pre-upgrade hook, so the whole upgrade
+    # aborts. In "unmanaged" the Hub does not know the credential, so the string
+    # it vends carries an empty password and you supply your own.
+    #
+    # Before chart 3.19.0 there was no default and this came in through
+    # hub.extraEnv. Setting HUB_SQLAPI_PASSWORD there now fails the render with
+    # the values to move it to; point secretName at the same secret to keep the
+    # existing password.
+    #
+    # GitOps: "generate" uses `lookup`, which returns empty under ArgoCD and
+    # `helm template`. Use "secret" there, same as hub.auth.secretName.
+    sqlapiPassword:
+      mode: generate
+      secretName: ""
+      passwordKey: "password"
     # Per-replica Postgres connection budget. Total connections to Postgres ≈
     # replicaCount × (maxOpenConns + maxPoolConns + operatorPoolSize).
     #

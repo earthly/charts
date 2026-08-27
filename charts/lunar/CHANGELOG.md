@@ -9,6 +9,122 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [3.19.0] - 2026-08-27
+
+### Added
+
+- **`hub.db.sqlapiPassword`** — the chart now supplies the password for
+  `sqlapi_user`, the read-only Postgres role behind `lunar sql connection-string`.
+
+  There was no chart value for it before this release. The password came in
+  through `hub.extraEnv`, and an install that never set one did not get an empty
+  password: `01_sqlapi/user.sql` omits the `PASSWORD` clause entirely, so a fresh
+  database got a role with a NULL verifier that could not authenticate by any
+  means, while the Hub went on vending `postgres://sqlapi_user:@…`. Only
+  greenfield installs were affected — an already-migrated database keeps the
+  password it was first created with — which is why this went unnoticed.
+
+  | `mode` | Behavior |
+  |---|---|
+  | `generate` (default) | The chart creates a random 32-character password and keeps it across upgrades |
+  | `secret` | Read from a Secret you manage (`secretName` + `passwordKey`) |
+  | `unmanaged` | No environment variable at all — you pre-created the role and own its credential |
+
+  `unmanaged` is the shared-Postgres-cluster case, where the Hub's DB role has no
+  `CREATEROLE` and you created `sqlapi_user` yourself. The other two modes render
+  `ALTER ROLE … PASSWORD` during migration, which that role cannot execute, and
+  the migrate Job is a pre-upgrade hook — so the failure would abort the upgrade
+  rather than just skipping the statement.
+
+  The generated password is alphanumeric because the Hub builds the connection
+  string without percent-encoding; a symbol in it would produce a URL that
+  clients cannot parse.
+
+  **An install already broken by this repairs itself on upgrade.** A
+  `sqlapi_user` left with no password gets one as soon as the chart supplies it:
+  the SQL API code package is re-applied in full on every migrate run, so the
+  role's password is reset to the chart's value. There is no manual `ALTER ROLE`
+  to run and nothing to clean up. Verified against a real database by
+  `TestSQLAPIPasswordHealsAPasswordlessRole` in the Lunar repo, which also pins
+  the reverse: with `mode: unmanaged` a role you pre-created keeps the password
+  you gave it.
+
+### Upgrading
+
+- **Shared-cluster installs must set `hub.db.sqlapiPassword.mode: unmanaged` before
+  upgrading.** This is a required action rather than a mode you might choose, and it
+  is the one change here that fails *after* the upgrade has started.
+
+  The [self-hosted prerequisites](https://docs-lunar.earthly.dev/install/hub/self-hosted/prerequisites#step-3-provision-postgresql)
+  tell operators who cannot grant cluster-wide `CREATEROLE` to pre-create
+  `sqlapi_user` themselves and leave the password unset. Until now "unset"
+  was simply what happened when you set nothing. It is now spelled `mode: unmanaged`,
+  and the default is `generate` — which makes the migration issue
+  `ALTER ROLE sqlapi_user PASSWORD …` against a role the Hub's DB role has no
+  authority over. Postgres refuses with `permission denied to alter role`, the code
+  package is applied in a single transaction, and the migrate Job is a `pre-upgrade`
+  hook, so the release aborts.
+
+  The chart cannot inspect the database role's privileges, so it cannot warn you.
+  If you pre-created `sqlapi_user`, add this before taking 3.19.0:
+
+  ```yaml
+  hub:
+    db:
+      sqlapiPassword:
+        mode: unmanaged
+  ```
+
+  That renders exactly what your install rendered before — no `HUB_SQLAPI_PASSWORD`
+  in either the Deployment or the migrate Job, and no `ALTER ROLE`. Nothing about
+  your install changes.
+
+  **If you also run Grafana, `unmanaged` alone is not enough.** `grafana_user` is
+  created by the same mechanism with the same unguarded `ALTER ROLE`, and its
+  password is chart-generated whenever `grafana.mode` is not `off`, with no
+  equivalent opt-out. A shared-cluster install with Grafana enabled cannot complete
+  a migration today, independently of this release; `grafana.mode: off` is the way
+  through until that is addressed separately.
+
+- **`HUB_SQLAPI_PASSWORD` set in `hub.extraEnv` now fails the render**, naming the
+  values to move it to. The chart owns the variable as of this release, and
+  Kubernetes would otherwise accept both copies and let the last one win — working
+  by template ordering rather than by intent. A GitOps install on server-side apply
+  would fare worse still and reject the object outright on the duplicate key, the
+  same way the 3.17.0 note on `HUB_RETENTION_*` describes.
+
+  This one fails safely: the render aborts before Helm touches the cluster, so
+  nothing is half-applied and there is nothing to roll back. Two ways forward, and
+  neither requires deleting anything first.
+
+  **Keep your existing password.** Point the new value at the same Secret your
+  `extraEnv` entry referenced. Nothing rotates, and connection strings already in
+  use keep working:
+
+  ```yaml
+  hub:
+    db:
+      sqlapiPassword:
+        mode: secret
+        secretName: lunar-sqlapi
+        passwordKey: password
+  ```
+
+  If you supplied the password inline as `value:` rather than through a
+  `secretKeyRef`, create a Secret holding it first — the chart takes credentials
+  only by reference, never as a literal value.
+
+  **Or hand the password to the chart.** Drop the `extraEnv` entry and let the
+  default apply. The chart generates its own Secret under a different name, so your
+  old one is simply left unreferenced and can be deleted afterwards as cleanup. The
+  password rotates, so re-fetch it with `lunar sql connection-string` and update any
+  client holding the old one.
+
+  **Do not delete the old Secret first.** The render fails while the `extraEnv` entry
+  is still present, so you never reach the cluster either way — but deleting the
+  Secret destroys the only copy of the password, and with it the option of keeping
+  it. Change the values first and clean up afterwards.
+
 ## [3.17.0] - 2026-08-25
 
 ### Added
