@@ -89,10 +89,10 @@ URLs wired by the chart:
 ACTION REQUIRED — this release installed no dashboards.
 
 grafana.provisioning.runner is "out-of-band", so the chart rendered no
-provisioning Job. Run the tool yourself from somewhere that can reach your
-Grafana ({{ .Values.grafana.url }}) and the Hub. Those are
-the only two it contacts: the Grafana credentials and the read-only database
-connection both come from the Hub over gRPC.
+provisioning Job. Run the tool yourself from somewhere that can reach the Hub
+and your Grafana ({{ .Values.grafana.url }}). Those two are all it
+contacts: the Grafana credentials and the read-only database connection both
+come from the Hub over gRPC.
 
   # ghcr.io/earthly/lunar-dashboards is private — authenticate first:
   #   docker login ghcr.io

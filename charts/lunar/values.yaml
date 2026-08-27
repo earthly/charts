@@ -858,13 +858,13 @@ grafana:
   # Hub over gRPC, so it needs no Grafana/DB args here.
   #
   # Runs on every Hub install/upgrade whenever grafana.mode != off and runner is
-  # in-cluster (below), targeting the
-  # chart's own Grafana pod (mode=chart: provisioned directly via the in-cluster
-  # Service, admin auth auto-wired from the grafana-admin secret; a reconverge
-  # sidecar on the pod also re-applies on every pod start, so a recreated pod
-  # self-heals without waiting for the next Hub upgrade) or an external Grafana
-  # (mode=external: endpoint resolved from the Hub). The read-only grafana_user DB
-  # password (dbPassword below) is chart-generated — no operator config needed.
+  # in-cluster (both below), targeting the chart's own Grafana pod (mode=chart:
+  # provisioned directly via the in-cluster Service, admin auth auto-wired from the
+  # grafana-admin secret; a reconverge sidecar on the pod also re-applies on every
+  # pod start, so a recreated pod self-heals without waiting for the next Hub
+  # upgrade) or an external Grafana (mode=external: endpoint resolved from the
+  # Hub). The read-only grafana_user DB password (dbPassword below) is
+  # chart-generated — no operator config needed.
   provisioning:
     # Where the provisioning tool runs. Orthogonal to grafana.mode: mode says who
     # operates Grafana, runner says who opens the connection to it.
