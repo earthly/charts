@@ -28,7 +28,8 @@ history see `git log -- charts/lunar/`.
   connection string with no `sslmode` gets) attempts TLS and **continues in
   cleartext** when verification fails, reporting nothing.
 
-  Requires Lunar Hub 3.20.0 or later; an older Hub ignores the variable. The Hub
+  Requires a Hub that reads `HUB_SQLAPI_SSL_ROOT_CERT_FILE`; an older Hub ignores
+  the variable, so setting this before that Hub ships is harmless. The Hub
   parses the bundle at startup and refuses to start if it holds no PEM
   certificates, or if `sqlapiConnectionOptions` does not name a verifying
   `sslmode` — handing clients a CA while telling them not to check it looks

@@ -139,7 +139,8 @@ hub:
     # connection-string` writes them out locally and appends sslrootcert=, so
     # the string it prints works as printed.
     #
-    # Requires Lunar Hub 3.20.0 or later; an older Hub ignores it.
+    # Requires a Hub that reads HUB_SQLAPI_SSL_ROOT_CERT_FILE. An older Hub
+    # ignores it, so setting this early is harmless but does nothing.
     #
     # Set this when clients cannot otherwise chain the server certificate to a
     # root they trust. On Amazon RDS that is the normal case, and the bundle is
