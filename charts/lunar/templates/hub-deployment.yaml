@@ -83,6 +83,14 @@ spec:
             # hub's own options.
             - name: HUB_SQLAPI_CONNECTION_OPTIONS
               value: {{ include "lunar.urlQueryOptions" (.db.sqlapiConnectionOptions | default .db.connectionOptions) | quote }}
+            {{- if .db.sqlapiSslRootCert }}
+            # An sslmode names a policy; only a CA the client can reach lets it
+            # act on that policy. The Hub reads this file at startup and vends
+            # its CONTENTS with the connection string, because the path that
+            # matters is the one on the client's machine, not this one.
+            - name: HUB_SQLAPI_SSL_ROOT_CERT_FILE
+              value: /etc/lunar/sqlapi-ca/ca-bundle.pem
+            {{- end }}
             {{- if ne .db.sqlapiPassword.mode "unmanaged" }}
             # Read-only sqlapi_user password: the Hub embeds it in the connection
             # string GetSQLAPIConnectionString vends to `lunar sql`. Chart-generated
@@ -368,6 +376,11 @@ spec:
               mountPath: /secrets/gitlab
               readOnly: true
             {{- end }}
+            {{- if .Values.hub.db.sqlapiSslRootCert }}
+            - name: sqlapi-ca
+              mountPath: /etc/lunar/sqlapi-ca
+              readOnly: true
+            {{- end }}
             {{- with .Values.hub.volumeMounts }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
@@ -395,6 +408,11 @@ spec:
         - name: gitlab-token
           secret:
             secretName: {{ .Values.hub.gitlab.tokensSecret.secretName }}
+        {{- end }}
+        {{- if .Values.hub.db.sqlapiSslRootCert }}
+        - name: sqlapi-ca
+          configMap:
+            name: {{ include "lunar.fullname" . }}-sqlapi-ca
         {{- end }}
         {{- with .Values.hub.volumes }}
         {{- toYaml . | nindent 8 }}
