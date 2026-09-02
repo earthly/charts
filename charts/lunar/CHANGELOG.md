@@ -9,6 +9,46 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [3.20.0] - 2026-09-01
+
+### Added
+
+- **`hub.db.sqlapiSslRootCert`** — the PEM bundle of the certificate authority
+  that signs the SQL API server certificate. The chart puts it in a ConfigMap
+  (public certificates, not a secret), mounts it into the Hub, and points
+  `HUB_SQLAPI_SSL_ROOT_CERT_FILE` at it. The Hub then vends the bundle's
+  *contents* alongside the connection string, and `lunar sql connection-string`
+  writes them out locally and appends `sslrootcert=` — so the string it prints
+  gives a verified TLS connection with no editing.
+
+  This closes a gap that had no chart-side answer before. `sslmode` names a
+  policy; only a CA the client can reach lets it act on that policy, and a
+  client that cannot act on it does not fail closed — `verify-*` errors out,
+  and every weaker mode quietly downgrades. Notably `prefer` (which is what a
+  connection string with no `sslmode` gets) attempts TLS and **continues in
+  cleartext** when verification fails, reporting nothing.
+
+  Requires a Hub that reads `HUB_SQLAPI_SSL_ROOT_CERT_FILE`; an older Hub ignores
+  the variable, so setting this before that Hub ships is harmless. The Hub
+  parses the bundle at startup and refuses to start if it holds no PEM
+  certificates, or if `sqlapiConnectionOptions` does not name a verifying
+  `sslmode` — handing clients a CA while telling them not to check it looks
+  handled and is not.
+
+### Fixed
+
+- **`sslrootcert: system` is no longer suggested for `sqlapiConnectionOptions`.**
+  Both `values.yaml` and the README recommended it for exactly the case it
+  cannot serve. It trusts the OS/public CA store, and Amazon RDS certificates
+  chain to per-region, self-signed `Amazon RDS <region> Root CA` certificates —
+  none of the 108 roots in Amazon's `global-bundle.pem` appears in a stock
+  `ca-certificates`, so `verify-full` + `sslrootcert=system` fails with
+  `certificate verify failed`. An install that followed the advice got a
+  connection string nobody could use. The guidance now points at
+  `sqlapiSslRootCert` above, and explains why `verify-full` beats `require`
+  (libpq silently promotes `require` to `verify-ca` whenever a root CA happens
+  to be reachable, so the same string behaves differently per machine).
+
 ## [3.19.0] - 2026-08-27
 
 ### Added

@@ -114,12 +114,51 @@ hub:
     # hostname of its own, which clients should verify:
     #   sqlapiConnectionOptions:
     #     sslmode: verify-full
-    #     sslrootcert: system
-    # (sslrootcert: system needs libpq >= 16; older clients need an explicit
-    # CA path instead.)
+    # and then sqlapiSslRootCert below, so clients are given the CA rather
+    # than left to find it.
+    #
+    # Prefer verify-full over require. libpq promotes require to verify-ca as
+    # soon as ANY root CA is reachable — including a ~/.postgresql/root.crt the
+    # user did not choose — so require means "encrypted" on one machine and
+    # "verified against the corporate CA, and failing" on the next.
+    #
+    # Do NOT reach for sslrootcert: system here. It trusts the OS/public CA
+    # store, and a managed database is generally not signed by a public web CA:
+    # Amazon RDS certificates chain to per-region, self-signed "Amazon RDS
+    # <region> Root CA" certificates, none of which ship in a stock
+    # ca-certificates, so verify-full + sslrootcert=system fails with
+    # "certificate verify failed" (ENG-1662).
     #
     # Same map-or-string rule as connectionOptions.
     sqlapiConnectionOptions: {}
+    # PEM bundle of the certificate authority that signs the SQL API server
+    # certificate. The chart puts it in a ConfigMap (these are public
+    # certificates, not a secret), mounts it into the Hub, and points
+    # HUB_SQLAPI_SSL_ROOT_CERT_FILE at it. The Hub then hands the CONTENTS to
+    # clients along with the connection string, and `lunar sql
+    # connection-string` writes them out locally and appends sslrootcert=, so
+    # the string it prints works as printed.
+    #
+    # Requires a Hub that reads HUB_SQLAPI_SSL_ROOT_CERT_FILE. An older Hub
+    # ignores it, so setting this early is harmless but does nothing.
+    #
+    # Set this when clients cannot otherwise chain the server certificate to a
+    # root they trust. On Amazon RDS that is the normal case, and the bundle is
+    #   https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem
+    #
+    # Leave empty when they can — a publicly trusted certificate in front of a
+    # pooler, or an internal CA already in the corporate trust store.
+    #
+    # The Hub parses this at startup and refuses to start if it holds no PEM
+    # certificates, or if sqlapiConnectionOptions does not name a verifying
+    # sslmode: handing clients a CA while telling them not to check it looks
+    # handled and is not.
+    #
+    #   sqlapiSslRootCert: |
+    #     -----BEGIN CERTIFICATE-----
+    #     ...
+    #     -----END CERTIFICATE-----
+    sqlapiSslRootCert: ""
     # The password for sqlapi_user — the read-only role behind the connection
     # string `lunar sql connection-string` vends.
     #

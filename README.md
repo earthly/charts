@@ -522,6 +522,7 @@ See also `grafana.url` (under [Grafana](#grafana)) for the Grafana-side equivale
 | `hub.db.pass.secretKey` | Key within the secret | `password` |
 | `hub.db.connectionOptions` | How Lunar itself reaches Postgres, as a map of connection parameters. Used by the Hub, the migrate Job and the operator, and inherited by the SQL API. Default works against managed Postgres with forced TLS (RDS, Aurora, Cloud SQL); use `sslmode: disable` for plain cluster-local Postgres. | `{sslmode: require}` |
 | `hub.db.sqlapiConnectionOptions` | What the Hub hands to SQL API clients (surfaced by `lunar sql`). Empty inherits `hub.db.connectionOptions`. | `{}` |
+| `hub.db.sqlapiSslRootCert` | PEM bundle of the CA that signs the SQL API server certificate. The chart puts it in a ConfigMap and the Hub vends its contents with the connection string, so `lunar sql connection-string` can fill in `sslrootcert=` itself. Requires a Hub that reads `HUB_SQLAPI_SSL_ROOT_CERT_FILE`; older Hubs ignore it. See the notes below. | `""` |
 | `hub.db.sqlapiPassword.mode` | How the `sqlapi_user` password is supplied — `generate` (the chart creates a random one and keeps it), `secret` (read from a Secret you manage), or `unmanaged` (set nothing; you pre-created the role and own its credential). See the notes below. | `generate` |
 | `hub.db.sqlapiPassword.secretName` | Secret holding the password. Required when `mode: secret` | `""` |
 | `hub.db.sqlapiPassword.passwordKey` | Key within that secret | `password` |
@@ -560,9 +561,18 @@ See also `grafana.url` (under [Grafana](#grafana)) for the Grafana-side equivale
 >   db:
 >     sqlapiConnectionOptions:
 >       sslmode: verify-full
->       sslrootcert: system
+>     sqlapiSslRootCert: |
+>       -----BEGIN CERTIFICATE-----
+>       ...
+>       -----END CERTIFICATE-----
 > ```
-> (`sslrootcert: system` needs libpq 16+; older clients need an explicit CA path.)
+> The two go together. `sslmode` names a policy, and only a CA the client can reach lets it act on that policy — so with `verify-full` alone, a client that has never heard of your CA cannot connect at all. `sqlapiSslRootCert` is what closes that: the Hub hands the bundle's contents to clients alongside the connection string, and `lunar sql connection-string` writes it out locally and appends `sslrootcert=` pointing at its own copy.
+>
+> **On Amazon RDS you need this**, and `sslrootcert: system` is not a substitute. RDS server certificates chain to per-region, self-signed `Amazon RDS <region> Root CA` certificates; none of the 108 roots in Amazon's [`global-bundle.pem`](https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem) ships in a stock `ca-certificates`, so `verify-full` + `sslrootcert=system` fails with `certificate verify failed`. Put that bundle in `sqlapiSslRootCert`.
+>
+> Leave `sqlapiSslRootCert` empty only when clients can already chain the server certificate to a root they trust — a publicly trusted certificate in front of the pooler, or an internal CA in the corporate trust store.
+>
+> Prefer `verify-full` over `require`. libpq promotes `require` to `verify-ca` as soon as *any* root CA is reachable, including a `~/.postgresql/root.crt` the user never chose — so `require` means "encrypted" on one machine and "verified against the corporate CA, and failing" on the next.
 
 > **Deprecated: the string form.** Either field also accepts a plain string, which reaches every consumer verbatim exactly as it did in chart 3.15.0 and earlier. Strings are removed in 4.0.0. They are worth migrating off because the consumers do not agree on a separator: the Hub, the migrate Job and the operator read libpq keyword/value pairs, space-separated, while the SQL API and the Grafana datasource receive a URL query, `&`-separated. One option is valid either way — which is why a single shared `sslmode=require` never caused trouble — and a second option is valid in exactly one, leaving the others with a value they cannot parse. The install notes flag it if yours has more than one. Written as a map, each consumer gets its own syntax.
 
