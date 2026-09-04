@@ -11,7 +11,7 @@ User-managed (you must create these before pods start):
   {{ printf "%-40s" .Values.hub.github.app.privateKey.secretName }}  key: {{ .Values.hub.github.app.privateKey.secretKey }}
 {{- end }}
 {{- if gt (len .Values.hub.gitlab.tokens) 0 }}
-  {{ printf "%-40s" .Values.hub.gitlab.tokensSecret.secretName }}  keys: <group>.token per entry
+  {{ printf "%-40s" .Values.hub.gitlab.tokensSecret.secretName }}  keys: one per entry (<group>.token, <host>.token, or tokenFile)
 {{- end }}
   {{ printf "%-40s" .Values.hub.licence.secretName }}  key: {{ .Values.hub.licence.secretKey }}
 {{- if .Values.hub.auth.secretName }}

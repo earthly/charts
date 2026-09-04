@@ -9,6 +9,50 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [3.21.0] - 2026-09-04
+
+### Added
+
+- **Host-wide GitLab token entries.** `hub.gitlab.tokens[*].group` is now
+  optional. An entry without it is host-wide: the token serves every group on
+  `host` that no `group` entry claims, which is how an **instance service
+  account** on a self-managed or GitLab Dedicated instance is meant to be used
+  — one account, made a Maintainer of every group Lunar serves, one token,
+  and inviting the account to a new group onboards it with no chart change.
+  `group` entries always take precedence over the host-wide one. Its token is
+  looked up at `<host>.token` inside `hub.gitlab.tokensSecret` (`host`
+  defaulting to `gitlab.com`).
+
+- **`hub.gitlab.tokens[*].tokenFile`** — the data key inside
+  `hub.gitlab.tokensSecret` holding this entry's token, overriding the derived
+  `<group>.token` / `<host>.token`. The GitLab counterpart of
+  `hub.github.apps[*].privateKeyFile`, and needed for the same reason: two
+  entries on one scope (a **pool** the Hub spreads reads across) would
+  otherwise derive the same filename. It also lets one token back several
+  scopes — a host-wide entry and a `group` entry can name the same file —
+  and, because the data key no longer derives from the group, an entry with
+  `tokenFile` may bind a token to a **subgroup** path (`platform/checkout`),
+  which the Hub has matched by longest prefix all along but the chart could not
+  express.
+
+### Changed
+
+- **GitLab validation no longer rejects a repeated group.** It rejected any two
+  entries naming the same group; a pool is exactly that, so the check now fails
+  only on an entry that repeats an earlier one exactly (same `host`, same
+  `group` or both host-wide, same token file). A repeated group with distinct
+  `tokenFile`s is a pool and renders. The token file is also validated as a
+  Secret data key. Values with `group` on every entry and no `tokenFile` render
+  byte-for-byte as before.
+
+### Upgrading
+
+- **A host-wide entry needs a Hub image that understands it.** Support landed in
+  earthly/lunar#2848, after the `3.20.0` images. On an older Hub a group-less
+  entry fails configuration validation and the Hub refuses to start, so the
+  mismatch is loud rather than silent — but it is still a failed rollout. Keep
+  `group` on every entry until the Hub image is at a version that includes it.
+
 ## [3.19.0] - 2026-08-27
 
 ### Added

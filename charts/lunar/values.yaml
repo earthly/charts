@@ -274,25 +274,37 @@ hub:
   # GitLab authentication. May be combined with hub.github (mixed-forge) or
   # used alone — at least one forge must be configured.
   gitlab:
-    # One entry per top-level group the Hub should serve. Identity only —
-    # the tokens themselves live in tokensSecret below.
-    #   group:   the top-level group PATH (URL segment, not display name);
-    #            lowercased. Also serves subgroups by longest-prefix match.
+    # One entry per token the Hub should use. Identity only — the tokens
+    # themselves live in tokensSecret below.
+    #   group:   optional; the top-level group PATH (URL segment, not display
+    #            name) this token serves, lowercased, subgroups included by
+    #            longest-prefix match. OMIT it for an instance service
+    #            account: the entry is then host-wide and serves every group
+    #            on host that no group entry claims. Group entries win over
+    #            the host-wide one. (Needs a Hub that understands host-wide
+    #            entries — see CHANGELOG 3.21.0.)
     #   host:    optional; instance hostname for self-managed / GitLab
     #            Dedicated (defaults to gitlab.com). Self-managed hosts MUST
     #            be declared or the Hub treats them as GitHub.
+    #   tokenFile: optional; the data key in tokensSecret holding this
+    #            entry's token. Defaults to "<group>.token" for a group
+    #            entry and "<host>.token" for a host-wide one. Set it to pool
+    #            several tokens on one scope (each needs its own file) or to
+    #            point two scopes at one token.
     #   baseUrl: optional; API endpoint override (advanced).
     #   webhookSecret: optional per-entry signing-secret override (advanced;
     #            multi-instance isolation). NOTE: this rides inline in
     #            rendered values — most installs should leave it unset and
     #            use hub.gitlab.webhookSecret below instead.
     tokens: []
-    # Operator-created Secret holding one group access token per entry
-    # above, under a data key named "<lowercase group>.token". The chart
-    # does not generate this Secret — create it with kubectl, e.g.:
+    # Operator-created Secret holding one token per entry above, under the
+    # data key each entry resolves to ("<lowercase group>.token",
+    # "<host>.token", or its tokenFile). The chart does not generate this
+    # Secret — create it with kubectl, e.g.:
     #
     #   kubectl create secret generic lunar-gitlab-token \
-    #     --from-file=acme.token=./acme.token
+    #     --from-file=acme.token=./acme.token \
+    #     --from-file=gitlab.example.com.token=./service-account.token
     tokensSecret:
       secretName: "lunar-gitlab-token"
     # Webhook signing secret (HUB_GITLAB_WEBHOOK_SECRET). Leave secretName

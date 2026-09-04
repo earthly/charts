@@ -153,9 +153,9 @@ The chart validates the chosen mode at install time with `helm.sh/fail` (mutex, 
 
 ### GitLab authentication
 
-Hub authenticates to GitLab with **group access tokens** — one per top-level group it should serve (a top-level token also covers that group's subgroups). GitLab may be configured alongside GitHub (mixed-forge) or alone; **at least one forge is required** — a GitLab-only install renders with no `hub.github` block at all.
+Hub authenticates to GitLab as a service account. On a self-managed or GitLab Dedicated instance that is one **instance service account** with a single token, made a Maintainer of every top-level group Lunar should serve; on gitlab.com, which has no instance accounts, it is one **group service account** token per top-level group (a top-level token also covers that group's subgroups). GitLab may be configured alongside GitHub (mixed-forge) or alone; **at least one forge is required** — a GitLab-only install renders with no `hub.github` block at all.
 
-List one entry per group under `hub.gitlab.tokens`, and put all the tokens in a single Kubernetes Secret named via `hub.gitlab.tokensSecret.secretName`. The chart looks up each entry's token at `<lowercase-group>.token` inside that Secret:
+List one entry per token under `hub.gitlab.tokens`, and put all the tokens in a single Kubernetes Secret named via `hub.gitlab.tokensSecret.secretName`. An entry **with** `group` serves that group; an entry **without** `group` is host-wide and serves every group on `host` that no group entry claims (group entries always win). The chart looks up each entry's token inside that Secret at `<lowercase-group>.token` for a group entry, `<host>.token` for a host-wide one, or the entry's `tokenFile` when set:
 
 ```yaml
 hub:
@@ -163,9 +163,13 @@ hub:
     tokens:
       - group: acme            # gitlab.com group
       # A self-managed or GitLab Dedicated instance — host is REQUIRED for
-      # non-gitlab.com hosts, or the Hub treats them as GitHub.
-      - group: platform
+      # non-gitlab.com hosts, or the Hub treats them as GitHub. No group:
+      # one instance service account token for the whole host.
+      - host: gitlab.example.com
+      # A group on that host that should use its own token anyway.
+      - group: finance
         host: gitlab.example.com
+        tokenFile: finance-bot.token
     tokensSecret:
       secretName: lunar-gitlab-token
 ```
@@ -175,12 +179,15 @@ Create the Secret out of band (`group` is the URL path segment, not the display 
 ```bash
 kubectl create secret generic lunar-gitlab-token \
   --from-file=acme.token=./acme.token \
-  --from-file=platform.token=./platform.token
+  --from-file=gitlab.example.com.token=./service-account.token \
+  --from-file=finance-bot.token=./finance-bot.token
 ```
+
+Repeating a scope (same `group`, or the same `host` with no `group`) with a different `tokenFile` pools the tokens: the Hub spreads reads across them and writes with the first listed. Host-wide entries need a Hub image that understands them (see the 3.21.0 changelog).
 
 **Webhooks need no manual step.** The Hub registers project hooks itself and signs them with the secret behind `hub.gitlab.webhookSecret` (chart-generated as `<release>-gitlab-webhook` when `secretName` is empty; BYO for GitOps — same pattern and caveats as `hub.github.webhookSecret`, minus the paste-back: there is nothing to configure on the GitLab side). Requires a hub image with `HUB_GITLAB_WEBHOOK_SECRET` support.
 
-The chart validates GitLab config at install time (required group, valid top-level path, duplicate groups, tokens Secret name).
+The chart validates GitLab config at install time (valid top-level group path when set, valid token data key, exact duplicate entries, tokens Secret name).
 
 ### Object storage & AWS credentials
 
