@@ -42,9 +42,11 @@ hub:
   # Number of hub replicas. The hub is stateless (state lives in Postgres and
   # S3), so HA (multi-replica) is the recommended default. N=2 tolerates losing
   # one pod; scale to 3 for more headroom. Set 1 for a minimal single-instance
-  # install (a config-only fallback — no schema/state change either way). NOTE:
-  # total Postgres connections scale with replicaCount — see db.maxPoolConns
-  # below and size max_connections accordingly. See the HA operations runbook.
+  # install, or 0 to suspend the Hub during maintenance. The pre-install /
+  # pre-upgrade migration Job still runs at 0; only the serving Deployment is
+  # suspended. NOTE: total Postgres connections scale with replicaCount — see
+  # db.maxPoolConns below and size max_connections accordingly. See the HA
+  # operations runbook.
   replicaCount: 2
   # Grace period for the hub to drain on SIGTERM; must be >= preStopSleepSeconds
   # plus the hub's shutdown budget (HUB_SHUTDOWN_TIMEOUT, default 45s).

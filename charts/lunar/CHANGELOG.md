@@ -9,6 +9,16 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [3.21.1] - 2026-09-08
+
+### Fixed
+
+- Setting `hub.replicaCount: 0` now renders the Hub Deployment with zero
+  replicas instead of silently falling back to one. This supports
+  GitOps-managed maintenance windows where the serving Hub must remain stopped.
+  The `lunar-hub-migrate` pre-install/pre-upgrade Job is independent and still
+  runs while the Deployment is suspended.
+
 ## [3.19.0] - 2026-08-27
 
 ### Added
