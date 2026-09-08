@@ -16,7 +16,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
-  replicas: {{ .Values.hub.replicaCount | default 1 }}
+  replicas: {{ .Values.hub.replicaCount }}
   selector:
     matchLabels:
       {{- include "lunar.selectorLabels" . | nindent 6 }}
