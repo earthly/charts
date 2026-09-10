@@ -42,9 +42,11 @@ hub:
   # Number of hub replicas. The hub is stateless (state lives in Postgres and
   # S3), so HA (multi-replica) is the recommended default. N=2 tolerates losing
   # one pod; scale to 3 for more headroom. Set 1 for a minimal single-instance
-  # install (a config-only fallback — no schema/state change either way). NOTE:
-  # total Postgres connections scale with replicaCount — see db.maxPoolConns
-  # below and size max_connections accordingly. See the HA operations runbook.
+  # install, or 0 to suspend the Hub during maintenance. The pre-install /
+  # pre-upgrade migration Job still runs at 0; only the serving Deployment is
+  # suspended. NOTE: total Postgres connections scale with replicaCount — see
+  # db.maxPoolConns below and size max_connections accordingly. See the HA
+  # operations runbook.
   replicaCount: 2
   # Grace period for the hub to drain on SIGTERM; must be >= preStopSleepSeconds
   # plus the hub's shutdown budget (HUB_SHUTDOWN_TIMEOUT, default 45s).
@@ -120,6 +122,31 @@ hub:
     #
     # Same map-or-string rule as connectionOptions.
     sqlapiConnectionOptions: {}
+    # The password for sqlapi_user — the read-only role behind the connection
+    # string `lunar sql connection-string` vends.
+    #
+    #   generate   the chart creates a random password and keeps it (default)
+    #   secret     read it from a Secret you manage (secretName + passwordKey)
+    #   unmanaged  set nothing at all; you own the role and its credential
+    #
+    # Use "unmanaged" on a shared Postgres cluster where the Hub's DB role has no
+    # CREATEROLE and you pre-created sqlapi_user yourself. The other two modes
+    # render ALTER ROLE ... PASSWORD during migration, which that role cannot
+    # execute — and the migrate Job is a pre-upgrade hook, so the whole upgrade
+    # aborts. In "unmanaged" the Hub does not know the credential, so the string
+    # it vends carries an empty password and you supply your own.
+    #
+    # Before chart 3.19.0 there was no default and this came in through
+    # hub.extraEnv. Setting HUB_SQLAPI_PASSWORD there now fails the render with
+    # the values to move it to; point secretName at the same secret to keep the
+    # existing password.
+    #
+    # GitOps: "generate" uses `lookup`, which returns empty under ArgoCD and
+    # `helm template`. Use "secret" there, same as hub.auth.secretName.
+    sqlapiPassword:
+      mode: generate
+      secretName: ""
+      passwordKey: "password"
     # Per-replica Postgres connection budget. Total connections to Postgres ≈
     # replicaCount × (maxOpenConns + maxPoolConns + operatorPoolSize).
     #
@@ -477,7 +504,7 @@ hub:
   image:
     repository: "ghcr.io/earthly/lunar-hub"
     pullPolicy: IfNotPresent
-    tag: "3.18.0"
+    tag: "3.21.2"
   service:
     type: ClusterIP
     ports:
@@ -633,15 +660,15 @@ operator:
   image:
     repository: "ghcr.io/earthly/lunar-snippet-operator"
     pullPolicy: IfNotPresent
-    tag: "3.18.0"
+    tag: "3.21.2"
   initImage:
     repository: "ghcr.io/earthly/lunar-snippet-init"
     pullPolicy: IfNotPresent
-    tag: "3.18.0"
+    tag: "3.21.2"
   sidecarImage:
     repository: "ghcr.io/earthly/lunar-snippet-sidecar"
     pullPolicy: IfNotPresent
-    tag: "3.18.0"
+    tag: "3.21.2"
   # Namespace where script pods are created. Defaults to the release namespace.
   # If set, the namespace must already exist — the chart will not create it.
   scriptNamespace: ""

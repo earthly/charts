@@ -556,6 +556,7 @@ The central gRPC/HTTP server. Stores metadata, evaluates policies, and serves th
 | `hub.image.repository` | Hub container image | `ghcr.io/earthly/lunar-hub` |
 | `hub.image.tag` | Image tag | `2.1.1` |
 | `hub.image.pullPolicy` | Pull policy | `IfNotPresent` |
+| `hub.replicaCount` | Number of Hub replicas. Set `0` to suspend the serving Deployment during maintenance; the migration Job still runs on install/upgrade | `2` |
 | `hub.maxWorkers.collect` | Max Hub workers for collector queue jobs; `0` means unlimited | `10` |
 | `hub.maxWorkers.policy` | Max Hub workers for policy queue jobs; `0` means unlimited | `20` |
 | `hub.maxWorkers.cronCollect` | Max Hub workers for cron collector queue jobs; `0` means unlimited | `5` |
@@ -592,6 +593,21 @@ See also `grafana.url` (under [Grafana](#grafana)) for the Grafana-side equivale
 | `hub.db.pass.secretKey` | Key within the secret | `password` |
 | `hub.db.connectionOptions` | How Lunar itself reaches Postgres, as a map of connection parameters. Used by the Hub, the migrate Job and the operator, and inherited by the SQL API. Default works against managed Postgres with forced TLS (RDS, Aurora, Cloud SQL); use `sslmode: disable` for plain cluster-local Postgres. | `{sslmode: require}` |
 | `hub.db.sqlapiConnectionOptions` | What the Hub hands to SQL API clients (surfaced by `lunar sql`). Empty inherits `hub.db.connectionOptions`. | `{}` |
+| `hub.db.sqlapiPassword.mode` | How the `sqlapi_user` password is supplied — `generate` (the chart creates a random one and keeps it), `secret` (read from a Secret you manage), or `unmanaged` (set nothing; you pre-created the role and own its credential). See the notes below. | `generate` |
+| `hub.db.sqlapiPassword.secretName` | Secret holding the password. Required when `mode: secret` | `""` |
+| `hub.db.sqlapiPassword.passwordKey` | Key within that secret | `password` |
+
+> **Moving off `hub.extraEnv`:** before chart 3.19.0 the SQL API password had no chart value and arrived as `HUB_SQLAPI_PASSWORD` through `hub.extraEnv`. Setting it there now fails the render. Point the new value at the same secret and the password is unchanged, so connection strings already in use keep working:
+> ```yaml
+> hub:
+>   db:
+>     sqlapiPassword:
+>       mode: secret
+>       secretName: lunar-sqlapi
+>       passwordKey: password
+> ```
+
+> **`unmanaged` is the shared-cluster case.** If the Hub's DB role has no `CREATEROLE` and you [pre-created `sqlapi_user` yourself](https://docs-lunar.earthly.dev/install/hub/self-hosted/prerequisites#step-3-provision-postgresql), set `mode: unmanaged`. The other two modes render `ALTER ROLE … PASSWORD` during migration, which that role cannot execute — and because the migrate Job is a pre-upgrade hook, that failure aborts the whole upgrade. In this mode the Hub does not know the credential, so the connection string it vends carries an empty password and you supply your own.
 
 > **Override footgun:** setting `hub.db.connectionOptions` **replaces** the whole map — the default is not merged in, so an override that only means to add something quietly takes `sslmode` away with it:
 > ```yaml
