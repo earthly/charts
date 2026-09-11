@@ -82,13 +82,13 @@ URLs wired by the chart:
 {{- end }}
 {{- end }}
 
-{{- if eq .Values.grafana.provisioning.runner "out-of-band" }}
+{{- if eq .Values.grafana.mode "external-manual" }}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ACTION REQUIRED — this release installed no dashboards.
 
-grafana.provisioning.runner is "out-of-band", so the chart rendered no
+grafana.mode is "external-manual", so the chart rendered no
 provisioning Job. Run the tool yourself from somewhere that can reach the Hub
 and your Grafana ({{ .Values.grafana.url }}). Those two are all it
 contacts: the Grafana credentials and the read-only database connection both

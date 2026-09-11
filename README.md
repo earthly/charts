@@ -436,23 +436,21 @@ Job runs the `lunar-dashboards` tool, which calls your Grafana's HTTP API from
 inside the cluster.
 
 Some networks don't permit that direction — the cluster can't open a connection to
-Grafana, even though an operator can. Set `grafana.provisioning.runner: out-of-band`
-and the chart renders no Job; you run the same tool yourself, from anywhere that
-can reach Grafana. Everything else is wired exactly as before — the read-only
+Grafana, even though an operator can. Set `grafana.mode: external-manual` and the
+chart renders no Job; you run the same tool yourself, from anywhere that can reach
+Grafana. Everything else is wired exactly as before — the read-only
 `grafana_user` role and its password, and the Hub RPCs that vend the Grafana
 endpoint and the database connection — so the only thing that moves is who makes
-the call. (This is why it isn't `grafana.mode: off`: that turns off the wiring too,
-leaving nothing for an out-of-band run to use.)
+the call. (This is why it isn't `grafana.mode: "off"`: that turns off the wiring too,
+leaving nothing for a manual run to use.)
 
 ```yaml
 grafana:
-  mode: external
+  mode: external-manual
   url: "https://grafana.example.com"
   auth:
     secretName: "my-grafana-creds"
     tokenKey: "token"
-  provisioning:
-    runner: out-of-band
 ```
 
 After `helm install` / `helm upgrade`, run the tool. It contacts exactly two
@@ -878,7 +876,7 @@ Pre-built Grafana instance with dashboards for policy results, component health,
 
 | Key | Description | Default |
 |-----|-------------|---------|
-| `grafana.mode` | How Grafana is provided: `chart` (bundled pod + dashboards), `external` (bring-your-own Grafana + dashboards), or `"off"` (neither — quote it, a bare `off` is a YAML boolean) | `chart` |
+| `grafana.mode` | How Grafana is provided: `chart` (bundled pod + dashboards), `external` (bring-your-own Grafana + dashboards), `external-manual` (same as `external`, but the chart renders no provisioning Job — you run the tool yourself; see [Provisioning dashboards from outside the cluster](#provisioning-dashboards-from-outside-the-cluster)), or `"off"` (neither — quote it, a bare `off` is a YAML boolean) | `chart` |
 | `grafana.url` | URL where Grafana is reachable (was `grafana.externalURL`). Drives `GF_SERVER_ROOT_URL` (Grafana's self-knowledge — used for OIDC `redirect_uri`, absolute link rendering, etc) and `HUB_GRAFANA_URL_BASE` (`[More Details]` links in PR comments). In `chart` mode defaults to `https://<grafana.ingress.hosts[0].host>` when chart-managed Grafana ingress is enabled (else required); in `external` mode it's required (the external target). Install fails fast if unset when required. | `""` (derived) |
 | `grafana.image.repository` | Grafana server image. Stock upstream Grafana — Lunar's plugins, datasources and dashboards are installed into it over the API by the provisioning tool below, not baked into a custom server image | `grafana/grafana` |
 | `grafana.image.tag` | Image tag | `13.1.0` |
@@ -893,9 +891,8 @@ Pre-built Grafana instance with dashboards for policy results, component health,
 | `grafana.extraEnv` | Additional environment variables | `[]` |
 | `grafana.replicaCount` | Number of Grafana replicas. Requires `grafana.db.host` (below) when > 1 — install fails fast otherwise, since the default per-pod SQLite backend can't be shared across replicas | `1` |
 | `grafana.db` | Grafana's own backend store (sessions, orgs, annotations — NOT the read-only dashboard datasource, see `grafana.provisioning.dbPassword`). Empty keeps the built-in SQLite (single-replica only); set `host`/`port`/`name`/`sslMode` plus `user`/`pass` secret refs (`{secretName, secretKey}` — see values.yaml for the full shape) to point it at Postgres and share state across replicas | `{}` |
-| `grafana.provisioning.runner` | Where the `lunar-dashboards` provisioning tool runs. `in-cluster` — the chart runs it as a post-install/post-upgrade Job, which dials Grafana's HTTP API from inside the cluster. `out-of-band` — the chart renders no Job and you run the same image yourself, from a workstation/bastion/CI job that can reach Grafana. For networks that don't allow the cluster to open a connection to Grafana. `external` mode only; see [Provisioning dashboards from outside the cluster](#provisioning-dashboards-from-outside-the-cluster) | `in-cluster` |
-| `grafana.provisioning.skipPlugins` | Skip the plugin-install step. Installing a plugin makes **Grafana** fetch it from `grafana.com`; a Grafana without that egress must pre-install the three panel plugins out of band (`GF_INSTALL_PLUGINS`, a vendored `.zip`, or an internal catalog mirror) and set this. Also the escape hatch when the credential can't install plugins at all — an org-scoped service-account token cannot hold `plugins:install`. Datasources and dashboards still deploy. Under `runner: out-of-band` the chart runs nothing to set it on, so it only adds `-e SKIP_PLUGINS=true` to the command `NOTES.txt` prints | `false` |
-| `grafana.provisioning.image.repository` / `.tag` | The provisioning tool image. Private — an out-of-band run authenticates with `lunar licence registry-token ... | docker login ghcr.io -u earthly-bot --password-stdin`. Tag defaults to `hub.image.tag` so dashboards match the running Hub's schema | `ghcr.io/earthly/lunar-dashboards` / `""` (hub tag) |
+| `grafana.provisioning.skipPlugins` | Skip the plugin-install step. Installing a plugin makes **Grafana** fetch it from `grafana.com`; a Grafana without that egress must pre-install the three panel plugins out of band (`GF_INSTALL_PLUGINS`, a vendored `.zip`, or an internal catalog mirror) and set this. Also the escape hatch when the credential can't install plugins at all — an org-scoped service-account token cannot hold `plugins:install`. Datasources and dashboards still deploy. In `external-manual` mode the chart runs nothing to set it on, so it only adds `-e SKIP_PLUGINS=true` to the command `NOTES.txt` prints | `false` |
+| `grafana.provisioning.image.repository` / `.tag` | The provisioning tool image. Private — a manual run authenticates with `lunar licence registry-token ... | docker login ghcr.io -u earthly-bot --password-stdin`. Tag defaults to `hub.image.tag` so dashboards match the running Hub's schema | `ghcr.io/earthly/lunar-dashboards` / `""` (hub tag) |
 | `grafana.provisioning.dbPassword.secretName` / `.passwordKey` | Password for the read-only `grafana_user` DB role backing the dashboard datasource. Empty = chart-generated and persisted across upgrades; set it to bring your own (recommended for GitOps) | `""` / `password` |
 | `grafana.provisioning.resources` / `.securityContext` / `.podSecurityContext` | Sizing and security context for the provisioning workloads (the Job's containers and the reconverge sidecar) — separate from the `grafana.*` equivalents, which size the Grafana server | `{}` |
 | `grafana.resources` | CPU/memory requests and limits for the Grafana server container | `{}` |

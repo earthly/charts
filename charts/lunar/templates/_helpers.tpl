@@ -524,12 +524,23 @@ grafana-deployment.yaml as GF_SERVER_ROOT_URL.
 {{- end }}
 
 {{/*
+"true" when Grafana is operated outside the chart, for either external mode.
+The two differ only in who provisions the dashboards, so every check about the
+Grafana itself — its URL, its credentials, how the Hub authenticates to it —
+must accept both, and goes through here so external-manual can't drift from
+external.
+*/}}
+{{- define "lunar.grafanaIsExternal" -}}
+{{- if has .Values.grafana.mode (list "external" "external-manual") -}}true{{- end -}}
+{{- end }}
+
+{{/*
 Validate the Grafana configuration:
   - Reject the pre-3.0.0 keys replaced in the mode/url/auth rework
     (grafana.enabled, grafana.provisioning.enabled, grafana.externalURL,
     grafana.admin). A stale value would otherwise be silently ignored, so fail
     fast with migration guidance.
-  - grafana.mode must be one of chart | external | off.
+  - grafana.mode must be one of chart | external | external-manual | off.
   - chart mode needs a resolvable Grafana URL (grafana.url or chart-managed
     ingress) for GF_SERVER_ROOT_URL, and auth.tokenKey must be unset (the bundled
     pod uses basic admin auth).
@@ -537,9 +548,8 @@ Validate the Grafana configuration:
     generate credentials for a Grafana it doesn't own).
   - anonymousViewer is chart-mode only — it renders a server setting onto the
     bundled pod, so elsewhere it would be a silent no-op.
-  - provisioning.runner must be one of in-cluster | out-of-band, and out-of-band
-    is external-mode only: it exists to move the Grafana call out of the cluster,
-    and in chart mode the target is the pod the chart itself created.
+  - external-manual takes the same Grafana checks as external (via
+    lunar.grafanaIsExternal); it differs only in rendering no provisioning Job.
 */}}
 {{- define "lunar.validateGrafana" -}}
 {{- if hasKey .Values.grafana "enabled" -}}
@@ -555,18 +565,11 @@ Validate the Grafana configuration:
 {{- fail "grafana.admin was renamed to grafana.auth in chart 3.0.0 (same secretName/userKey/passwordKey, plus an optional tokenKey for external Grafana). Rename grafana.admin -> grafana.auth." -}}
 {{- end -}}
 {{- $mode := .Values.grafana.mode -}}
-{{- if not (has $mode (list "chart" "external" "off")) -}}
-{{- fail (printf "grafana.mode must be one of chart | external | off (got %q)." $mode) -}}
+{{- if not (has $mode (list "chart" "external" "external-manual" "off")) -}}
+{{- fail (printf "grafana.mode must be one of chart | external | external-manual | off (got %q). external-manual is external with the dashboard provisioning left to you — see the chart README." $mode) -}}
 {{- end -}}
 {{- if and .Values.grafana.anonymousViewer (ne $mode "chart") -}}
 {{- fail (printf "grafana.anonymousViewer is only valid in grafana.mode=chart (got %q) — it renders [auth.anonymous] onto the Grafana pod the chart owns, and a Grafana reads that setting at boot. Configure anonymous access on your own Grafana instead, or switch to grafana.mode=chart." $mode) -}}
-{{- end -}}
-{{- $runner := .Values.grafana.provisioning.runner -}}
-{{- if not (has $runner (list "in-cluster" "out-of-band")) -}}
-{{- fail (printf "grafana.provisioning.runner must be one of in-cluster | out-of-band (got %q)." $runner) -}}
-{{- end -}}
-{{- if and (eq $runner "out-of-band") (ne $mode "external") -}}
-{{- fail (printf "grafana.provisioning.runner=out-of-band is only valid with grafana.mode=external (got mode %q). It moves the connection to Grafana out of the cluster, which only means something for a Grafana the chart doesn't run: in chart mode the target is the pod this chart just created, and in off mode nothing is provisioned at all." $mode) -}}
 {{- end -}}
 {{- if eq $mode "chart" -}}
   {{- if .Values.grafana.auth.tokenKey -}}
@@ -579,12 +582,12 @@ Validate the Grafana configuration:
   {{- if and (gt (int .Values.grafana.replicaCount) 1) (not .Values.grafana.db.host) -}}
     {{- fail "grafana.db.host is required when grafana.replicaCount > 1 — Grafana's default per-pod SQLite backend can't be shared across replicas (sessions/orgs would silently split per-pod). Point grafana.db at a Postgres instance, or set grafana.replicaCount to 1." -}}
   {{- end -}}
-{{- else if eq $mode "external" -}}
+{{- else if include "lunar.grafanaIsExternal" . -}}
   {{- if not .Values.grafana.url -}}
-    {{- fail "grafana.url is required when grafana.mode is \"external\" — it's the base URL of your Grafana that the Hub vends to the provisioning tool (and uses for [More Details] links)." -}}
+    {{- fail (printf "grafana.url is required when grafana.mode is %q — it's the base URL of your Grafana that the Hub vends to the provisioning tool (and uses for [More Details] links)." $mode) -}}
   {{- end -}}
   {{- if not .Values.grafana.auth.secretName -}}
-    {{- fail "grafana.auth.secretName is required when grafana.mode is \"external\" — the chart can't generate credentials for a Grafana it doesn't own. Provide a secret with basic creds (auth.userKey + auth.passwordKey) or a service-account token (set auth.tokenKey to the token's key)." -}}
+    {{- fail (printf "grafana.auth.secretName is required when grafana.mode is %q — the chart can't generate credentials for a Grafana it doesn't own. Provide a secret with basic creds (auth.userKey + auth.passwordKey) or a service-account token (set auth.tokenKey to the token's key)." $mode) -}}
   {{- end -}}
 {{- end -}}
 {{- end }}

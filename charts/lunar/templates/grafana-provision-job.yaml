@@ -14,13 +14,13 @@ after the hub Deployment; an init container waits for the Hub's gRPC (and, for t
 chart pod, Grafana's API) before deploy.sh runs, so it doesn't race the hub becoming
 Ready on a fresh install.
 
-Skipped entirely under grafana.provisioning.runner=out-of-band, where the operator
-runs the same image themselves from outside the cluster. Only the Job goes away —
-the Hub-side wiring it would have consumed (GetGrafanaEndpoint,
-GetGrafanaConnectionString, the read-only grafana_user role) is keyed off
-grafana.mode and is untouched, which is what makes the out-of-cluster run work.
+Not rendered in external-manual mode, where the operator runs the same image
+themselves from outside the cluster. Only the Job goes away — the Hub-side wiring
+it would have consumed (GetGrafanaEndpoint, GetGrafanaConnectionString, the
+read-only grafana_user role) is keyed on `ne "off"` and is untouched, which is
+what makes the out-of-cluster run work.
 */}}
-{{- if and (ne .Values.grafana.mode "off") (eq .Values.grafana.provisioning.runner "in-cluster") -}}
+{{- if has .Values.grafana.mode (list "chart" "external") -}}
 {{- $img := include "lunar.provisioningImage" . -}}
 apiVersion: batch/v1
 kind: Job

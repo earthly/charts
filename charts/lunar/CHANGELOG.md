@@ -13,40 +13,27 @@ history see `git log -- charts/lunar/`.
 
 ### Added
 
-- **`grafana.provisioning.runner`** (`in-cluster` | `out-of-band`, default
-  `in-cluster`) — where the `lunar-dashboards` provisioning tool runs.
+- **`grafana.mode: external-manual`** — a new mode: same as `external`, but the
+  chart renders no dashboard-provisioning Job. You run the `lunar-dashboards`
+  tool yourself.
 
   Lunar's dashboards are installed by a tool that calls Grafana's HTTP API, and
-  until now the chart always ran it as a post-install/post-upgrade Job — so the
-  connection to Grafana was always opened *from inside the cluster*. Some
-  networks don't permit that direction, even though an operator elsewhere can
-  reach the same Grafana.
+  the chart has only ever run it in-cluster, so the connection to Grafana is
+  always opened from inside the cluster. Some networks don't permit that
+  direction even where an operator elsewhere can reach the same Grafana, and
+  neither existing mode covered it: `external` schedules exactly the call that
+  can't complete, and `"off"` drops the pieces a manual run needs — the
+  read-only `grafana_user` role and its password, the `grafana-db` secret, and
+  the Hub's `GetGrafanaEndpoint` / `GetGrafanaConnectionString`.
 
-  There was no configuration for it. `mode: external` wires everything correctly
-  and then schedules exactly the call that can't complete; the Job is gated on
-  `mode != off`, so it can't be opted out of. `mode: "off"` does skip the Job,
-  but it also drops `HUB_GRAFANA_DB_PASSWORD` from the migrate Job — which is
-  what creates the read-only `grafana_user` role on a fresh database — along
-  with the `grafana-db` secret and the Hub's `GetGrafanaEndpoint` /
-  `GetGrafanaConnectionString` inputs. So it left an operator hand-supplying a
-  Grafana URL, credentials and five `POSTGRES_*` values against a database role
-  that might not exist.
+  `external-manual` keeps all of that and omits only the Job. It takes the same
+  `grafana.url` and `grafana.auth` as `external`, and the Hub still vends the
+  Grafana endpoint and database connection, so the tool finds what it expects.
+  `NOTES.txt` prints the command to run, filled in for your release.
 
-  `runner: out-of-band` renders no Job and changes nothing else: the
-  `grafana_user` role and its password, the secret, and both Hub RPCs stay
-  exactly as they are under `in-cluster`. Only the caller moves. Run the same
-  image yourself from a workstation, bastion or CI job — it contacts your
-  Grafana and the Hub, and resolves the Grafana credentials and the read-only
-  database connection from the Hub over gRPC. `NOTES.txt` prints the command,
-  filled in for your release.
-
-  `external` mode only: in `chart` mode the target is the Grafana pod the chart
-  just created, so there is no connection to move out of the cluster. Install
-  fails fast rather than rendering a Grafana nothing ever provisions.
-
-  **Nothing re-applies on your behalf in this mode.** Dashboards are versioned
-  against the Hub image, so re-run the tool after every Lunar upgrade.
-  Re-running is the update mechanism — every step is idempotent.
+  **Nothing re-applies the dashboards in this mode.** They're versioned against
+  the Hub image, so re-run the tool after every Lunar upgrade. Re-running is the
+  update mechanism — every step is idempotent.
 
 - **`grafana.provisioning.skipPlugins`** (default `false`) — skip the
   plugin-install step.
@@ -63,16 +50,17 @@ history see `git log -- charts/lunar/`.
   The tool has honoured `SKIP_PLUGINS` all along; it just wasn't reachable from
   chart values.
 
-  Under `runner: out-of-band` there is no workload to set it on, so it adds
+  In `external-manual` mode there is no workload to set it on, so it adds
   `-e SKIP_PLUGINS=true` to the command `NOTES.txt` prints instead. Pass the
   variable yourself if you don't use that command.
 
 ### Upgrading
 
-Nothing changes for an existing install. Both new values default to today's
-behaviour, and `chart`, `external` and `"off"` each render byte-for-byte
-identically to 3.21.2 — verified by diffing the rendered output of all three
-against the previous chart with generated secrets pinned.
+Nothing changes for an existing install. `external-manual` is a new mode nobody
+is on yet, `skipPlugins` defaults to today's behaviour, and `chart`, `external`
+and `"off"` each render byte-for-byte identically to 3.21.2 — verified by
+diffing the rendered output of all three against the previous chart with
+generated secrets pinned.
 
 That is why `skipPlugins: false` renders no environment variable rather than an
 explicit `"false"`: adding one would change the Grafana pod template, and a
@@ -92,6 +80,7 @@ setting nobody chose. `deploy.sh` already defaults it to false.
 - The values table gained the `grafana.provisioning.*` rows, which it had been
   missing since the block was introduced in 3.0.0 — including
   `grafana.provisioning.dbPassword`, which another row already pointed at.
+
 ## [3.21.1] - 2026-09-08
 
 ### Fixed
