@@ -229,7 +229,7 @@ spec:
                 secretKeyRef:
                   name: {{ include "lunar.grafanaAuthSecretName" $ }}
                   key: {{ $.Values.grafana.auth.passwordKey }}
-            {{- else if eq $.Values.grafana.mode "external" }}
+            {{- else if include "lunar.grafanaIsExternal" $ }}
             # External Grafana: operator-supplied creds (grafana.auth.secretName) the
             # Hub authenticates with — a service-account token (auth.tokenKey, for
             # Grafana Cloud/Enterprise) or basic user/password (OSS).

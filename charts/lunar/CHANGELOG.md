@@ -9,6 +9,78 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [3.22.0] - 2026-09-10
+
+### Added
+
+- **`grafana.mode: external-manual`** — a new mode: same as `external`, but the
+  chart renders no dashboard-provisioning Job. You run the `lunar-dashboards`
+  tool yourself.
+
+  Lunar's dashboards are installed by a tool that calls Grafana's HTTP API, and
+  the chart has only ever run it in-cluster, so the connection to Grafana is
+  always opened from inside the cluster. Some networks don't permit that
+  direction even where an operator elsewhere can reach the same Grafana, and
+  neither existing mode covered it: `external` schedules exactly the call that
+  can't complete, and `"off"` drops the pieces a manual run needs — the
+  read-only `grafana_user` role and its password, the `grafana-db` secret, and
+  the Hub's `GetGrafanaEndpoint` / `GetGrafanaConnectionString`.
+
+  `external-manual` keeps all of that and omits only the Job. It takes the same
+  `grafana.url` and `grafana.auth` as `external`, and the Hub still vends the
+  Grafana endpoint and database connection, so the tool finds what it expects.
+  `NOTES.txt` prints the command to run, filled in for your release.
+
+  **Nothing re-applies the dashboards in this mode.** They're versioned against
+  the Hub image, so re-run the tool after every Lunar upgrade. Re-running is the
+  update mechanism — every step is idempotent.
+
+- **`grafana.provisioning.skipPlugins`** (default `false`) — skip the
+  plugin-install step.
+
+  Installing a panel plugin makes *Grafana* fetch it from `grafana.com`. A
+  Grafana without that egress has to pre-install the three plugins out of band
+  (`GF_INSTALL_PLUGINS`, a vendored `.zip`, an internal catalog mirror); this
+  stops the tool trying and failing. It's also the escape hatch when the
+  credential can't install plugins at all — an org-scoped service-account token
+  cannot hold `plugins:install`, which the tool otherwise fails fast on rather
+  than pushing dashboards whose panels wouldn't render. Datasources and
+  dashboards still deploy either way.
+
+  The tool has honoured `SKIP_PLUGINS` all along; it just wasn't reachable from
+  chart values.
+
+  In `external-manual` mode there is no workload to set it on, so it adds
+  `-e SKIP_PLUGINS=true` to the command `NOTES.txt` prints instead. Pass the
+  variable yourself if you don't use that command.
+
+### Upgrading
+
+Nothing changes for an existing install. `external-manual` is a new mode nobody
+is on yet, `skipPlugins` defaults to today's behaviour, and `chart`, `external`
+and `"off"` each render byte-for-byte identically to 3.21.2 — verified by
+diffing the rendered output of all three against the previous chart with
+generated secrets pinned.
+
+That is why `skipPlugins: false` renders no environment variable rather than an
+explicit `"false"`: adding one would change the Grafana pod template, and a
+changed pod template rolls the pod, so upgrading would restart Grafana over a
+setting nobody chose. `deploy.sh` already defaults it to false.
+
+### Fixed
+
+- **README:** the Grafana server image row still described the retired
+  `ghcr.io/earthly/lunar-grafana` at `2.1.1`. The chart has run stock
+  `grafana/grafana` since 3.0.0 — currently `13.1.0`.
+- **README:** `grafana.mode` was written as a bare `off` in three places. YAML
+  reads that as the boolean `false`, and the chart then fails with a type error
+  from a template rather than the intended mode, so the documented spelling
+  didn't work. Now quoted, with the reason. (The templates still only accept the
+  string; making them tolerate the boolean is tracked separately.)
+- The values table gained the `grafana.provisioning.*` rows, which it had been
+  missing since the block was introduced in 3.0.0 — including
+  `grafana.provisioning.dbPassword`, which another row already pointed at.
+
 ## [3.21.1] - 2026-09-08
 
 ### Fixed

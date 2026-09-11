@@ -814,14 +814,27 @@ operator:
   topologySpreadConstraints: []
 grafana:
   # How Grafana is provided. One of:
-  #   chart    — the chart runs a bundled stock Grafana pod and provisions the
-  #              Lunar dashboards into it (default).
-  #   external — no bundled pod; the chart provisions the Lunar dashboards into a
-  #              bring-your-own Grafana. Point the Hub at it via grafana.url +
-  #              grafana.auth (below) — the chart wires them to the Hub for you (no
-  #              hub.extraEnv plumbing). The external Grafana must also reach the
-  #              Hub's Postgres for the read-only datasource.
-  #   off      — no Grafana and no dashboard provisioning.
+  #   chart           — the chart runs a bundled stock Grafana pod and provisions
+  #                     the Lunar dashboards into it (default).
+  #   external        — no bundled pod; the chart provisions the Lunar dashboards
+  #                     into a bring-your-own Grafana. Point the Hub at it via
+  #                     grafana.url + grafana.auth (below) — the chart wires them to
+  #                     the Hub for you (no hub.extraEnv plumbing). The external
+  #                     Grafana must also reach the Hub's Postgres for the read-only
+  #                     datasource.
+  #   external-manual — external, but the chart renders no provisioning Job; you run
+  #                     the lunar-dashboards tool yourself. For networks that don't
+  #                     let the cluster open a connection to Grafana, but do let an
+  #                     operator. Takes the same grafana.url + grafana.auth as
+  #                     external, and everything the tool needs stays wired: the
+  #                     read-only grafana_user role and its password, and the Hub's
+  #                     GetGrafanaEndpoint / GetGrafanaConnectionString. Only the
+  #                     caller moves. NOTE: nothing re-applies the dashboards for
+  #                     you — re-run the tool after every Lunar upgrade. NOTES.txt
+  #                     prints the command filled in for your release.
+  #   off             — no Grafana and no dashboard provisioning. Not a substitute
+  #                     for external-manual: it drops the grafana_user role and the
+  #                     Hub RPCs too, leaving nothing for a manual run to use.
   # Replaces the chart <3.0.0 grafana.enabled + grafana.provisioning.enabled toggles
   # (grafana.enabled=true -> chart; =false -> external or off).
   mode: chart
@@ -884,14 +897,35 @@ grafana:
   # It resolves the target Grafana endpoint + a read-only DB connection from the
   # Hub over gRPC, so it needs no Grafana/DB args here.
   #
-  # Runs on every Hub install/upgrade whenever grafana.mode != off, targeting the
-  # chart's own Grafana pod (mode=chart: provisioned directly via the in-cluster
-  # Service, admin auth auto-wired from the grafana-admin secret; a reconverge
-  # sidecar on the pod also re-applies on every pod start, so a recreated pod
-  # self-heals without waiting for the next Hub upgrade) or an external Grafana
-  # (mode=external: endpoint resolved from the Hub). The read-only grafana_user DB
-  # password (dbPassword below) is chart-generated — no operator config needed.
+  # Runs on every Hub install/upgrade in chart and external modes, targeting the
+  # chart's own Grafana pod (mode=chart:
+  # provisioned directly via the in-cluster Service, admin auth auto-wired from the
+  # grafana-admin secret; a reconverge sidecar on the pod also re-applies on every
+  # pod start, so a recreated pod self-heals without waiting for the next Hub
+  # upgrade) or an external Grafana (mode=external: endpoint resolved from the
+  # Hub). The read-only grafana_user DB password (dbPassword below) is
+  # chart-generated — no operator config needed.
   provisioning:
+    # Skip the plugin-install step (deploy.sh SKIP_PLUGINS). Installing a plugin
+    # makes GRAFANA fetch it from grafana.com, so a Grafana without that egress
+    # must pre-install the three panel plugins out of band —
+    # marcusolsson-dynamictext-panel, yesoreyeram-infinity-datasource,
+    # volkovlabs-echarts-panel — via GF_INSTALL_PLUGINS, a vendored .zip, or an
+    # internal catalog mirror, and set this so the tool stops trying.
+    #
+    # Datasources and dashboards still deploy; panels backed by a plugin that
+    # isn't actually present render an error instead of a visualization.
+    #
+    # Also the escape hatch when the Grafana credential can't install plugins at
+    # all: an org-scoped service-account token cannot hold plugins:install, which
+    # the tool otherwise fails fast on rather than pushing dashboards that would
+    # not render.
+    #
+    # In external-manual mode the chart runs nothing to set this on, so it can
+    # only affect the command NOTES.txt prints for you — which it does, adding
+    # -e SKIP_PLUGINS=true. If you don't use that command, pass the variable
+    # yourself; the value here reaches nothing on its own.
+    skipPlugins: false
     image:
       repository: "ghcr.io/earthly/lunar-dashboards"
       pullPolicy: IfNotPresent
