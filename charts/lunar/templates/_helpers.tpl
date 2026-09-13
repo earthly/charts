@@ -178,46 +178,80 @@ Called from lunar.githubAuthCheck when apps is non-empty.
 {{- end }}
 
 {{/*
+The data key (= mounted filename) of one hub.gitlab.tokens entry inside
+hub.gitlab.tokensSecret. tokenFile wins when set; otherwise <group>.token
+for a group entry and <host>.token for a host-wide one (host defaulting to
+gitlab.com, the Hub's own default). Lowercased, so a group or host typed in
+mixed case still meets the key the operator created.
+
+Usage: {{ include "lunar.gitlabTokenFile" $entry }}
+*/}}
+{{- define "lunar.gitlabTokenFile" -}}
+{{- if .tokenFile -}}
+{{- .tokenFile -}}
+{{- else if .group -}}
+{{- printf "%s.token" (lower .group) -}}
+{{- else -}}
+{{- printf "%s.token" (lower (.host | default "gitlab.com")) -}}
+{{- end -}}
+{{- end }}
+
+{{/*
 Validate the GitLab config (hub.gitlab.tokens + hub.gitlab.tokensSecret).
 Called from lunar.forgeAuthCheck when tokens is non-empty.
+
+An entry is either a group entry (group set: that group and its subtree) or
+host-wide (group unset: every group on host that no group entry claims — an
+instance service account). A group without tokenFile must be top-level,
+because it names the data key; with tokenFile it may be a subgroup path.
+Two entries on the same scope form a pool the Hub spreads reads across, and
+one token file may legitimately back several scopes, so the only shape
+rejected here is the exact same (scope, file) listed twice.
 */}}
 {{- define "lunar.gitlabTokensCheck" -}}
 {{- if not .Values.hub.gitlab.tokensSecret.secretName -}}
-{{- fail "hub.gitlab.tokensSecret.secretName is required when hub.gitlab.tokens is set. Create a Kubernetes secret with one group access token per entry, under a data key named '<lowercase-group>.token'." -}}
+{{- fail "hub.gitlab.tokensSecret.secretName is required when hub.gitlab.tokens is set. Create a Kubernetes secret with one token per entry, under a data key named '<lowercase-group>.token' (group entry), '<host>.token' (host-wide entry), or the entry's tokenFile." -}}
 {{- end -}}
 {{- $seen := dict -}}
 {{- range $i, $t := .Values.hub.gitlab.tokens -}}
-{{- if not $t.group -}}
-{{- fail (printf "hub.gitlab.tokens[%d].group is required (the top-level group PATH — the URL segment, not the display name)" $i) -}}
+{{- if and $t.group $t.tokenFile -}}
+{{- if not (regexMatch "^[a-z0-9][a-z0-9._-]*(/[a-z0-9][a-z0-9._-]*)*$" (lower $t.group)) -}}
+{{- fail (printf "hub.gitlab.tokens[%d].group %q must be a group path (lowercase letters, digits, '.', '_', '-', with '/' between subgroup segments)" $i $t.group) -}}
 {{- end -}}
-{{- $key := lower $t.group -}}
-{{- if not (regexMatch "^[a-z0-9][a-z0-9._-]*$" $key) -}}
-{{- fail (printf "hub.gitlab.tokens[%d].group %q must be a single top-level group path (lowercase letters, digits, '.', '_', '-'; no '/') — it names the token's data key and the Hub's longest-prefix match root" $i $t.group) -}}
+{{- else if $t.group -}}
+{{- if not (regexMatch "^[a-z0-9][a-z0-9._-]*$" (lower $t.group)) -}}
+{{- fail (printf "hub.gitlab.tokens[%d].group %q must be a single top-level group path (lowercase letters, digits, '.', '_', '-'; no '/') — it names the token's data key and the Hub's longest-prefix match root. To bind a token to a subgroup, set tokenFile so the data key no longer derives from the group" $i $t.group) -}}
 {{- end -}}
-{{- if hasKey $seen $key -}}
-{{- fail (printf "hub.gitlab.tokens: duplicate group %q (case-insensitive) — the token file is keyed by group alone (<group>.token), so same-named groups collide on one token even across different hosts; the Hub's longest-prefix matching would also be ambiguous" $t.group) -}}
 {{- end -}}
-{{- $_ := set $seen $key true -}}
+{{- $file := include "lunar.gitlabTokenFile" $t -}}
+{{- if not (regexMatch "^[-._a-zA-Z0-9]+$" $file) -}}
+{{- fail (printf "hub.gitlab.tokens[%d]: token file %q is not a valid Secret data key (letters, digits, '-', '_', '.'; no '/')" $i $file) -}}
+{{- end -}}
+{{- $scope := printf "%s|%s|%s" (lower ($t.host | default "gitlab.com")) (lower ($t.group | default "")) $file -}}
+{{- if hasKey $seen $scope -}}
+{{- fail (printf "hub.gitlab.tokens[%d] repeats an earlier entry exactly (host %q, group %q, token file %q) — a pool needs a distinct token file per entry" $i ($t.host | default "gitlab.com") ($t.group | default "<host-wide>") $file) -}}
+{{- end -}}
+{{- $_ := set $seen $scope true -}}
 {{- end -}}
 {{- end }}
 
 {{/*
 Render the HUB_GITLAB_TOKENS JSON env value from hub.gitlab.tokens. Each
-entry's token_path is derived from <lowercase-group>.token under the Secret
-mountPath /secrets/gitlab, the way githubAppsJSON derives
-<lowercase-owner>.pem. host / base_url / webhook_secret are emitted only
-when set; the webhook secret normally arrives via the operator-level
+entry's token_path is lunar.gitlabTokenFile under the Secret mountPath
+/secrets/gitlab, the way githubAppsJSON derives <lowercase-owner>.pem.
+group is emitted only when set (a group-less entry is host-wide to the
+Hub); host / base_url / webhook_secret are emitted only when set. The
+webhook secret normally arrives via the operator-level
 HUB_GITLAB_WEBHOOK_SECRET fallback instead (hub-deployment.yaml), so
 per-entry webhook_secret is the advanced multi-instance override only.
 */}}
 {{- define "lunar.gitlabTokensJSON" -}}
 {{- $entries := list -}}
 {{- range .Values.hub.gitlab.tokens -}}
-{{- $group := lower .group -}}
 {{- $entry := dict
-    "group" $group
-    "token_path" (printf "/secrets/gitlab/%s.token" $group)
+    "token_path" (printf "/secrets/gitlab/%s" (include "lunar.gitlabTokenFile" .))
 -}}
+{{- if .group -}}{{- $_ := set $entry "group" (lower .group) -}}{{- end -}}
 {{- if .host -}}{{- $_ := set $entry "host" .host -}}{{- end -}}
 {{- if .baseUrl -}}{{- $_ := set $entry "base_url" .baseUrl -}}{{- end -}}
 {{- if .webhookSecret -}}{{- $_ := set $entry "webhook_secret" .webhookSecret -}}{{- end -}}
