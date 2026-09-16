@@ -90,9 +90,7 @@ ACTION REQUIRED — dashboards were not deployed automatically.
 
 grafana.mode is "external-manual", so the chart did not deploy the latest
 Grafana dashboards automatically. Run the tool yourself from somewhere that
-can reach the Hub and your Grafana ({{ .Values.grafana.url }}). Those two are
-all it contacts: the Grafana credentials and the read-only database connection
-both come from the Hub over gRPC.
+can reach the Hub and your Grafana ({{ .Values.grafana.url }}).
 
   # ghcr.io/earthly/lunar-dashboards is private. The pull credential is in your
   # licence JWT, so authenticate from that rather than a personal GHCR login:
@@ -111,9 +109,6 @@ both come from the Hub over gRPC.
 {{- end }}
     {{ include "lunar.provisioningImage" . }}
 
-Re-run it after every Lunar upgrade: the dashboards are versioned against the
-Hub image and nothing re-applies them for you in this mode. Re-running is the
-update mechanism — every step is idempotent.
 {{- end }}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
