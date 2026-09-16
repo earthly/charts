@@ -9,7 +9,7 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
-## [3.19.0] - 2026-08-27
+## [4.2.0] - 2026-09-16
 
 ### Added
 
@@ -55,6 +55,12 @@ history see `git log -- charts/lunar/`.
   if you want one of them to be the default. Unsuffixed releases still set it,
   unchanged.
 
+  In `grafana.mode: external-manual` there is no Job to set it on, so it adds
+  `-e GRAFANA_RESOURCE_SUFFIX=...` to the command `NOTES.txt` prints instead.
+  Pass it yourself if you don't use that command — a Hub configured with a
+  suffix whose dashboards were installed without one has deep links pointing
+  at dashboards that aren't there.
+
   Needs a Hub image that understands `HUB_GRAFANA_RESOURCE_SUFFIX`. Against an
   older Hub the dashboards are still namespaced correctly, but its deep links
   keep pointing at the unsuffixed UIDs.
@@ -64,7 +70,250 @@ history see `git log -- charts/lunar/`.
   the new identifiers and orphans the old folder, dashboards, and datasources
   for you to delete by hand. Unset (the default) keeps the identifiers a
   single-Hub install has always used — an existing release renders
-  byte-for-byte the same manifests as 3.18.0.
+  byte-for-byte the same manifests as 4.1.0.
+
+## [4.1.0] - 2026-09-16
+
+### Added
+
+- **`grafana.mode: external-manual`** — a new mode: same as `external`, but the
+  chart renders no dashboard-provisioning Job. You run the `lunar-dashboards`
+  tool yourself.
+
+  Lunar's dashboards are installed by a tool that calls Grafana's HTTP API, and
+  the chart has only ever run it in-cluster, so the connection to Grafana is
+  always opened from inside the cluster. Some networks don't permit that
+  direction even where an operator elsewhere can reach the same Grafana, and
+  neither existing mode covered it: `external` schedules exactly the call that
+  can't complete, and `"off"` drops the pieces a manual run needs — the
+  read-only `grafana_user` role and its password, the `grafana-db` secret, and
+  the Hub's `GetGrafanaEndpoint` / `GetGrafanaConnectionString`.
+
+  `external-manual` keeps all of that and omits only the Job. It takes the same
+  `grafana.url` and `grafana.auth` as `external`, and the Hub still vends the
+  Grafana endpoint and database connection, so the tool finds what it expects.
+  `NOTES.txt` prints the command to run, filled in for your release.
+
+  **Nothing re-applies the dashboards in this mode.** They're versioned against
+  the Hub image, so re-run the tool after every Lunar upgrade. Re-running is the
+  update mechanism — every step is idempotent.
+
+- **`grafana.provisioning.skipPlugins`** (default `false`) — skip the
+  plugin-install step.
+
+  Installing a panel plugin makes *Grafana* fetch it from `grafana.com`. A
+  Grafana without that egress has to pre-install the three plugins out of band
+  (`GF_INSTALL_PLUGINS`, a vendored `.zip`, an internal catalog mirror); this
+  stops the tool trying and failing. It's also the escape hatch when the
+  credential can't install plugins at all — an org-scoped service-account token
+  cannot hold `plugins:install`, which the tool otherwise fails fast on rather
+  than pushing dashboards whose panels wouldn't render. Datasources and
+  dashboards still deploy either way.
+
+  The tool has honoured `SKIP_PLUGINS` all along; it just wasn't reachable from
+  chart values.
+
+  In `external-manual` mode there is no workload to set it on, so it adds
+  `-e SKIP_PLUGINS=true` to the command `NOTES.txt` prints instead. Pass the
+  variable yourself if you don't use that command.
+
+### Upgrading
+
+Nothing changes for an existing install. `external-manual` is a new mode nobody
+is on yet, `skipPlugins` defaults to today's behaviour, and `chart`, `external`
+and `"off"` each render byte-for-byte identically to 4.0.0 — verified by
+diffing the rendered output of all three against the previous chart with
+generated secrets pinned.
+
+That is why `skipPlugins: false` renders no environment variable rather than an
+explicit `"false"`: adding one would change the Grafana pod template, and a
+changed pod template rolls the pod, so upgrading would restart Grafana over a
+setting nobody chose. `deploy.sh` already defaults it to false.
+
+### Fixed
+
+- **README:** the Grafana server image row still described the retired
+  `ghcr.io/earthly/lunar-grafana` at `2.1.1`. The chart has run stock
+  `grafana/grafana` since 3.0.0 — currently `13.1.0`.
+- **README:** `grafana.mode` was written as a bare `off` in three places. YAML
+  reads that as the boolean `false`, and the chart then fails with a type error
+  from a template rather than the intended mode, so the documented spelling
+  didn't work. Now quoted, with the reason. (The templates still only accept the
+  string; making them tolerate the boolean is tracked separately.)
+- The values table gained the `grafana.provisioning.*` rows, which it had been
+  missing since the block was introduced in 3.0.0 — including
+  `grafana.provisioning.dbPassword`, which another row already pointed at.
+
+## [3.22.0] - 2026-09-13
+
+### Added
+
+- **Host-wide GitLab token entries.** `hub.gitlab.tokens[*].group` is now
+  optional. An entry without it is host-wide: the token serves every group on
+  `host` that no `group` entry claims, which is how an **instance service
+  account** on a self-managed or GitLab Dedicated instance is meant to be used
+  — one account, made a Maintainer of every group Lunar serves, one token,
+  and inviting the account to a new group onboards it with no chart change.
+  `group` entries always take precedence over the host-wide one. Its token is
+  looked up at `<host>.token` inside `hub.gitlab.tokensSecret` (`host`
+  defaulting to `gitlab.com`).
+
+- **`hub.gitlab.tokens[*].tokenFile`** — the data key inside
+  `hub.gitlab.tokensSecret` holding this entry's token, overriding the derived
+  `<group>.token` / `<host>.token`. The GitLab counterpart of
+  `hub.github.apps[*].privateKeyFile`, and needed for the same reason: two
+  entries on one scope (a **pool** the Hub spreads reads across) would
+  otherwise derive the same filename. It also lets one token back several
+  scopes — a host-wide entry and a `group` entry can name the same file —
+  and, because the data key no longer derives from the group, an entry with
+  `tokenFile` may bind a token to a **subgroup** path (`platform/checkout`),
+  which the Hub has matched by longest prefix all along but the chart could not
+  express.
+
+### Changed
+
+- **GitLab validation no longer rejects a repeated group.** It rejected any two
+  entries naming the same group; a pool is exactly that, so the check now fails
+  only on an entry that repeats an earlier one exactly (same `host`, same
+  `group` or both host-wide, same token file). A repeated group with distinct
+  `tokenFile`s is a pool and renders. The token file is also validated as a
+  Secret data key. Values with `group` on every entry and no `tokenFile` render
+  byte-for-byte as before.
+
+### Upgrading
+
+- **A host-wide entry needs a Hub image that understands it.** Support landed in
+  earthly/lunar#2848, first shipped in the `3.21.0` images; this chart's default
+  image tags (`3.21.2`) include it. On an older Hub (`hub.image.tag` pinned below
+  `3.21.0`) a group-less entry fails configuration validation and the Hub refuses
+  to start, so the mismatch is loud rather than silent — but it is still a failed
+  rollout. Keep `group` on every entry until the Hub image is at `3.21.0` or later.
+
+## [3.21.1] - 2026-09-08
+
+### Fixed
+
+- Setting `hub.replicaCount: 0` now renders the Hub Deployment with zero
+  replicas instead of silently falling back to one. This supports
+  GitOps-managed maintenance windows where the serving Hub must remain stopped.
+  The `lunar-hub-migrate` pre-install/pre-upgrade Job is independent and still
+  runs while the Deployment is suspended.
+
+## [3.19.0] - 2026-08-27
+
+### Added
+
+- **`hub.db.sqlapiPassword`** — the chart now supplies the password for
+  `sqlapi_user`, the read-only Postgres role behind `lunar sql connection-string`.
+
+  There was no chart value for it before this release. The password came in
+  through `hub.extraEnv`, and an install that never set one did not get an empty
+  password: `01_sqlapi/user.sql` omits the `PASSWORD` clause entirely, so a fresh
+  database got a role with a NULL verifier that could not authenticate by any
+  means, while the Hub went on vending `postgres://sqlapi_user:@…`. Only
+  greenfield installs were affected — an already-migrated database keeps the
+  password it was first created with — which is why this went unnoticed.
+
+  | `mode` | Behavior |
+  |---|---|
+  | `generate` (default) | The chart creates a random 32-character password and keeps it across upgrades |
+  | `secret` | Read from a Secret you manage (`secretName` + `passwordKey`) |
+  | `unmanaged` | No environment variable at all — you pre-created the role and own its credential |
+
+  `unmanaged` is the shared-Postgres-cluster case, where the Hub's DB role has no
+  `CREATEROLE` and you created `sqlapi_user` yourself. The other two modes render
+  `ALTER ROLE … PASSWORD` during migration, which that role cannot execute, and
+  the migrate Job is a pre-upgrade hook — so the failure would abort the upgrade
+  rather than just skipping the statement.
+
+  The generated password is alphanumeric because the Hub builds the connection
+  string without percent-encoding; a symbol in it would produce a URL that
+  clients cannot parse.
+
+  **An install already broken by this repairs itself on upgrade.** A
+  `sqlapi_user` left with no password gets one as soon as the chart supplies it:
+  the SQL API code package is re-applied in full on every migrate run, so the
+  role's password is reset to the chart's value. There is no manual `ALTER ROLE`
+  to run and nothing to clean up. Verified against a real database by
+  `TestSQLAPIPasswordHealsAPasswordlessRole` in the Lunar repo, which also pins
+  the reverse: with `mode: unmanaged` a role you pre-created keeps the password
+  you gave it.
+
+### Upgrading
+
+- **Shared-cluster installs must set `hub.db.sqlapiPassword.mode: unmanaged` before
+  upgrading.** This is a required action rather than a mode you might choose, and it
+  is the one change here that fails *after* the upgrade has started.
+
+  The [self-hosted prerequisites](https://docs-lunar.earthly.dev/install/hub/self-hosted/prerequisites#step-3-provision-postgresql)
+  tell operators who cannot grant cluster-wide `CREATEROLE` to pre-create
+  `sqlapi_user` themselves and leave the password unset. Until now "unset"
+  was simply what happened when you set nothing. It is now spelled `mode: unmanaged`,
+  and the default is `generate` — which makes the migration issue
+  `ALTER ROLE sqlapi_user PASSWORD …` against a role the Hub's DB role has no
+  authority over. Postgres refuses with `permission denied to alter role`, the code
+  package is applied in a single transaction, and the migrate Job is a `pre-upgrade`
+  hook, so the release aborts.
+
+  The chart cannot inspect the database role's privileges, so it cannot warn you.
+  If you pre-created `sqlapi_user`, add this before taking 3.19.0:
+
+  ```yaml
+  hub:
+    db:
+      sqlapiPassword:
+        mode: unmanaged
+  ```
+
+  That renders exactly what your install rendered before — no `HUB_SQLAPI_PASSWORD`
+  in either the Deployment or the migrate Job, and no `ALTER ROLE`. Nothing about
+  your install changes.
+
+  **If you also run Grafana, `unmanaged` alone is not enough.** `grafana_user` is
+  created by the same mechanism with the same unguarded `ALTER ROLE`, and its
+  password is chart-generated whenever `grafana.mode` is not `off`, with no
+  equivalent opt-out. A shared-cluster install with Grafana enabled cannot complete
+  a migration today, independently of this release; `grafana.mode: off` is the way
+  through until that is addressed separately.
+
+- **`HUB_SQLAPI_PASSWORD` set in `hub.extraEnv` now fails the render**, naming the
+  values to move it to. The chart owns the variable as of this release, and
+  Kubernetes would otherwise accept both copies and let the last one win — working
+  by template ordering rather than by intent. A GitOps install on server-side apply
+  would fare worse still and reject the object outright on the duplicate key, the
+  same way the 3.17.0 note on `HUB_RETENTION_*` describes.
+
+  This one fails safely: the render aborts before Helm touches the cluster, so
+  nothing is half-applied and there is nothing to roll back. Two ways forward, and
+  neither requires deleting anything first.
+
+  **Keep your existing password.** Point the new value at the same Secret your
+  `extraEnv` entry referenced. Nothing rotates, and connection strings already in
+  use keep working:
+
+  ```yaml
+  hub:
+    db:
+      sqlapiPassword:
+        mode: secret
+        secretName: lunar-sqlapi
+        passwordKey: password
+  ```
+
+  If you supplied the password inline as `value:` rather than through a
+  `secretKeyRef`, create a Secret holding it first — the chart takes credentials
+  only by reference, never as a literal value.
+
+  **Or hand the password to the chart.** Drop the `extraEnv` entry and let the
+  default apply. The chart generates its own Secret under a different name, so your
+  old one is simply left unreferenced and can be deleted afterwards as cleanup. The
+  password rotates, so re-fetch it with `lunar sql connection-string` and update any
+  client holding the old one.
+
+  **Do not delete the old Secret first.** The render fails while the `extraEnv` entry
+  is still present, so you never reach the cluster either way — but deleting the
+  Secret destroys the only copy of the password, and with it the option of keeping
+  it. Change the values first and clean up afterwards.
 
 ## [3.17.0] - 2026-08-25
 

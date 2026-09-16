@@ -11,7 +11,7 @@ User-managed (you must create these before pods start):
   {{ printf "%-40s" .Values.hub.github.app.privateKey.secretName }}  key: {{ .Values.hub.github.app.privateKey.secretKey }}
 {{- end }}
 {{- if gt (len .Values.hub.gitlab.tokens) 0 }}
-  {{ printf "%-40s" .Values.hub.gitlab.tokensSecret.secretName }}  keys: <group>.token per entry
+  {{ printf "%-40s" .Values.hub.gitlab.tokensSecret.secretName }}  keys: one per entry (<group>.token, <host>.token, or tokenFile)
 {{- end }}
   {{ printf "%-40s" .Values.hub.licence.secretName }}  key: {{ .Values.hub.licence.secretKey }}
 {{- if .Values.hub.auth.secretName }}
@@ -80,6 +80,38 @@ URLs wired by the chart:
   HUB_GRAFANA_URL_BASE   {{ $grafanaURL }}
   GF_SERVER_ROOT_URL     {{ $grafanaURL }}
 {{- end }}
+{{- end }}
+
+{{- if eq .Values.grafana.mode "external-manual" }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ACTION REQUIRED — dashboards were not deployed automatically.
+
+grafana.mode is "external-manual", so the chart did not deploy the latest
+Grafana dashboards automatically. Run the tool yourself from somewhere that
+can reach the Hub and your Grafana ({{ .Values.grafana.url }}).
+
+  # ghcr.io/earthly/lunar-dashboards is private. The pull credential is in your
+  # licence JWT, so authenticate from that rather than a personal GHCR login:
+  #   lunar licence registry-token --licence-file=<your-licence.jwt> \
+  #     | docker login ghcr.io -u earthly-bot --password-stdin
+
+  export LUNAR_HUB_TOKEN=$(kubectl -n {{ .Release.Namespace }} get secret \
+    {{ include "lunar.hubAuthSecretName" . }} \
+    -o jsonpath='{.data.{{ .Values.hub.auth.secretKey }}}' | base64 -d)
+
+  docker run --rm \
+    -e LUNAR_HUB_HOST={{ .Values.hub.ingress.api.host | default "<hub host reachable from here>" }} \
+    -e LUNAR_HUB_TOKEN \
+{{- if .Values.grafana.provisioning.skipPlugins }}
+    -e SKIP_PLUGINS=true \
+{{- end }}
+{{- with include "lunar.grafanaResourceSuffix" . }}
+    -e GRAFANA_RESOURCE_SUFFIX={{ . }} \
+{{- end }}
+    {{ include "lunar.provisioningImage" . }}
+
 {{- end }}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
