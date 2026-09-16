@@ -463,6 +463,24 @@ Job and the reconverge sidecar). deploy.sh uses it to resolve the Grafana endpoi
 {{- end }}
 
 {{/*
+SKIP_PLUGINS env for the lunar-dashboards provisioning tool. Emitted on the
+containers that actually run deploy.sh — the provisioning Job's `provision`
+container and the reconverge sidecar — not the init containers, which only wait
+on dependencies.
+
+Callers guard the include on the value rather than this rendering "false", so an
+install that never sets it renders exactly as it did before this value existed.
+Emitting the default would add an env var to the Grafana pod template, and a
+changed pod template rolls the pod — an upgrade would restart Grafana over a
+setting nobody chose. deploy.sh defaults SKIP_PLUGINS to false itself, so the
+absent case already means the same thing.
+*/}}
+{{- define "lunar.grafanaProvisionSkipPlugins" -}}
+- name: SKIP_PLUGINS
+  value: "true"
+{{- end }}
+
+{{/*
 In-cluster DNS name for the Hub service, in `<svc>.<ns>.svc.<clusterDomain>`
 form so it resolves from any namespace (the operator's scriptNamespace, in
 particular). Callers that need to honor a per-component override should do
@@ -540,12 +558,23 @@ grafana-deployment.yaml as GF_SERVER_ROOT_URL.
 {{- end }}
 
 {{/*
+"true" when Grafana is operated outside the chart, for either external mode.
+The two differ only in who provisions the dashboards, so every check about the
+Grafana itself — its URL, its credentials, how the Hub authenticates to it —
+must accept both, and goes through here so external-manual can't drift from
+external.
+*/}}
+{{- define "lunar.grafanaIsExternal" -}}
+{{- if has .Values.grafana.mode (list "external" "external-manual") -}}true{{- end -}}
+{{- end }}
+
+{{/*
 Validate the Grafana configuration:
   - Reject the pre-3.0.0 keys replaced in the mode/url/auth rework
     (grafana.enabled, grafana.provisioning.enabled, grafana.externalURL,
     grafana.admin). A stale value would otherwise be silently ignored, so fail
     fast with migration guidance.
-  - grafana.mode must be one of chart | external | off.
+  - grafana.mode must be one of chart | external | external-manual | off.
   - chart mode needs a resolvable Grafana URL (grafana.url or chart-managed
     ingress) for GF_SERVER_ROOT_URL, and auth.tokenKey must be unset (the bundled
     pod uses basic admin auth).
@@ -553,6 +582,8 @@ Validate the Grafana configuration:
     generate credentials for a Grafana it doesn't own).
   - anonymousViewer is chart-mode only — it renders a server setting onto the
     bundled pod, so elsewhere it would be a silent no-op.
+  - external-manual takes the same Grafana checks as external (via
+    lunar.grafanaIsExternal); it differs only in rendering no provisioning Job.
 */}}
 {{- define "lunar.validateGrafana" -}}
 {{- if hasKey .Values.grafana "enabled" -}}
@@ -568,8 +599,8 @@ Validate the Grafana configuration:
 {{- fail "grafana.admin was renamed to grafana.auth in chart 3.0.0 (same secretName/userKey/passwordKey, plus an optional tokenKey for external Grafana). Rename grafana.admin -> grafana.auth." -}}
 {{- end -}}
 {{- $mode := .Values.grafana.mode -}}
-{{- if not (has $mode (list "chart" "external" "off")) -}}
-{{- fail (printf "grafana.mode must be one of chart | external | off (got %q)." $mode) -}}
+{{- if not (has $mode (list "chart" "external" "external-manual" "off")) -}}
+{{- fail (printf "grafana.mode must be one of chart | external | external-manual | off (got %q). external-manual is external with the dashboard provisioning left to you — see the chart README." $mode) -}}
 {{- end -}}
 {{- if and .Values.grafana.anonymousViewer (ne $mode "chart") -}}
 {{- fail (printf "grafana.anonymousViewer is only valid in grafana.mode=chart (got %q) — it renders [auth.anonymous] onto the Grafana pod the chart owns, and a Grafana reads that setting at boot. Configure anonymous access on your own Grafana instead, or switch to grafana.mode=chart." $mode) -}}
@@ -585,12 +616,12 @@ Validate the Grafana configuration:
   {{- if and (gt (int .Values.grafana.replicaCount) 1) (not .Values.grafana.db.host) -}}
     {{- fail "grafana.db.host is required when grafana.replicaCount > 1 — Grafana's default per-pod SQLite backend can't be shared across replicas (sessions/orgs would silently split per-pod). Point grafana.db at a Postgres instance, or set grafana.replicaCount to 1." -}}
   {{- end -}}
-{{- else if eq $mode "external" -}}
+{{- else if include "lunar.grafanaIsExternal" . -}}
   {{- if not .Values.grafana.url -}}
-    {{- fail "grafana.url is required when grafana.mode is \"external\" — it's the base URL of your Grafana that the Hub vends to the provisioning tool (and uses for [More Details] links)." -}}
+    {{- fail (printf "grafana.url is required when grafana.mode is %q — it's the base URL of your Grafana that the Hub vends to the provisioning tool (and uses for [More Details] links)." $mode) -}}
   {{- end -}}
   {{- if not .Values.grafana.auth.secretName -}}
-    {{- fail "grafana.auth.secretName is required when grafana.mode is \"external\" — the chart can't generate credentials for a Grafana it doesn't own. Provide a secret with basic creds (auth.userKey + auth.passwordKey) or a service-account token (set auth.tokenKey to the token's key)." -}}
+    {{- fail (printf "grafana.auth.secretName is required when grafana.mode is %q — the chart can't generate credentials for a Grafana it doesn't own. Provide a secret with basic creds (auth.userKey + auth.passwordKey) or a service-account token (set auth.tokenKey to the token's key)." $mode) -}}
   {{- end -}}
 {{- end -}}
 {{- end }}

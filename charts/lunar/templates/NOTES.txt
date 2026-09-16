@@ -82,6 +82,35 @@ URLs wired by the chart:
 {{- end }}
 {{- end }}
 
+{{- if eq .Values.grafana.mode "external-manual" }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ACTION REQUIRED — dashboards were not deployed automatically.
+
+grafana.mode is "external-manual", so the chart did not deploy the latest
+Grafana dashboards automatically. Run the tool yourself from somewhere that
+can reach the Hub and your Grafana ({{ .Values.grafana.url }}).
+
+  # ghcr.io/earthly/lunar-dashboards is private. The pull credential is in your
+  # licence JWT, so authenticate from that rather than a personal GHCR login:
+  #   lunar licence registry-token --licence-file=<your-licence.jwt> \
+  #     | docker login ghcr.io -u earthly-bot --password-stdin
+
+  export LUNAR_HUB_TOKEN=$(kubectl -n {{ .Release.Namespace }} get secret \
+    {{ include "lunar.hubAuthSecretName" . }} \
+    -o jsonpath='{.data.{{ .Values.hub.auth.secretKey }}}' | base64 -d)
+
+  docker run --rm \
+    -e LUNAR_HUB_HOST={{ .Values.hub.ingress.api.host | default "<hub host reachable from here>" }} \
+    -e LUNAR_HUB_TOKEN \
+{{- if .Values.grafana.provisioning.skipPlugins }}
+    -e SKIP_PLUGINS=true \
+{{- end }}
+    {{ include "lunar.provisioningImage" . }}
+
+{{- end }}
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 {{- /*
   Two severities. Any non-empty string is deprecated AND makes Helm log
