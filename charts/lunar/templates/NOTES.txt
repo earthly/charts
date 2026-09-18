@@ -107,6 +107,9 @@ can reach the Hub and your Grafana ({{ .Values.grafana.url }}).
 {{- if .Values.grafana.provisioning.skipPlugins }}
     -e SKIP_PLUGINS=true \
 {{- end }}
+{{- with include "lunar.grafanaResourceSuffix" . }}
+    -e GRAFANA_RESOURCE_SUFFIX={{ . }} \
+{{- end }}
     {{ include "lunar.provisioningImage" . }}
 
 {{- end }}

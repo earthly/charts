@@ -872,6 +872,18 @@ grafana:
     userKey: "username"
     passwordKey: "password"
     tokenKey: ""
+  # Namespaces every Grafana object this release owns, so several Hubs — a dev
+  # and a production Hub, say — can share one Grafana. Without it the second
+  # silently overwrites the first's datasources and dashboards, which keep
+  # rendering against the wrong database. It covers the folder, both datasources
+  # and every dashboard UID, and the chart passes it to the Hub so its
+  # [More Details] links resolve here. Letters, digits, "-" and "_", max 24
+  # chars. A suffixed release also leaves the org-wide default home dashboard
+  # alone (otherwise the last deploy would win).
+  #
+  # Set it at first install: changing it later installs a fresh set and orphans
+  # the old objects. Empty (the default) is unchanged single-Hub behaviour.
+  resourceSuffix: ""   # e.g. "-prod"
   # Serve Grafana with no login: unauthenticated visitors get the Viewer role in
   # the default org and land straight on the dashboards (what makes the kiosk
   # sidecar useful without handing out the admin password). The admin login form
