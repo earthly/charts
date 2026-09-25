@@ -997,7 +997,9 @@ grafana:
   # an escape hatch for installations that already mount /var/lib/grafana via
   # grafana.volumeMounts. Additional storage types can be added here later with
   # their required rollout, permissions and replica safety rather than exposing
-  # an unsafe raw Kubernetes VolumeSource.
+  # an unsafe raw Kubernetes VolumeSource. Do not set emptyDir.medium=Memory:
+  # SQLite, plugins and other contents would count against pod memory and
+  # increase Grafana's OOM risk.
   dataVolume:
     type: emptyDir # emptyDir or none
     emptyDir: {}
