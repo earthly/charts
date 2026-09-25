@@ -185,13 +185,8 @@ spec:
           # Re-applies plugins/datasources/dashboards on every pod start so the
           # Grafana pod is stateless/self-healing — a recreated pod (or lost
           # volume) converges back without waiting for the next Hub upgrade.
-          # With RECONVERGE_INTERVAL set (grafana.provisioning.reconvergeInterval)
-          # deploy.sh also stays up and re-applies whenever a datasource or a
-          # dashboard goes missing, which covers a Grafana emptied by a restart
-          # of its container alone — that is not a pod start, so nothing else
-          # would re-run this (ENG-1947). deploy.sh resolves the Grafana endpoint
-          # + read-only DB connection from the Hub; GRAFANA_URL points at the
-          # Grafana container in this pod.
+          # deploy.sh resolves the Grafana endpoint + read-only DB connection from
+          # the Hub; GRAFANA_URL points at the Grafana container in this pod.
           image: {{ include "lunar.provisioningImage" . | quote }}
           imagePullPolicy: {{ .Values.grafana.provisioning.image.pullPolicy }}
           {{- with .Values.grafana.provisioning.securityContext }}
@@ -209,11 +204,9 @@ spec:
               touch /tmp/reconverge-alive
               {{- include "lunar.waitForGrafana" . | nindent 14 }}
               {{- include "lunar.waitForHub" . | nindent 14 }}
-              # With RECONVERGE_INTERVAL set, a deploy.sh that understands it
-              # (Lunar >= 4.5.0) never returns: it watches and re-applies. One
-              # that doesn't runs once and returns, and the tail below keeps the
-              # sidecar alive so it re-applies on the next pod (re)start.
               /deploy.sh || echo "dashboards reconverge failed" >&2
+              # Idle so the Deployment treats this as a long-lived sidecar; it
+              # re-applies on the next pod (re)start.
               tail -f /dev/null
           livenessProbe:
             exec:
@@ -228,10 +221,6 @@ spec:
           env:
             - name: GRAFANA_URL
               value: "http://localhost:3000"
-            {{- with .Values.grafana.provisioning.reconvergeInterval }}
-            - name: RECONVERGE_INTERVAL
-              value: {{ . | quote }}
-            {{- end }}
             {{- if .Values.grafana.provisioning.skipPlugins }}
             {{- include "lunar.grafanaProvisionSkipPlugins" . | nindent 12 }}
             {{- end }}
