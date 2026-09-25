@@ -13,6 +13,12 @@ history see `git log -- charts/lunar/`.
 
 ### Fixed
 
+- **The bundled Grafana is upgraded from 13.1.0 to 13.1.6.** This includes
+  Grafana's fix for an unbounded goroutine and buffer leak in its gzip
+  middleware when serving `HEAD` requests or when a compressed response write
+  fails ([grafana/grafana#130893](https://github.com/grafana/grafana/pull/130893)),
+  along with the security fixes from the intervening 13.1 patch releases.
+
 - **A restart of the Grafana container no longer wipes the dashboards.** In
   `chart` mode the bundled Grafana had no volume at `/var/lib/grafana`, so its
   SQLite database — every dashboard, datasource and folder the chart had
