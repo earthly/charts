@@ -9,6 +9,45 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [4.5.0] - 2026-09-25
+
+### Fixed
+
+- **The bundled Grafana is upgraded from 13.1.0 to 13.1.6.** This includes
+  Grafana's fix for an unbounded goroutine and buffer leak in its gzip
+  middleware when serving `HEAD` requests or when a compressed response write
+  fails ([grafana/grafana#130893](https://github.com/grafana/grafana/pull/130893)),
+  along with the security fixes from the intervening 13.1 patch releases.
+
+- **A restart of the Grafana container no longer wipes the dashboards.** In
+  `chart` mode the bundled Grafana had no volume at `/var/lib/grafana`, so its
+  SQLite database — every dashboard, datasource and folder the chart had
+  provisioned — lived in the container's writable layer. A restart of the
+  Grafana *container* alone (an OOM kill at the memory limit, a failed
+  liveness probe) discarded it, and because that is not a *pod* start, the
+  reconverge sidecar that provisions at pod start did not run again. Nothing
+  re-provisioned until the next Helm upgrade or a manual pod restart; on the
+  tenant this was found on, the UI showed no dashboards for 13 minutes until
+  the provisioning Job was re-run by hand (ENG-1947).
+
+  **`grafana.dataVolume.type`** (default `emptyDir`) now mounts an `emptyDir`
+  at `/var/lib/grafana`, so Grafana's state survives a container restart. Set
+  it to `none` to mount nothing, as before. The generated volume is named
+  `grafana-data`, now reserved in `grafana.volumes`. A new pod starts with a
+  new `emptyDir`, then the existing reconverge sidecar provisions it once as
+  before.
+
+### Upgrading
+
+The Grafana pod template changes (a new volume and mount), so the upgrade
+restarts the Grafana pod once. Its state was not persisted before this release,
+so nothing is lost that a pod restart didn't already lose; the sidecar
+re-provisions it on start.
+
+If you already mount something at `/var/lib/grafana` through
+`grafana.volumeMounts`, set `grafana.dataVolume.type: none` before upgrading,
+or the pod is rejected for two mounts at one path.
+
 ## [4.2.0] - 2026-09-16
 
 ### Added

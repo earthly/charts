@@ -1,5 +1,9 @@
 {{- if eq .Values.grafana.mode "chart" -}}
 {{- $grafanaURL := include "lunar.grafanaURL" . -}}
+{{- $dataVolumeType := .Values.grafana.dataVolume.type -}}
+{{- if not (has $dataVolumeType (list "emptyDir" "none")) -}}
+{{- fail (printf "grafana.dataVolume.type must be \"emptyDir\" or \"none\" (got %q)" $dataVolumeType) -}}
+{{- end -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -127,9 +131,22 @@ spec:
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          {{- with .Values.grafana.volumeMounts }}
+          {{- if or (eq $dataVolumeType "emptyDir") .Values.grafana.volumeMounts }}
           volumeMounts:
+            {{- if eq $dataVolumeType "emptyDir" }}
+            # Grafana's working directory: its SQLite database (unless grafana.db
+            # points it at Postgres), installed plugins, sessions. Without a
+            # volume here it lives in the container's writable layer, which a
+            # restart of the Grafana *container* alone (OOM kill, liveness probe)
+            # discards — and a container restart is not a pod start, so the
+            # reconverge sidecar does not run again and Grafana stays empty until
+            # the next upgrade (ENG-1947).
+            - name: grafana-data
+              mountPath: /var/lib/grafana
+            {{- end }}
+            {{- with .Values.grafana.volumeMounts }}
             {{- toYaml . | nindent 12 }}
+            {{- end }}
           {{- end }}
         - name: kiosk
           image: "{{ .Values.grafana.kiosk.image.repository }}:{{ .Values.grafana.kiosk.image.tag }}"
@@ -217,7 +234,7 @@ spec:
             {{- toYaml . | nindent 12 }}
           {{- end }}
       {{- range .Values.grafana.volumes }}
-      {{- if or (eq .name "kiosk-config") (eq .name "kiosk-cache") (eq .name "kiosk-run") }}
+      {{- if or (eq .name "kiosk-config") (eq .name "kiosk-cache") (eq .name "kiosk-run") (eq .name "grafana-data") }}
       {{- fail (printf "Values.grafana.volumes contains reserved name '%s'" .name) }}
       {{- end }}
       {{- end }}
@@ -229,6 +246,15 @@ spec:
           emptyDir: {}
         - name: kiosk-run
           emptyDir: {}
+        {{- if eq $dataVolumeType "emptyDir" }}
+        - name: grafana-data
+          {{- with .Values.grafana.dataVolume.emptyDir }}
+          emptyDir:
+            {{- toYaml . | nindent 12 }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        {{- end }}
         {{- with .Values.grafana.volumes }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
