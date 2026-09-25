@@ -9,6 +9,48 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [4.5.0] - 2026-09-25
+
+### Fixed
+
+- **A restart of the Grafana container no longer wipes the dashboards.** In
+  `chart` mode the bundled Grafana had no volume at `/var/lib/grafana`, so its
+  SQLite database — every dashboard, datasource and folder the chart had
+  provisioned — lived in the container's writable layer. A restart of the
+  Grafana *container* alone (an OOM kill at the memory limit, a failed
+  liveness probe) discarded it, and because that is not a *pod* start, the
+  reconverge sidecar that provisions at pod start did not run again. Nothing
+  re-provisioned until the next Helm upgrade or a manual pod restart; on the
+  tenant this was found on, the UI showed no dashboards for 13 minutes until
+  the provisioning Job was re-run by hand (ENG-1947).
+
+  Two changes, either of which closes the hole on its own:
+
+  - **`grafana.dataVolume`** (default `{emptyDir: {}}`) is mounted at
+    `/var/lib/grafana`, so Grafana's state survives a container restart. Any
+    volume source works — a `persistentVolumeClaim` keeps it across pod
+    restarts as well — and `null` mounts nothing, as before. Its name,
+    `grafana-data`, is now reserved in `grafana.volumes`.
+  - **`grafana.provisioning.reconvergeInterval`** (default `60`, seconds) puts
+    the reconverge sidecar in watch mode: it checks every interval that both
+    datasources and every dashboard are still present and re-applies them
+    when any is missing, so an emptied Grafana heals within about a minute
+    without an upgrade. `0` restores the once-per-pod-start behaviour. This
+    needs the `lunar-dashboards` image from Lunar 4.5.0 or later; an older
+    image ignores the variable and the sidecar behaves as it did.
+
+### Upgrading
+
+The Grafana pod template changes (a new volume and mount, a new environment
+variable on the sidecar), so the upgrade restarts the Grafana pod once. Its
+state was not persisted before this release, so nothing is lost that a pod
+restart didn't already lose; the sidecar re-provisions it on start.
+
+If you already mount something at `/var/lib/grafana` through
+`grafana.volumeMounts`, set `grafana.dataVolume: null` — or move the volume to
+`grafana.dataVolume` — before upgrading, or the pod is rejected for two mounts
+at one path.
+
 ## [4.2.0] - 2026-09-16
 
 ### Added

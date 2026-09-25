@@ -928,6 +928,15 @@ grafana:
     # dashboards still deploy. In external-manual mode nothing runs to set it on,
     # so it only adds -e SKIP_PLUGINS=true to the command NOTES.txt prints.
     skipPlugins: false
+    # How often, in seconds, the reconverge sidecar on the bundled Grafana pod
+    # checks that both datasources and every dashboard are still there, and
+    # re-applies them when any is missing. A restart of the Grafana container
+    # alone (OOM kill, liveness probe) empties a Grafana without
+    # grafana.dataVolume and is not a pod start, so this is what brings the
+    # dashboards back without waiting for the next upgrade. Each check is three
+    # GETs against the pod's own Grafana. Set to 0 to run once per pod start
+    # only, as before. chart mode only (the sidecar exists only there).
+    reconvergeInterval: 60
     image:
       repository: "ghcr.io/earthly/lunar-dashboards"
       pullPolicy: IfNotPresent
@@ -989,6 +998,16 @@ grafana:
     # apply here) — e.g. stock nginx has no numeric user set at image level,
     # so runAsNonRoot requires an explicit runAsUser here.
     securityContext: {}
+  # The volume mounted at /var/lib/grafana — Grafana's SQLite database (unless
+  # grafana.db points it at Postgres), installed plugins and sessions. Any
+  # volume source is accepted (a persistentVolumeClaim keeps it across pod
+  # restarts too); set to null to mount nothing, in which case that state lives
+  # in the container's writable layer and a restart of the Grafana container
+  # alone discards it (see grafana.provisioning.reconvergeInterval). An
+  # emptyDir survives container restarts within the pod, which is the case
+  # nothing else covered; a new pod is re-provisioned by the reconverge sidecar.
+  dataVolume:
+    emptyDir: {}
   volumeMounts: []
   volumes: []
   nodeSelector: {}
