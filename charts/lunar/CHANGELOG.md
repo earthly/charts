@@ -30,13 +30,12 @@ history see `git log -- charts/lunar/`.
   tenant this was found on, the UI showed no dashboards for 13 minutes until
   the provisioning Job was re-run by hand (ENG-1947).
 
-  **`grafana.dataVolume`** (default `{emptyDir: {}}`) is now mounted at
-  `/var/lib/grafana`, so Grafana's state survives a container restart. Any
-  volume source works — a `persistentVolumeClaim` keeps it across pod
-  replacements as well — and `null` mounts nothing, as before. Its name,
-  `grafana-data`, is now reserved in `grafana.volumes`. A new pod starts with
-  a new default `emptyDir`, then the existing reconverge sidecar provisions it
-  once as before.
+  **`grafana.dataVolume.type`** (default `emptyDir`) now mounts an `emptyDir`
+  at `/var/lib/grafana`, so Grafana's state survives a container restart. Set
+  it to `none` to mount nothing, as before. The generated volume is named
+  `grafana-data`, now reserved in `grafana.volumes`. A new pod starts with a
+  new `emptyDir`, then the existing reconverge sidecar provisions it once as
+  before.
 
 ### Upgrading
 
@@ -46,9 +45,8 @@ so nothing is lost that a pod restart didn't already lose; the sidecar
 re-provisions it on start.
 
 If you already mount something at `/var/lib/grafana` through
-`grafana.volumeMounts`, set `grafana.dataVolume: null` — or move the volume to
-`grafana.dataVolume` — before upgrading, or the pod is rejected for two mounts
-at one path.
+`grafana.volumeMounts`, set `grafana.dataVolume.type: none` before upgrading,
+or the pod is rejected for two mounts at one path.
 
 ## [4.2.0] - 2026-09-16
 

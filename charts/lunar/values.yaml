@@ -989,15 +989,17 @@ grafana:
     # apply here) — e.g. stock nginx has no numeric user set at image level,
     # so runAsNonRoot requires an explicit runAsUser here.
     securityContext: {}
-  # The volume mounted at /var/lib/grafana — Grafana's SQLite database (unless
-  # grafana.db points it at Postgres), installed plugins and sessions. Any
-  # volume source is accepted (a persistentVolumeClaim keeps it across pod
-  # restarts too); set to null to mount nothing, in which case that state lives
-  # in the container's writable layer and a restart of the Grafana container
-  # alone discards it. An emptyDir survives container restarts within the pod,
-  # which is the case nothing else covered; a new pod is re-provisioned by the
-  # reconverge sidecar.
+  # Storage mounted at /var/lib/grafana — Grafana's SQLite database (unless
+  # grafana.db points it at Postgres), installed plugins and sessions.
+  # type=emptyDir survives container restarts within the pod; a new pod gets a
+  # fresh volume and is re-provisioned once by the reconverge sidecar.
+  # type=none leaves the path in the container's writable layer and is primarily
+  # an escape hatch for installations that already mount /var/lib/grafana via
+  # grafana.volumeMounts. Additional storage types can be added here later with
+  # their required rollout, permissions and replica safety rather than exposing
+  # an unsafe raw Kubernetes VolumeSource.
   dataVolume:
+    type: emptyDir # emptyDir or none
     emptyDir: {}
   volumeMounts: []
   volumes: []

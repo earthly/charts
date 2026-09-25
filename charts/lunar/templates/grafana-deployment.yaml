@@ -1,5 +1,9 @@
 {{- if eq .Values.grafana.mode "chart" -}}
 {{- $grafanaURL := include "lunar.grafanaURL" . -}}
+{{- $dataVolumeType := .Values.grafana.dataVolume.type -}}
+{{- if not (has $dataVolumeType (list "emptyDir" "none")) -}}
+{{- fail (printf "grafana.dataVolume.type must be \"emptyDir\" or \"none\" (got %q)" $dataVolumeType) -}}
+{{- end -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -127,9 +131,9 @@ spec:
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          {{- if or .Values.grafana.dataVolume .Values.grafana.volumeMounts }}
+          {{- if or (eq $dataVolumeType "emptyDir") .Values.grafana.volumeMounts }}
           volumeMounts:
-            {{- if .Values.grafana.dataVolume }}
+            {{- if eq $dataVolumeType "emptyDir" }}
             # Grafana's working directory: its SQLite database (unless grafana.db
             # points it at Postgres), installed plugins, sessions. Without a
             # volume here it lives in the container's writable layer, which a
@@ -242,9 +246,14 @@ spec:
           emptyDir: {}
         - name: kiosk-run
           emptyDir: {}
-        {{- with .Values.grafana.dataVolume }}
+        {{- if eq $dataVolumeType "emptyDir" }}
         - name: grafana-data
-          {{- toYaml . | nindent 10 }}
+          {{- with .Values.grafana.dataVolume.emptyDir }}
+          emptyDir:
+            {{- toYaml . | nindent 12 }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
         {{- end }}
         {{- with .Values.grafana.volumes }}
         {{- toYaml . | nindent 8 }}
