@@ -834,6 +834,7 @@ Watches for script execution jobs and creates Kubernetes pods to run them.
 
 | Key | Description | Default |
 |-----|-------------|---------|
+| `operator.replicaCount` | Number of operator replicas. Safe at N>1 on the leader-elected image. Set `0` to suspend the operator; no script pods are scheduled while it is at `0` | `1` |
 | `operator.scriptNamespace` | Namespace for script pods (must exist if set) | `""` (release namespace) |
 | `operator.hubHost` | Override hostname the operator and script pods use to reach Hub gRPC. Empty = computed in-cluster FQDN, which resolves cross-namespace. Set only for service-mesh / split-DNS / multi-cluster topologies | `""` |
 | `operator.maxConcurrent` | Max concurrent script pods | `10` |

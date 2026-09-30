@@ -9,6 +9,17 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [4.7.1] - 2026-09-30
+
+### Fixed
+
+- Setting `operator.replicaCount: 0` now renders the operator Deployment with
+  zero replicas instead of silently falling back to one (the template's
+  `| default 1` treated `0` as unset). This lets you suspend the operator —
+  e.g. during a maintenance window alongside `hub.replicaCount: 0` — without
+  scaling it by hand. While suspended, no script pods are scheduled. The
+  default stays `1`.
+
 ## [4.5.0] - 2026-09-25
 
 ### Fixed

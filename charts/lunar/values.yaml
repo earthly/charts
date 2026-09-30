@@ -658,7 +658,8 @@ operator:
   # reconciler via the leader-election Lease (RBAC in operator-rbac.yaml). On a
   # pre-LE image, N>1 is still safe but runs N duplicate (idempotent) GC passes.
   # Operator Postgres connections scale with replicaCount. Keep at 1 unless you
-  # want operator failover / throughput.
+  # want operator failover / throughput. Set 0 to suspend the operator (no
+  # script pods are scheduled while it is at 0).
   replicaCount: 1
   # Grace period for the operator to drain on SIGTERM; must exceed
   # OPERATOR_SHUTDOWN_TIMEOUT (default 90s) with room for the process to exit.
