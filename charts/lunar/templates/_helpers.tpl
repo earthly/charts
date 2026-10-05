@@ -459,7 +459,7 @@ public Grafana URL, which the kiosk sidecar routes to the Hub under /oauth; the
 server-to-server legs (token, userinfo) go pod to pod. Grafana takes the login,
 email, name and role the Hub's userinfo returns, and the role is always Viewer.
 The login form is off: with the Hub deciding who gets in, a password form on
-the same page would be a second door. Twelve hours is the Hub's own bound on a
+the same page would be a second door. Seven days is the Hub's own bound on a
 sign-in; Grafana is told the same so its session cannot outlive it.
 */}}
 {{- define "lunar.grafanaSSOEnv" -}}
@@ -507,7 +507,7 @@ sign-in; Grafana is told the same so its session cannot outlive it.
 - name: GF_AUTH_DISABLE_LOGIN_FORM
   value: "true"
 - name: GF_AUTH_LOGIN_MAXIMUM_LIFETIME_DURATION
-  value: "12h"
+  value: "7d"
 {{- end }}
 
 {{/*

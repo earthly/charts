@@ -443,7 +443,7 @@ By default the bundled Grafana has one admin login (the chart-managed
 page becomes a single **Sign in with Lunar** button: the Hub sends the person to
 their Git platform (GitHub or GitLab), and lets them in if they hold `hub.read`,
 read access on the configuration repository. Everyone who gets in is a Grafana
-Viewer. A sign-in lasts at most 12 hours and renews on its own; a sign-out
+Viewer. A sign-in lasts at most 7 days and renews on its own; a sign-out
 sticks until the person presses the button again. Removing someone's read access
 takes effect within 15 minutes. It needs a Hub that serves `/oauth` — the
 release that includes [earthly/lunar#3292](https://github.com/earthly/lunar/pull/3292)

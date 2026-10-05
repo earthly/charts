@@ -17,7 +17,7 @@ history see `git log -- charts/lunar/`.
   Grafana's login page becomes a single **Sign in with Lunar** button; the Hub
   sends the person to their Git platform (GitHub or GitLab) and lets them in if
   they hold `hub.read`, read access on the configuration repository. Everyone
-  who gets in is a Viewer; a sign-in lasts at most 12 hours and renews on its
+  who gets in is a Viewer; a sign-in lasts at most 7 days and renews on its
   own, a sign-out sticks until the person asks to sign in again, and a lost
   `hub.read` takes effect within 15 minutes. Needs a Hub that serves `/oauth`
   (the release that includes earthly/lunar#3292 or later); upgrade the Hub
