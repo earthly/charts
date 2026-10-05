@@ -436,6 +436,84 @@ The Hub automatically registers per-repo GitHub webhooks at `<hub.webhookURL>/we
 - `hub.webhookURL` resolves to your webhooks ingress and is reachable from GitHub. When chart-managed ingress is enabled, this is derived from `hub.ingress.webhooks.host` automatically.
 - The GitHub App has the `repository_hooks: write` permission (the manifest script grants this by default).
 
+### Signing in to Grafana through the Hub
+
+By default the bundled Grafana has one admin login (the chart-managed
+`<release>-grafana-admin` secret). With `grafana.sso.enabled: true` its login
+page becomes a single **Sign in with Lunar** button: the Hub sends the person to
+their Git platform (GitHub or GitLab), and lets them in if they hold `hub.read`,
+read access on the configuration repository. Everyone who gets in is a Grafana
+Viewer. A sign-in lasts at most 12 hours and renews on its own; a sign-out
+sticks until the person presses the button again. Removing someone's read access
+takes effect within 15 minutes. It needs a Hub that serves `/oauth` — the
+release that includes [earthly/lunar#3292](https://github.com/earthly/lunar/pull/3292)
+or later; upgrade the Hub first, since an older one answers Grafana's sign-in
+with a 404 — and cannot be combined with `grafana.anonymousViewer`.
+
+The Hub signs people in with a Git platform OAuth app — the one `lunar login`
+uses, or one of the UI's own — so two things it already needs for user logins
+must be in place (see the [Lunar docs](https://docs.lunar.build/install/hub/self-hosted/install-walkthrough#user-logins)):
+
+- `HUB_AUTH_SESSION_KEY_PATH` in `hub.extraEnv`, pointing at a mounted key file.
+  The render fails without it.
+- An app to sign in with. Either `HUB_AUTH_OAUTH_APPS` in `hub.extraEnv` — on
+  GitHub, with its `client_secret_path`, since GitHub's web flow requires a
+  secret — or `grafana.sso.forgeApp`. On GitLab prefer `forgeApp`: GitLab
+  shows its authorization page on every sign-in through a public application
+  and remembers the grant only for a confidential one, and the `lunar login`
+  application must stay public. Create a second, confidential application
+  (scope `read_user`) and give the chart its id and secret.
+
+On that app, register the redirect URI **`<grafana.url>/oauth/callback`**
+(exact match; GitHub compares it byte for byte).
+
+```yaml
+hub:
+  extraEnv:
+    - name: HUB_AUTH_SESSION_KEY_PATH
+      value: /secrets/session/session.key
+    # GitHub: the `lunar login` app, with its client secret
+    - name: HUB_AUTH_OAUTH_APPS
+      value: '[{"forge":"github","host":"github.com","client_id":"Iv1.0123456789abcdef","client_secret_path":"/secrets/oauth/client-secret"}]'
+grafana:
+  sso:
+    enabled: true
+    # GitLab: a confidential application of the UI's own instead
+    # provider: gitlab/gitlab.com
+    # forgeApp:
+    #   clientId: "<application id>"
+    #   secretName: lunar-grafana-sso-forge   # key client-secret
+```
+
+`grafana.sso.provider` (`<forge>/<host>`) picks the app when
+`HUB_AUTH_OAUTH_APPS` lists more than one, and names the host of a `forgeApp`.
+
+In `chart` mode that is all: the chart configures Grafana's generic OAuth and
+routes `/oauth` on Grafana's origin to the Hub (through the kiosk sidecar, so it
+holds for the chart's ingress, yours, or a port-forward). The secret Grafana
+presents to the Hub is chart-generated (`<release>-grafana-sso`) unless you set
+`grafana.sso.clientSecret.secretName`. Grafana's password form is turned off
+while SSO is on; the provisioning tool keeps using the admin credentials over
+the API. To get the admin form back, set `grafana.sso.enabled: false` and
+upgrade.
+
+In the `external` modes the chart renders the Hub's side only. Configure your
+Grafana's generic OAuth yourself — `NOTES.txt` prints the values — with client
+id `lunar-grafana` and the secret from `<release>-grafana-sso`, PKCE and refresh
+tokens on, `auto_login`, scopes `openid profile email`, login/email/name/role
+read from `login`/`email`/`name`/`role` of userinfo, and these endpoints:
+
+| Grafana setting | Value |
+|---|---|
+| `auth_url` | `<grafana.url>/oauth/authorize` |
+| `token_url` | `<grafana.url>/oauth/token` |
+| `api_url` | `<grafana.url>/oauth/userinfo` |
+| `signout_redirect_url` | `<grafana.url>/oauth/signout` |
+
+and route `/oauth` on `grafana.url`'s host to the Hub's HTTP port (`8001`).
+The browser legs must live on Grafana's own origin — the sign-in rides a
+cookie set there — so `/oauth` cannot be served from the Hub's API host.
+
 ### Provisioning dashboards from outside the cluster
 
 Normally the chart installs Lunar's dashboards for you: a post-install/post-upgrade
@@ -893,6 +971,11 @@ Pre-built Grafana instance with dashboards for policy results, component health,
 | `grafana.auth.passwordKey` | Key within the secret holding the password (basic auth) | `password` |
 | `grafana.auth.tokenKey` | Key holding a service-account token; when set (external mode only), the Hub uses token auth instead of basic user/password | `""` |
 | `grafana.anonymousViewer` | Serve Grafana with no login — unauthenticated visitors get the `Viewer` role and land on the dashboards; the admin login form stays available for Editor/Admin. `chart` mode only (install fails fast elsewhere, since it's a setting on the bundled pod). **Only enable when Grafana isn't reachable from the internet**: a Grafana Viewer can query every provisioned datasource directly, so this grants anyone who can reach the Service read access to the Lunar database | `false` |
+| `grafana.sso.enabled` | Sign people in to Grafana through the Hub: one **Sign in with Lunar** button, access for whoever holds `hub.read`, everyone a Viewer. Needs `HUB_AUTH_SESSION_KEY_PATH` and an OAuth app (see [Signing in to Grafana through the Hub](#signing-in-to-grafana-through-the-hub)) and a Hub that serves `/oauth`. Not with `anonymousViewer` | `false` |
+| `grafana.sso.provider` | Which Git platform app signs people in, as `<forge>/<host>` (e.g. `gitlab/gitlab.com`). Optional with a single app in `HUB_AUTH_OAUTH_APPS` and no `forgeApp`; required otherwise | `""` |
+| `grafana.sso.forgeApp.clientId` | A confidential OAuth application of the UI's own, instead of sharing the `lunar login` app (what spares GitLab users the authorization page on every sign-in). Redirect URI `<grafana.url>/oauth/callback`, scope `read_user` | `""` |
+| `grafana.sso.forgeApp.secretName` / `secretKey` | Secret holding that application's secret. Required with `clientId` | `""` / `client-secret` |
+| `grafana.sso.clientSecret.secretName` / `secretKey` | The secret Grafana presents to the Hub (client id is always `lunar-grafana`). Empty = chart-generated `<release>-grafana-sso`, kept across uninstall; in external modes read it back to configure your Grafana | `""` / `client-secret` |
 | `grafana.service.type` | Service type | `ClusterIP` |
 | `grafana.service.port` | Service port | `80` |
 | `grafana.ingress.*` | Same structure as `hub.ingress.*` | disabled |

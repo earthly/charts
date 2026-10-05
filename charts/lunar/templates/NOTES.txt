@@ -50,6 +50,9 @@ Runtime secrets (optional; only when the corresponding secretName is set):
 {{- if and (eq .Values.grafana.mode "chart") (not .Values.grafana.auth.secretName) -}}
 {{- $chartManaged = append $chartManaged (printf "%s (Grafana admin)" (include "lunar.grafanaAuthSecretName" .)) -}}
 {{- end -}}
+{{- if and .Values.grafana.sso.enabled (ne .Values.grafana.mode "off") (not .Values.grafana.sso.clientSecret.secretName) -}}
+{{- $chartManaged = append $chartManaged (printf "%s (what Grafana presents to the Hub to sign people in; client id lunar-grafana)" (include "lunar.grafanaSSOSecretName" .)) -}}
+{{- end -}}
 {{- if $chartManaged }}
 
 Chart-managed (auto-generated; persist across upgrade and uninstall):
@@ -79,6 +82,24 @@ URLs wired by the chart:
 {{- if $grafanaURL }}
   HUB_GRAFANA_URL_BASE   {{ $grafanaURL }}
   GF_SERVER_ROOT_URL     {{ $grafanaURL }}
+{{- end }}
+{{- end }}
+{{- if and .Values.grafana.sso.enabled (ne .Values.grafana.mode "off") }}
+{{- $g := $grafanaURL | trimSuffix "/" }}
+
+Sign-in to Grafana through the Hub (grafana.sso) is on. Register this redirect
+URI on the Git platform OAuth app that signs people in:
+  {{ $g }}/oauth/callback
+{{- if include "lunar.grafanaIsExternal" . }}
+
+Your Grafana is yours to configure: generic OAuth with client id lunar-grafana
+and the secret above, PKCE and refresh tokens on, and these endpoints — with
+/oauth on {{ $g }} routed to the Hub's HTTP port:
+  auth_url     {{ $g }}/oauth/authorize
+  token_url    {{ $g }}/oauth/token
+  api_url      {{ $g }}/oauth/userinfo
+  signout_redirect_url  {{ $g }}/oauth/signout
+See the chart README, "Signing in to Grafana through the Hub".
 {{- end }}
 {{- end }}
 
