@@ -9,6 +9,42 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [4.9.0] - 2026-10-05
+
+### Added
+
+- **`grafana.sso`** (default off) — sign people in to Grafana through the Hub.
+  Grafana's login page becomes a single **Sign in with Lunar** button; the Hub
+  sends the person to their Git platform (GitHub or GitLab) and lets them in if
+  they hold `hub.read`, read access on the configuration repository. Everyone
+  who gets in is a Viewer; a sign-in lasts at most 7 days and renews on its
+  own, a sign-out sticks until the person asks to sign in again, and a lost
+  `hub.read` takes effect within 15 minutes. Needs a Hub that serves `/oauth`
+  (the release that includes earthly/lunar#3292 or later); upgrade the Hub
+  before enabling it, since an older one answers Grafana's sign-in with a 404.
+
+  In `chart` mode the chart does the whole thing: it configures the bundled
+  Grafana's generic OAuth, generates the secret Grafana presents to the Hub
+  (`<release>-grafana-sso`, kept like the other chart-managed secrets), and
+  routes `/oauth` on Grafana's origin to the Hub through the kiosk sidecar, so
+  it holds for the chart's ingress, yours, or a port-forward. In the `external`
+  modes it renders the Hub's side and `NOTES.txt` prints what to configure on
+  your Grafana.
+
+  Grafana's password form is off while SSO is on. `grafana.sso.loginForm: true`
+  keeps it, under the button and only on `/login?disableAutoLogin`, for whoever
+  holds the admin secret: the way in by `kubectl port-forward`, where the
+  sign-in cannot complete because it ends on `grafana.url`.
+
+  The Hub signs in with a Git platform OAuth app: the one `lunar login` uses
+  (`HUB_AUTH_OAUTH_APPS`; on GitHub with its `client_secret_path`), or a
+  confidential application of the UI's own under `grafana.sso.forgeApp` — on
+  GitLab the latter is what spares people the authorization page on every
+  sign-in. `grafana.sso.provider` (`<forge>/<host>`) picks between apps. The
+  render fails without `HUB_AUTH_SESSION_KEY_PATH` in `hub.extraEnv`, together
+  with `grafana.anonymousViewer`, or with any `HUB_UI_OAUTH_*` /
+  `GF_AUTH_GENERIC_OAUTH_*` entry in `extraEnv`, which the chart now owns.
+
 ## [4.7.1] - 2026-09-30
 
 ### Fixed

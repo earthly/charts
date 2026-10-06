@@ -53,5 +53,20 @@ data:
             proxy_set_header Upgrade $http_upgrade;
             proxy_set_header Connection "upgrade";
         }
+{{- if .Values.grafana.sso.enabled }}
+
+        # Sign-in through the Hub (grafana.sso): the Hub serves the OAuth
+        # endpoints Grafana sends the browser to, and they must live on
+        # Grafana's own origin — the sign-in rides a cookie set there, and the
+        # sign-out tells a press of Grafana's login button from an auto-login by
+        # the page that referred it. Routing them here, in front of Grafana,
+        # makes that true for whatever reaches this Service: the chart's
+        # ingress, yours, or a port-forward.
+        location ^~ /oauth/ {
+            proxy_pass http://{{ include "lunar.fullname" . }}-hub:{{ .Values.hub.service.ports.http }};
+            proxy_http_version 1.1;
+            proxy_set_header Host $host;
+        }
+{{- end }}
     }
 {{- end }}

@@ -412,6 +412,155 @@ mode unmanaged, where no env var is rendered at all.
 {{- end }}
 
 {{/*
+Resolved name for the secret Grafana presents to the Hub when signing people in
+through it (grafana.sso). Honors grafana.sso.clientSecret.secretName; otherwise
+the chart-managed name.
+*/}}
+{{- define "lunar.grafanaSSOSecretName" -}}
+{{- .Values.grafana.sso.clientSecret.secretName | default (printf "%s-grafana-sso" (include "lunar.fullname" .)) -}}
+{{- end }}
+
+{{/*
+The Hub's side of grafana.sso: the settings that make it Grafana's OAuth
+provider. Rendered into the hub Deployment's env when sso is enabled, in every
+Grafana mode but off — in external modes the Grafana half is the operator's.
+The client id is fixed: it names nothing outside this release, and a value
+would only be one more thing to keep equal on both sides.
+*/}}
+{{- define "lunar.hubSSOEnv" -}}
+{{- $sso := .Values.grafana.sso -}}
+{{- $grafanaURL := include "lunar.grafanaURL" . | trimSuffix "/" -}}
+- name: HUB_UI_OAUTH_ENABLED
+  value: "true"
+- name: HUB_UI_OAUTH_PUBLIC_URL
+  value: {{ $grafanaURL | quote }}
+- name: HUB_UI_OAUTH_CLIENT_ID
+  value: "lunar-grafana"
+- name: HUB_UI_OAUTH_CLIENT_SECRET_PATH
+  value: {{ printf "/secrets/grafana-sso/%s" $sso.clientSecret.secretKey | quote }}
+- name: HUB_UI_OAUTH_REDIRECT_URIS
+  value: {{ printf "%s/login/generic_oauth" $grafanaURL | quote }}
+{{- with $sso.provider }}
+- name: HUB_UI_OAUTH_PROVIDER
+  value: {{ . | quote }}
+{{- end }}
+{{- with $sso.forgeApp.clientId }}
+- name: HUB_UI_OAUTH_FORGE_CLIENT_ID
+  value: {{ . | quote }}
+- name: HUB_UI_OAUTH_FORGE_CLIENT_SECRET_PATH
+  value: {{ printf "/secrets/grafana-sso-forge/%s" $sso.forgeApp.secretKey | quote }}
+{{- end }}
+{{- end }}
+
+{{/*
+Grafana's side of grafana.sso: stock generic OAuth pointed at the Hub. The
+browser legs (authorize, and the sign-out that ends at the Hub) go through the
+public Grafana URL, which the kiosk sidecar routes to the Hub under /oauth; the
+server-to-server legs (token, userinfo) go pod to pod. Grafana takes the login,
+email, name and role the Hub's userinfo returns, and the role is always Viewer.
+The login form is off unless loginForm asks for it: with the Hub deciding who
+gets in, a password form on the same page is a second door, one only whoever
+holds the admin secret can use — a break-glass for an operator reaching Grafana
+by port-forward, where the sign-in cannot complete because it ends on the public
+URL. Auto-login still sends everyone to the forge; the form shows only on
+/login?disableAutoLogin. Seven days is the Hub's own bound on a sign-in; Grafana
+is told the same so its session cannot outlive it.
+*/}}
+{{- define "lunar.grafanaSSOEnv" -}}
+{{- $grafanaURL := include "lunar.grafanaURL" . | trimSuffix "/" -}}
+{{- $hub := printf "http://%s-hub:%v" (include "lunar.fullname" .) .Values.hub.service.ports.http -}}
+- name: GF_AUTH_GENERIC_OAUTH_ENABLED
+  value: "true"
+- name: GF_AUTH_GENERIC_OAUTH_NAME
+  value: "Lunar"
+- name: GF_AUTH_GENERIC_OAUTH_CLIENT_ID
+  value: "lunar-grafana"
+- name: GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "lunar.grafanaSSOSecretName" . }}
+      key: {{ .Values.grafana.sso.clientSecret.secretKey }}
+- name: GF_AUTH_GENERIC_OAUTH_SCOPES
+  value: "openid profile email"
+- name: GF_AUTH_GENERIC_OAUTH_AUTH_URL
+  value: {{ printf "%s/oauth/authorize" $grafanaURL | quote }}
+- name: GF_AUTH_GENERIC_OAUTH_TOKEN_URL
+  value: {{ printf "%s/oauth/token" $hub | quote }}
+- name: GF_AUTH_GENERIC_OAUTH_API_URL
+  value: {{ printf "%s/oauth/userinfo" $hub | quote }}
+- name: GF_AUTH_GENERIC_OAUTH_SIGNOUT_REDIRECT_URL
+  value: {{ printf "%s/oauth/signout" $grafanaURL | quote }}
+- name: GF_AUTH_GENERIC_OAUTH_USE_PKCE
+  value: "true"
+- name: GF_AUTH_GENERIC_OAUTH_USE_REFRESH_TOKEN
+  value: "true"
+- name: GF_AUTH_GENERIC_OAUTH_AUTO_LOGIN
+  value: "true"
+- name: GF_AUTH_GENERIC_OAUTH_ALLOW_SIGN_UP
+  value: "true"
+- name: GF_AUTH_GENERIC_OAUTH_LOGIN_ATTRIBUTE_PATH
+  value: "login"
+- name: GF_AUTH_GENERIC_OAUTH_EMAIL_ATTRIBUTE_PATH
+  value: "email"
+- name: GF_AUTH_GENERIC_OAUTH_NAME_ATTRIBUTE_PATH
+  value: "name"
+- name: GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_PATH
+  value: "role"
+- name: GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_STRICT
+  value: "true"
+- name: GF_AUTH_DISABLE_LOGIN_FORM
+  value: {{ not .Values.grafana.sso.loginForm | quote }}
+- name: GF_AUTH_LOGIN_MAXIMUM_LIFETIME_DURATION
+  value: "7d"
+{{- end }}
+
+{{/*
+Validate grafana.sso:
+  - It needs a Grafana (mode != off) with a URL, which the mode checks in
+    lunar.validateGrafana already guarantee; and it cannot share a Grafana with
+    anonymousViewer, whose whole point is that nobody signs in.
+  - A forge application needs both halves: the id alone would mount nothing,
+    and the Hub refuses an id without a secret anyway (a dedicated application
+    is a confidential one).
+  - The Hub cannot sign anyone in without the session key, and a hub pod that
+    refuses to boot is a worse place to learn that than here.
+  - The env names the chart now owns are reserved in extraEnv: Kubernetes
+    permits a duplicate name and the last one wins, and extraEnv renders last.
+*/}}
+{{- define "lunar.validateGrafanaSSO" -}}
+{{- $sso := .Values.grafana.sso -}}
+{{- if $sso.enabled -}}
+  {{- if eq .Values.grafana.mode "off" -}}
+    {{- fail "grafana.sso.enabled needs a Grafana to sign people in to; grafana.mode is \"off\"." -}}
+  {{- end -}}
+  {{- if .Values.grafana.anonymousViewer -}}
+    {{- fail "grafana.sso and grafana.anonymousViewer cannot both be set: one signs every visitor in through the Hub, the other lets everyone in without signing in. Pick one." -}}
+  {{- end -}}
+  {{- if and $sso.forgeApp.clientId (not $sso.forgeApp.secretName) -}}
+    {{- fail "grafana.sso.forgeApp.secretName is required with grafana.sso.forgeApp.clientId: an application of the UI's own is a confidential one, and the Hub presents its secret to the Git platform. Create a secret holding the application secret and name it here." -}}
+  {{- end -}}
+  {{- if and $sso.forgeApp.secretName (not $sso.forgeApp.clientId) -}}
+    {{- fail "grafana.sso.forgeApp.clientId is required with grafana.sso.forgeApp.secretName: the application the secret belongs to." -}}
+  {{- end -}}
+  {{- $hasSessionKey := false -}}
+  {{- range .Values.hub.extraEnv -}}
+    {{- if eq .name "HUB_AUTH_SESSION_KEY_PATH" -}}{{- $hasSessionKey = true -}}{{- end -}}
+    {{- if hasPrefix "HUB_UI_OAUTH_" .name -}}
+      {{- fail (printf "%s is set in hub.extraEnv, but grafana.sso renders it. Drop it from hub.extraEnv and use grafana.sso.* instead." .name) -}}
+    {{- end -}}
+  {{- end -}}
+  {{- if not $hasSessionKey -}}
+    {{- fail "grafana.sso.enabled needs HUB_AUTH_SESSION_KEY_PATH in hub.extraEnv: the Hub seals its sign-ins under keys derived from it (the same key `lunar login` sessions use). Mount the key file via hub.volumes/hub.volumeMounts and point HUB_AUTH_SESSION_KEY_PATH at it — see the README, \"Signing in to Grafana through the Hub\"." -}}
+  {{- end -}}
+  {{- range .Values.grafana.extraEnv -}}
+    {{- if or (hasPrefix "GF_AUTH_GENERIC_OAUTH_" .name) (eq .name "GF_AUTH_DISABLE_LOGIN_FORM") (eq .name "GF_AUTH_LOGIN_MAXIMUM_LIFETIME_DURATION") -}}
+      {{- fail (printf "%s is set in grafana.extraEnv, but grafana.sso renders it. Drop it from grafana.extraEnv." .name) -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- end }}
+
+{{/*
 lunar-dashboards provisioning image ref (repository:tag). The tag defaults to the
 hub image tag so dashboards match the running Hub's schema. Shared by the
 provisioning Job and the reconverge sidecar.
