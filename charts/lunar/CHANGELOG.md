@@ -31,6 +31,11 @@ history see `git log -- charts/lunar/`.
   modes it renders the Hub's side and `NOTES.txt` prints what to configure on
   your Grafana.
 
+  Grafana's password form is off while SSO is on. `grafana.sso.loginForm: true`
+  keeps it, under the button and only on `/login?disableAutoLogin`, for whoever
+  holds the admin secret: the way in by `kubectl port-forward`, where the
+  sign-in cannot complete because it ends on `grafana.url`.
+
   The Hub signs in with a Git platform OAuth app: the one `lunar login` uses
   (`HUB_AUTH_OAUTH_APPS`; on GitHub with its `client_secret_path`), or a
   confidential application of the UI's own under `grafana.sso.forgeApp` — on

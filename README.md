@@ -497,6 +497,15 @@ while SSO is on; the provisioning tool keeps using the admin credentials over
 the API. To get the admin form back, set `grafana.sso.enabled: false` and
 upgrade.
 
+One case wants the form kept: reaching Grafana by `kubectl port-forward`. The
+sign-in runs on `grafana.url` and ends there, so a tab opened on `localhost`
+never gets the session, and with the form off the admin secret has no door
+either. `grafana.sso.loginForm: true` keeps the password form under the **Sign
+in with Lunar** button for whoever holds `<release>-grafana-admin`. Auto-login
+still sends everyone to the Git platform; the form shows only on
+`/login?disableAutoLogin`, which is the address to open through the
+port-forward.
+
 In the `external` modes the chart renders the Hub's side only. Configure your
 Grafana's generic OAuth yourself — `NOTES.txt` prints the values — with client
 id `lunar-grafana` and the secret from `<release>-grafana-sso`, PKCE and refresh
@@ -975,6 +984,7 @@ Pre-built Grafana instance with dashboards for policy results, component health,
 | `grafana.sso.provider` | Which Git platform app signs people in, as `<forge>/<host>` (e.g. `gitlab/gitlab.com`). Optional with a single app in `HUB_AUTH_OAUTH_APPS` and no `forgeApp`; required otherwise | `""` |
 | `grafana.sso.forgeApp.clientId` | A confidential OAuth application of the UI's own, instead of sharing the `lunar login` app (what spares GitLab users the authorization page on every sign-in). Redirect URI `<grafana.url>/oauth/callback`, scope `read_user` | `""` |
 | `grafana.sso.forgeApp.secretName` / `secretKey` | Secret holding that application's secret. Required with `clientId` | `""` / `client-secret` |
+| `grafana.sso.loginForm` | Keep Grafana's password form under the SSO button, for whoever holds the admin secret: the way in by `kubectl port-forward`, where the sign-in cannot complete. Shows only on `/login?disableAutoLogin` | `false` |
 | `grafana.sso.clientSecret.secretName` / `secretKey` | The secret Grafana presents to the Hub (client id is always `lunar-grafana`). Empty = chart-generated `<release>-grafana-sso`, kept across uninstall; in external modes read it back to configure your Grafana | `""` / `client-secret` |
 | `grafana.service.type` | Service type | `ClusterIP` |
 | `grafana.service.port` | Service port | `80` |

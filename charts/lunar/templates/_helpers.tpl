@@ -458,9 +458,13 @@ browser legs (authorize, and the sign-out that ends at the Hub) go through the
 public Grafana URL, which the kiosk sidecar routes to the Hub under /oauth; the
 server-to-server legs (token, userinfo) go pod to pod. Grafana takes the login,
 email, name and role the Hub's userinfo returns, and the role is always Viewer.
-The login form is off: with the Hub deciding who gets in, a password form on
-the same page would be a second door. Seven days is the Hub's own bound on a
-sign-in; Grafana is told the same so its session cannot outlive it.
+The login form is off unless loginForm asks for it: with the Hub deciding who
+gets in, a password form on the same page is a second door, one only whoever
+holds the admin secret can use — a break-glass for an operator reaching Grafana
+by port-forward, where the sign-in cannot complete because it ends on the public
+URL. Auto-login still sends everyone to the forge; the form shows only on
+/login?disableAutoLogin. Seven days is the Hub's own bound on a sign-in; Grafana
+is told the same so its session cannot outlive it.
 */}}
 {{- define "lunar.grafanaSSOEnv" -}}
 {{- $grafanaURL := include "lunar.grafanaURL" . | trimSuffix "/" -}}
@@ -505,7 +509,7 @@ sign-in; Grafana is told the same so its session cannot outlive it.
 - name: GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_STRICT
   value: "true"
 - name: GF_AUTH_DISABLE_LOGIN_FORM
-  value: "true"
+  value: {{ not .Values.grafana.sso.loginForm | quote }}
 - name: GF_AUTH_LOGIN_MAXIMUM_LIFETIME_DURATION
   value: "7d"
 {{- end }}

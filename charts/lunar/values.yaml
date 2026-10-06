@@ -948,6 +948,12 @@ grafana:
     clientSecret:
       secretName: ""
       secretKey: "client-secret"
+    # Keep Grafana's password form under the "Sign in with Lunar" button, for
+    # whoever holds the admin secret. Auto-login still sends everyone to the
+    # Git platform; the form shows only on /login?disableAutoLogin. The way in
+    # for an operator reaching Grafana by port-forward, where the sign-in
+    # cannot complete because it ends on grafana.url, not on localhost.
+    loginForm: false
   extraEnv: []
   # Stock upstream Grafana — no Lunar-built/derived image (avoids the AGPL
   # implications and maintenance of shipping a modified Grafana). Plugins,
