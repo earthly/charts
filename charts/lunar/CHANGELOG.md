@@ -11,6 +11,17 @@ history see `git log -- charts/lunar/`.
 
 ## [4.10.0] - Unreleased
 
+### Added
+
+- **`operator.metricsPort`** (default `8080`) — the operator container now
+  declares its Prometheus `/metrics` endpoint as a named `metrics` port, so a
+  PodMonitor can scrape it. Alongside controller-runtime's own metrics it
+  serves `lunar_snippet_pods{snippet_type, phase}`: current snippet pod counts
+  in a fixed 20 series, however many pods churn through. Each replica reports
+  the full count, so aggregate with `max`, not `sum`. The metric needs an
+  operator image with earthly/lunar#3385 (ENG-1670); older images serve
+  controller-runtime's metrics on `8080` only, so leave the default there.
+
 ### Changed
 
 - The bundled Grafana (`grafana.mode: chart`) now compresses its API responses

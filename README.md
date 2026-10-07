@@ -926,6 +926,7 @@ Watches for script execution jobs and creates Kubernetes pods to run them.
 | `operator.hubHost` | Override hostname the operator and script pods use to reach Hub gRPC. Empty = computed in-cluster FQDN, which resolves cross-namespace. Set only for service-mesh / split-DNS / multi-cluster topologies | `""` |
 | `operator.maxConcurrent` | Max concurrent script pods | `10` |
 | `operator.healthPort` | Operator health check port | `8081` |
+| `operator.metricsPort` | Operator Prometheus `/metrics` port (container port `metrics`) | `8080` |
 | `operator.extraEnv` | Additional environment variables | `[]` |
 
 **Script pod configuration**

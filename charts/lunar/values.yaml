@@ -695,6 +695,9 @@ operator:
   hubHost: ""
   maxConcurrent: 10
   healthPort: 8081
+  # Prometheus /metrics: controller-runtime metrics plus lunar_snippet_pods,
+  # the bounded snippet pod count by type and phase.
+  metricsPort: 8080
   # Per-script-type base container spec. The operator overlays required
   # fields (name, image, command, workingDir, volume mounts) on top — you
   # control everything else: resources, env, envFrom, securityContext, etc.
