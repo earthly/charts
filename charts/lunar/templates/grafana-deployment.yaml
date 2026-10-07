@@ -69,9 +69,22 @@ spec:
             # Stock upstream Grafana: plugins, datasources and dashboards are
             # installed over the API by the lunar-dashboards provisioning tool (the
             # provisioning hook Job + reconverge sidecar), not baked into the image,
-            # so the only server-level knob we set is sign-up. Override via extraEnv.
+            # so the only server-level knobs we set are sign-up and response
+            # compression. Override via extraEnv.
             - name: GF_USERS_ALLOW_SIGN_UP
               value: "false"
+            # Grafana ships with gzip off. The Catalogers dashboard's Tree panel
+            # pulls the whole catalog document through /api/ds/query — ~27 MB at
+            # 42k components, ~38x smaller gzipped (earthly/lunar ENG-2136).
+            # Skipped when extraEnv sets it: a duplicated env name fails the
+            # apply, and installs that enabled it before the chart did keep
+            # working unchanged.
+            {{- $extraEnvNames := list }}
+            {{- range .extraEnv }}{{ $extraEnvNames = append $extraEnvNames .name }}{{ end }}
+            {{- if not (has "GF_SERVER_ENABLE_GZIP" $extraEnvNames) }}
+            - name: GF_SERVER_ENABLE_GZIP
+              value: "true"
+            {{- end }}
             {{- if .sso.enabled }}
             # Sign-in through the Hub (grafana.sso). See lunar.grafanaSSOEnv.
             {{- include "lunar.grafanaSSOEnv" $ | nindent 12 }}

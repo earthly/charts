@@ -9,6 +9,19 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [4.10.0] - Unreleased
+
+### Changed
+
+- The bundled Grafana (`grafana.mode: chart`) now compresses its API responses
+  (`GF_SERVER_ENABLE_GZIP=true`; Grafana's default is off). The Catalogers
+  dashboard's Tree and Diff tabs download the whole catalog document through
+  `/api/ds/query` — around 27 MB per version at 42k components, roughly 38x
+  smaller gzipped — so large catalogs open noticeably faster and move far
+  fewer bytes. No values change; `grafana.extraEnv` still overrides it. The
+  external modes are unaffected: enable gzip on your own Grafana (Grafana
+  Cloud already does). Pairs with earthly/lunar#3367 (ENG-2136).
+
 ## [4.9.0] - 2026-10-05
 
 ### Added
