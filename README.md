@@ -630,7 +630,7 @@ Run `helm show values earthly/lunar` for the full, authoritative list. Defaults 
 | `clusterDomain` | Kubernetes cluster DNS domain. Override only if your cluster was provisioned with a non-default `--cluster-domain` | `cluster.local` |
 | `logging.level` | Log level (`debug`, `info`, `warn`, `error`) applied to both Hub and Operator | `info` |
 | `logging.format` | Log format (`json` or `text`) applied to both Hub and Operator | `json` |
-| `imagePullSecrets` | Image pull secrets for all pods | `[]` |
+| `imagePullSecrets` | Image pull secrets for all pods. The Hub also mounts each one (its `.dockerconfigjson` key, optional) so it can verify snippet images when it pulls a config | `[]` |
 | `serviceAccount.create` | Create a service account | `true` |
 | `serviceAccount.automount` | Automount the service account token | `true` |
 | `serviceAccount.annotations` | Service account annotations (e.g. IAM role ARN) | `{}` |

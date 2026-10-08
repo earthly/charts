@@ -21,6 +21,18 @@ history see `git log -- charts/lunar/`.
   the full count, so aggregate with `max`, not `sum`. The metric needs an
   operator image with earthly/lunar#3385 (ENG-1670); older images serve
   controller-runtime's metrics on `8080` only, so leave the default there.
+- The Hub now mounts every `imagePullSecrets` entry read-only under
+  `/secrets/image-pull/<name>/config.json` and points
+  `HUB_IMAGE_PULL_CONFIG_DIR` at it, so the Hub can verify that a config's
+  snippet images exist, using the credentials snippet pods pull with, before
+  it accepts the config. No values change. Each volume is `optional` and maps
+  only the `.dockerconfigjson` key, so a missing secret, or one of another
+  type, leaves that registry unverified instead of keeping the Hub from
+  starting. With `operator.scriptNamespace` set, the same secrets must also
+  exist in the release namespace for the Hub to read them. Credentials that
+  live on the node (ECR through the node IAM role, kubelet credential
+  providers) aren't covered. Older Hub images ignore the variable. Pairs with
+  earthly/lunar#3390.
 
 ### Changed
 

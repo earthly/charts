@@ -296,6 +296,12 @@ spec:
               value: {{ .grpc.maxConnectionAge | quote }}
             - name: HUB_GRPC_MAX_CONNECTION_AGE_GRACE
               value: {{ .grpc.maxConnectionAgeGrace | quote }}
+            {{- if $.Values.imagePullSecrets }}
+            # The manifest image check reads the same pull secrets snippet
+            # pods pull with, mounted one per directory below.
+            - name: HUB_IMAGE_PULL_CONFIG_DIR
+              value: /secrets/image-pull
+            {{- end }}
             {{- with .extraEnv }}
               {{- toYaml . | nindent 12 }}
             {{- end }}
@@ -391,6 +397,11 @@ spec:
               readOnly: true
             {{- end }}
             {{- end }}
+            {{- range $i, $secret := .Values.imagePullSecrets }}
+            - name: image-pull-{{ $i }}
+              mountPath: /secrets/image-pull/{{ $secret.name }}
+              readOnly: true
+            {{- end }}
             {{- with .Values.hub.volumeMounts }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
@@ -428,6 +439,22 @@ spec:
           secret:
             secretName: {{ .Values.grafana.sso.forgeApp.secretName }}
         {{- end }}
+        {{- end }}
+        {{- /*
+        Pull secrets for the manifest image check. Volumes are indexed
+        because a secret name may contain dots, which a volume name can't.
+        optional: a missing secret, or one that isn't .dockerconfigjson,
+        leaves the hub's image check anonymous for that registry instead of
+        keeping the hub from starting.
+        */}}
+        {{- range $i, $secret := .Values.imagePullSecrets }}
+        - name: image-pull-{{ $i }}
+          secret:
+            secretName: {{ $secret.name }}
+            optional: true
+            items:
+              - key: .dockerconfigjson
+                path: config.json
         {{- end }}
         {{- with .Values.hub.volumes }}
         {{- toYaml . | nindent 8 }}
