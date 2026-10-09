@@ -13,6 +13,12 @@ history see `git log -- charts/lunar/`.
 
 ### Added
 
+- **`grafana.provisioning.extraEnv`** (default `[]`) — extra environment
+  variables for the containers that run the `lunar-dashboards` provisioning
+  tool: the provisioning Job and the reconverge sidecar in the Grafana pod. The
+  default renders nothing, so installs that don't set it keep an identical
+  Grafana pod template and no restart on upgrade.
+
 - **`operator.metricsPort`** (default `8080`) — the operator container now
   declares its Prometheus `/metrics` endpoint as a named `metrics` port, so a
   PodMonitor can scrape it. Alongside controller-runtime's own metrics it
