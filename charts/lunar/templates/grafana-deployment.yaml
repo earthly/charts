@@ -246,6 +246,9 @@ spec:
             {{- include "lunar.grafanaProvisionSkipPlugins" . | nindent 12 }}
             {{- end }}
             {{- include "lunar.grafanaProvisionHubEnv" . | nindent 12 }}
+            {{- with .Values.grafana.provisioning.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           {{- with .Values.grafana.provisioning.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
