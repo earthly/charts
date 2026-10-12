@@ -110,11 +110,14 @@ spec:
             # Best-effort in the binary — falls back to stderr if absent.
             - name: HUB_LICENCE_FILE
               value: {{ .licence.filePath | quote }}
-            {{- if ne $.Values.grafana.mode "off" }}
+            {{- if and (ne $.Values.grafana.mode "off") (ne $.Values.grafana.provisioning.dbPassword.mode "unmanaged") }}
             # grafana_user (02_grafana/user.sql) is created WITH its password on a
-            # fresh DB — the read-only role the lunar-dashboards provisioning tool uses
-            # for the Grafana datasource. Chart-generated (grafana-db secret); needed
-            # whenever provisioning is enabled (incl. external Grafana).
+            # fresh DB, and has it re-applied on an existing one — the read-only role
+            # the lunar-dashboards provisioning tool uses for the Grafana datasource.
+            # Needed whenever provisioning is enabled (incl. external Grafana).
+            # dbPassword.mode=unmanaged withholds it from this Job only: the operator
+            # pre-created the role, and ALTER ROLE ... PASSWORD would fail for want of
+            # CREATEROLE and abort the upgrade. The Hub still gets it (hub-deployment).
             - name: HUB_GRAFANA_DB_PASSWORD
               valueFrom:
                 secretKeyRef:

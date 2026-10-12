@@ -831,6 +831,23 @@ Same reasoning as the reserved-name check over grafana.volumes.
 {{- end }}
 
 {{/*
+Validate grafana.provisioning.dbPassword. Unlike sqlapiPassword, unmanaged still
+needs a secretName: the Hub vends grafana_user's password to the provisioning
+tool's datasource, so it has to know the credential the operator set.
+*/}}
+{{- define "lunar.validateGrafanaDBPassword" -}}
+{{- if ne .Values.grafana.mode "off" -}}
+{{- $mode := .Values.grafana.provisioning.dbPassword.mode -}}
+{{- if not (has $mode (list "generate" "secret" "unmanaged")) -}}
+{{- fail (printf "grafana.provisioning.dbPassword.mode must be one of generate | secret | unmanaged (got %q).\n  - generate   the chart creates and keeps a random password (default)\n  - secret     read it from a Secret you manage (secretName + passwordKey)\n  - unmanaged  you pre-created grafana_user; secretName holds its password, and the migration never changes it" $mode) -}}
+{{- end -}}
+{{- if and (ne $mode "generate") (not .Values.grafana.provisioning.dbPassword.secretName) -}}
+{{- fail (printf "grafana.provisioning.dbPassword.secretName is required when mode is %q. Create a Kubernetes secret holding the grafana_user password: the Hub hands it to the dashboards' datasource. Or use mode=generate to let the chart manage it." $mode) -}}
+{{- end -}}
+{{- end -}}
+{{- end }}
+
+{{/*
 Fail fast on ingress misconfiguration:
   - hub.webhookURL (whenever set) must be a full URL with scheme. This
     fires for BYO ingress too, where it matters most — a bare hostname

@@ -3,6 +3,7 @@
 {{- include "lunar.rejectLegacyIngressShape" . }}
 {{- include "lunar.validateGrafana" . }}
 {{- include "lunar.validateSQLAPIPassword" . }}
+{{- include "lunar.validateGrafanaDBPassword" . }}
 {{- include "lunar.validateGrafanaSSO" . }}
 {{- $webhookURL := include "lunar.webhookURL" . -}}
 {{- $grafanaURL := include "lunar.grafanaURL" . -}}
@@ -263,8 +264,9 @@ spec:
             {{- if ne $.Values.grafana.mode "off" }}
             # Read-only grafana_user password: the Hub embeds it in the read-only
             # Postgres connection string GetGrafanaConnectionString vends to the
-            # provisioning tool. Chart-generated (grafana-db secret); needed whenever
-            # grafana.mode != off, including external Grafana (mode=external).
+            # provisioning tool. Needed whenever grafana.mode != off, including
+            # external Grafana (mode=external), and in every dbPassword.mode —
+            # unmanaged withholds it from the migrate Job, never from the Hub.
             - name: HUB_GRAFANA_DB_PASSWORD
               valueFrom:
                 secretKeyRef:
