@@ -986,6 +986,13 @@ grafana:
     # dashboards still deploy. In external-manual mode nothing runs to set it on,
     # so it only adds -e SKIP_PLUGINS=true to the command NOTES.txt prints.
     skipPlugins: false
+    # Extra env for the containers that run the provisioning tool: the
+    # provisioning Job and the reconverge sidecar in the Grafana pod. Don't
+    # repeat a name the chart already sets (GRAFANA_URL, SKIP_PLUGINS,
+    # GRAFANA_RESOURCE_SUFFIX, LUNAR_HUB_*): a duplicated env name is ambiguous
+    # under a patch. Empty
+    # renders nothing, so the Grafana pod template is unchanged.
+    extraEnv: []
     image:
       repository: "ghcr.io/earthly/lunar-dashboards"
       pullPolicy: IfNotPresent

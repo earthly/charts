@@ -9,6 +9,16 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [4.11.0] - Unreleased
+
+### Added
+
+- **`grafana.provisioning.extraEnv`** (default `[]`) — extra environment
+  variables for the containers that run the `lunar-dashboards` provisioning
+  tool: the provisioning Job and the reconverge sidecar in the Grafana pod. The
+  default renders nothing, so installs that don't set it keep an identical
+  Grafana pod template and no restart on upgrade.
+
 ## [4.10.0] - Unreleased
 
 ### Added
