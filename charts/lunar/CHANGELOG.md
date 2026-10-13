@@ -22,10 +22,12 @@ history see `git log -- charts/lunar/`.
   `operator.labels`; default `{}`) — merge onto each workload's Deployment
   `metadata.labels`, alongside the chart's standard `lunar.labels` (custom keys
   win on collision). `hub.labels` and `grafana.labels` also land on the
-  `hub-migrate` and `grafana-provision` hook Jobs, matching their
-  `annotations`, so a required-labels admission policy covers the whole
-  install. Distinct from `podLabels`, which apply to the pod
-  template; selectors and pod labels are unchanged. `hub.labels` and
+  `hub-migrate` and `grafana-provision` hook Jobs, and `hub.podLabels` /
+  `grafana.podLabels` now reach those Jobs' pods (matching their
+  `annotations` and `podAnnotations`), so a required-labels admission policy
+  scoped to Deployments, Jobs, or Pods covers the whole install. Distinct from
+  `podLabels`, which apply to pod templates; Deployment selectors and pod
+  labels are unchanged. `hub.labels` and
   `grafana.labels` already existed as values but were never wired into a
   template. Empty by default — no change for existing installs.
 

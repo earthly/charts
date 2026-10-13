@@ -31,6 +31,9 @@ spec:
       labels:
         {{- include "lunar.labels" . | nindent 8 }}
         app.kubernetes.io/component: hub-migrate
+        {{- with .Values.hub.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
       {{- with .Values.hub.podAnnotations }}
       annotations:
         {{- toYaml . | nindent 8 }}
