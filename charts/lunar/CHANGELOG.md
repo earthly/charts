@@ -33,6 +33,18 @@ history see `git log -- charts/lunar/`.
   Use letters and digits only: the Hub puts the password in a `postgres://`
   URL without percent-encoding. Existing values need no change: `secretName`
   without a `mode` still reads that Secret, exactly as before (ENG-1639).
+- **Custom workload `labels`** (`hub.labels`, `grafana.labels`, and the new
+  `operator.labels`; default `{}`) — merge onto each workload's Deployment
+  `metadata.labels`, alongside the chart's standard `lunar.labels` (custom keys
+  win on collision). `hub.labels` and `grafana.labels` also land on the
+  `hub-migrate` and `grafana-provision` hook Jobs, and `hub.podLabels` /
+  `grafana.podLabels` now reach those Jobs' pods (matching their
+  `annotations` and `podAnnotations`), so a required-labels admission policy
+  scoped to Deployments, Jobs, or Pods covers the whole install. Distinct from
+  `podLabels`, which apply to pod templates; Deployment selectors and pod
+  labels are unchanged. `hub.labels` and
+  `grafana.labels` already existed as values but were never wired into a
+  template. Empty by default — no change for existing installs.
 
 ## [4.10.0] - Unreleased
 

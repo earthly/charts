@@ -12,7 +12,7 @@ kind: Deployment
 metadata:
   name: {{ include "lunar.fullname" . }}-hub
   labels:
-    {{- include "lunar.labels" . | nindent 4 }}
+    {{- mergeOverwrite (include "lunar.labels" . | fromYaml) (.Values.hub.labels | default dict) | toYaml | nindent 4 }}
   {{- with .Values.hub.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
