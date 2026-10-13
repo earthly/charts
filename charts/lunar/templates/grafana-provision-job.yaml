@@ -27,8 +27,7 @@ kind: Job
 metadata:
   name: {{ include "lunar.fullname" . }}-grafana-provision
   labels:
-    {{- include "lunar.labels" . | nindent 4 }}
-    app.kubernetes.io/component: grafana-provision
+    {{- mergeOverwrite (include "lunar.labels" . | fromYaml) (dict "app.kubernetes.io/component" "grafana-provision") (.Values.grafana.labels | default dict) | toYaml | nindent 4 }}
   annotations:
     "helm.sh/hook": post-install,post-upgrade
     "helm.sh/hook-weight": "5"
@@ -44,6 +43,9 @@ spec:
       labels:
         {{- include "lunar.labels" . | nindent 8 }}
         app.kubernetes.io/component: grafana-provision
+        {{- with .Values.grafana.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
       {{- with .Values.grafana.podAnnotations }}
       annotations:
         {{- toYaml . | nindent 8 }}

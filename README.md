@@ -889,9 +889,9 @@ The Hub uses a PVC for state, cached repos, and script code.
 | `hub.nodeSelector` | Node selector | `{}` |
 | `hub.tolerations` | Tolerations | `[]` |
 | `hub.affinity` | Affinity rules | `{}` |
-| `hub.labels` | Additional deployment labels | `{}` |
+| `hub.labels` | Additional labels for the Hub Deployment and the `hub-migrate` hook Job, merged over the chart's standard labels (yours win on collision) | `{}` |
 | `hub.annotations` | Additional deployment annotations | `{}` |
-| `hub.podLabels` | Additional pod labels | `{}` |
+| `hub.podLabels` | Additional pod labels for the Hub and `hub-migrate` hook Job pods | `{}` |
 | `hub.podAnnotations` | Additional pod annotations | `{}` |
 | `hub.podSecurityContext` | Pod security context | `{}` |
 | `hub.securityContext` | Container security context | `{}` |
@@ -958,6 +958,8 @@ Operator logging uses the top-level global `logging.*` values. Tenant and teleme
 | `operator.nodeSelector` | Node selector | `{}` |
 | `operator.tolerations` | Tolerations | `[]` |
 | `operator.affinity` | Affinity rules | `{}` |
+| `operator.labels` | Additional deployment labels, merged over the chart's standard labels (yours win on collision) | `{}` |
+| `operator.annotations` | Additional deployment annotations | `{}` |
 | `operator.podLabels` | Additional pod labels | `{}` |
 | `operator.podAnnotations` | Additional pod annotations | `{}` |
 | `operator.podSecurityContext` | Pod security context | `{}` |
@@ -1007,6 +1009,10 @@ Pre-built Grafana instance with dashboards for policy results, component health,
 | `grafana.nodeSelector` | Node selector | `{}` |
 | `grafana.tolerations` | Tolerations | `[]` |
 | `grafana.affinity` | Affinity rules | `{}` |
+| `grafana.labels` | Additional labels for the Grafana Deployment and the `grafana-provision` hook Job, merged over the chart's standard labels (yours win on collision) | `{}` |
+| `grafana.annotations` | Additional deployment annotations | `{}` |
+| `grafana.podLabels` | Additional pod labels for the Grafana and `grafana-provision` hook Job pods | `{}` |
+| `grafana.podAnnotations` | Additional pod annotations | `{}` |
 | `grafana.topologySpreadConstraints` | Pod topology-spread constraints for Grafana replicas. Empty is NOT "no spread" — the chart applies a soft default (`maxSkew: 1` across `kubernetes.io/hostname`, `ScheduleAnyway`); set this to override wholesale | `[]` |
 
 </details>
