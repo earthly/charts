@@ -9,6 +9,13 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [4.12.0] - 2026-10-20
+
+### Changed
+
+- Update the Hub, operator, init, and sidecar images to 4.12.0.
+  Dashboard provisioning follows the Hub version.
+
 ## [4.11.0] - Unreleased
 
 ### Added
