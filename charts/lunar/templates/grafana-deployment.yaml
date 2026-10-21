@@ -82,12 +82,14 @@ spec:
             # /api/ds/query — ~27 MB at 42k components, ~38x smaller gzipped
             # (earthly/lunar ENG-2136).
             #
-            # The rest stop Grafana's calls to grafana.com. Plugin public-key
-            # retrieval matters most: with it on, whoever can impersonate
-            # grafana.com to this pod can hand it a signing key and then a plugin
-            # signed with that key. Off, plugins verify against the key bundled in
-            # the image. External snapshots would publish dashboard data, query
-            # results included, to Grafana Labs' public snapshot service.
+            # The rest stop Grafana's background calls to grafana.com and its
+            # ways to send data to Grafana Labs. Plugin public-key retrieval
+            # matters most: with it on, whoever can impersonate grafana.com to
+            # this pod can hand it a signing key and then a plugin signed with
+            # that key. Off, plugins verify against the key bundled in the image.
+            # External snapshots would publish dashboard data, query results
+            # included, to Grafana Labs' public snapshot service; cloud migration
+            # would upload dashboards and datasources to Grafana Cloud.
             {{- $extraEnvNames := list }}
             {{- range .extraEnv }}{{ $extraEnvNames = append $extraEnvNames .name }}{{ end }}
             {{- $defaults := dict
@@ -97,7 +99,8 @@ spec:
                   "GF_ANALYTICS_CHECK_FOR_UPDATES" "false"
                   "GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES" "false"
                   "GF_NEWS_NEWS_FEED_ENABLED" "false"
-                  "GF_SNAPSHOTS_EXTERNAL_ENABLED" "false" }}
+                  "GF_SNAPSHOTS_EXTERNAL_ENABLED" "false"
+                  "GF_CLOUD_MIGRATION_ENABLED" "false" }}
             {{- range $name, $value := $defaults }}
             {{- if not (has $name $extraEnvNames) }}
             - name: {{ $name }}

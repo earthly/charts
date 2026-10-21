@@ -13,8 +13,9 @@ history see `git log -- charts/lunar/`.
 
 ### Security
 
-- The bundled Grafana (`grafana.mode: chart`) no longer calls out to
-  grafana.com. The chart now sets:
+- The bundled Grafana (`grafana.mode: chart`) no longer calls grafana.com in
+  the background or offers to send data to Grafana Labs; plugin installs still
+  download from it. The chart now sets:
 
   | Variable | Value |
   | --- | --- |
@@ -24,6 +25,7 @@ history see `git log -- charts/lunar/`.
   | `GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES` | `false` |
   | `GF_NEWS_NEWS_FEED_ENABLED` | `false` |
   | `GF_SNAPSHOTS_EXTERNAL_ENABLED` | `false` |
+  | `GF_CLOUD_MIGRATION_ENABLED` | `false` |
 
   The first matters most. With key retrieval on, Grafana fetches the keys it
   verifies plugin signatures with from grafana.com, so anyone able to
@@ -32,8 +34,10 @@ history see `git log -- charts/lunar/`.
   incident) could supply their own key and then a plugin signed with it. With
   it off, plugins verify against the key bundled in the Grafana image.
   Disabling external snapshots removes the option to publish a dashboard,
-  query results included, to Grafana Labs' public snapshot service. The others
-  stop usage reporting, update checks and the news feed.
+  query results included, to Grafana Labs' public snapshot service, and
+  disabling cloud migration removes the option to upload dashboards and
+  datasources to Grafana Cloud. The others stop usage reporting and update
+  checks, and hide the news feed panel (which the browser, not Grafana, fetches).
 
   No values change. Any of these set in `grafana.extraEnv` takes precedence
   over the chart's value. Plugin installs still download from grafana.com
