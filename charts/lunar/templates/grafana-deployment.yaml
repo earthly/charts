@@ -69,21 +69,43 @@ spec:
             # Stock upstream Grafana: plugins, datasources and dashboards are
             # installed over the API by the lunar-dashboards provisioning tool (the
             # provisioning hook Job + reconverge sidecar), not baked into the image,
-            # so the only server-level knobs we set are sign-up and response
-            # compression. Override via extraEnv.
+            # so the only server-level knobs we set are sign-up, response
+            # compression and the outbound calls below. Override via extraEnv.
             - name: GF_USERS_ALLOW_SIGN_UP
               value: "false"
-            # Grafana ships with gzip off. The Catalogers dashboard's Tree panel
-            # pulls the whole catalog document through /api/ds/query — ~27 MB at
-            # 42k components, ~38x smaller gzipped (earthly/lunar ENG-2136).
-            # Skipped when extraEnv sets it: a duplicated env name fails the
-            # apply, and installs that enabled it before the chart did keep
-            # working unchanged.
+            # Each default is skipped when extraEnv sets the same name: a
+            # duplicated env name fails the apply, and installs that set one
+            # before the chart did keep working unchanged.
+            #
+            # GF_SERVER_ENABLE_GZIP: Grafana ships with gzip off. The Catalogers
+            # dashboard's Tree panel pulls the whole catalog document through
+            # /api/ds/query — ~27 MB at 42k components, ~38x smaller gzipped
+            # (earthly/lunar ENG-2136).
+            #
+            # The rest stop Grafana's background calls to grafana.com and its
+            # ways to send data to Grafana Labs. Plugin public-key retrieval
+            # matters most: with it on, whoever can impersonate grafana.com to
+            # this pod can hand it a signing key and then a plugin signed with
+            # that key. Off, plugins verify against the key bundled in the image.
+            # External snapshots would publish dashboard data, query results
+            # included, to Grafana Labs' public snapshot service; cloud migration
+            # would upload dashboards and datasources to Grafana Cloud.
             {{- $extraEnvNames := list }}
             {{- range .extraEnv }}{{ $extraEnvNames = append $extraEnvNames .name }}{{ end }}
-            {{- if not (has "GF_SERVER_ENABLE_GZIP" $extraEnvNames) }}
-            - name: GF_SERVER_ENABLE_GZIP
-              value: "true"
+            {{- $defaults := dict
+                  "GF_SERVER_ENABLE_GZIP" "true"
+                  "GF_PLUGINS_PUBLIC_KEY_RETRIEVAL_DISABLED" "true"
+                  "GF_ANALYTICS_REPORTING_ENABLED" "false"
+                  "GF_ANALYTICS_CHECK_FOR_UPDATES" "false"
+                  "GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES" "false"
+                  "GF_NEWS_NEWS_FEED_ENABLED" "false"
+                  "GF_SNAPSHOTS_EXTERNAL_ENABLED" "false"
+                  "GF_CLOUD_MIGRATION_ENABLED" "false" }}
+            {{- range $name, $value := $defaults }}
+            {{- if not (has $name $extraEnvNames) }}
+            - name: {{ $name }}
+              value: {{ $value | quote }}
+            {{- end }}
             {{- end }}
             {{- if .sso.enabled }}
             # Sign-in through the Hub (grafana.sso). See lunar.grafanaSSOEnv.
