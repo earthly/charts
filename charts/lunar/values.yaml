@@ -1027,6 +1027,8 @@ grafana:
     #
     # GitOps: "generate" uses `lookup`, which returns empty under ArgoCD and
     # `helm template`. Use "secret" there, same as grafana.auth.
+    # HUB_GRAFANA_DB_PASSWORD is reserved in hub.extraEnv. To preserve an
+    # existing credential, reference the same Secret here instead.
     dbPassword:
       mode: generate
       secretName: ""
