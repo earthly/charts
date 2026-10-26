@@ -1002,11 +1002,35 @@ grafana:
       tag: ""
     # Password for the read-only grafana_user DB role the provisioning tool's
     # datasource uses (the Hub vends the connection to the tool; it's never
-    # user-facing). Leave secretName empty to have the chart generate it — a
-    # pre-install/pre-upgrade hook secret, persisted across upgrades
-    # (helm.sh/resource-policy: keep). Set secretName to bring your own
-    # (recommended for GitOps; see grafana.auth note).
+    # user-facing).
+    #
+    #   generate   the chart creates a random password and keeps it (default)
+    #   secret     read it from a Secret you manage (secretName + passwordKey)
+    #   unmanaged  you pre-created grafana_user and own its password; secretName
+    #              holds that password so the Hub can hand it to the datasource,
+    #              and the migration never changes it
+    #
+    # Use "unmanaged" on a shared Postgres cluster where the Hub's DB role has no
+    # CREATEROLE. The other two modes render ALTER ROLE ... PASSWORD during
+    # migration, which that role cannot execute — and the migrate Job is a
+    # pre-upgrade hook, so the whole upgrade aborts. Same reasoning as
+    # hub.db.sqlapiPassword, except the Hub still needs the password here: the
+    # dashboards' datasource connects with it.
+    #
+    # secretName with mode "generate" reads that Secret instead of generating,
+    # the shape this value had before the modes existed.
+    #
+    # A password you supply ("secret" or "unmanaged") must be letters and digits
+    # only. The Hub puts it in a postgres:// URL without percent-encoding, so an
+    # '@' makes provisioning parse the rest as the host, and the dashboards
+    # fail with a host error that hides the cause.
+    #
+    # GitOps: "generate" uses `lookup`, which returns empty under ArgoCD and
+    # `helm template`. Use "secret" there, same as grafana.auth.
+    # HUB_GRAFANA_DB_PASSWORD is reserved in hub.extraEnv. To preserve an
+    # existing credential, reference the same Secret here instead.
     dbPassword:
+      mode: generate
       secretName: ""
       passwordKey: "password"
     # securityContext / resources for the provisioning workloads — the provisioning

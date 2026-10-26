@@ -831,6 +831,28 @@ Same reasoning as the reserved-name check over grafana.volumes.
 {{- end }}
 
 {{/*
+Validate grafana.provisioning.dbPassword. Unlike sqlapiPassword, unmanaged still
+needs a secretName: the Hub vends grafana_user's password to the provisioning
+tool's datasource, so it has to know the credential the operator set.
+*/}}
+{{- define "lunar.validateGrafanaDBPassword" -}}
+{{- range .Values.hub.extraEnv -}}
+{{- if eq .name "HUB_GRAFANA_DB_PASSWORD" -}}
+{{- fail "HUB_GRAFANA_DB_PASSWORD is set in hub.extraEnv, but the chart owns it. Move it to grafana.provisioning.dbPassword: set mode=secret, secretName and passwordKey to reference the SAME Secret and preserve the existing password. Use mode=unmanaged with that Secret if you pre-created grafana_user and manage its password outside Lunar; only the Hub receives the password in that mode." -}}
+{{- end -}}
+{{- end -}}
+{{- if ne .Values.grafana.mode "off" -}}
+{{- $mode := .Values.grafana.provisioning.dbPassword.mode -}}
+{{- if not (has $mode (list "generate" "secret" "unmanaged")) -}}
+{{- fail (printf "grafana.provisioning.dbPassword.mode must be one of generate | secret | unmanaged (got %q).\n  - generate   the chart creates and keeps a random password (default)\n  - secret     read it from a Secret you manage (secretName + passwordKey)\n  - unmanaged  you pre-created grafana_user; secretName holds its password, and the migration never changes it" $mode) -}}
+{{- end -}}
+{{- if and (ne $mode "generate") (not .Values.grafana.provisioning.dbPassword.secretName) -}}
+{{- fail (printf "grafana.provisioning.dbPassword.secretName is required when mode is %q. Create a Kubernetes secret holding the grafana_user password: the Hub hands it to the dashboards' datasource. Or use mode=generate to let the chart manage it." $mode) -}}
+{{- end -}}
+{{- end -}}
+{{- end }}
+
+{{/*
 Fail fast on ingress misconfiguration:
   - hub.webhookURL (whenever set) must be a full URL with scheme. This
     fires for BYO ingress too, where it matters most — a bare hostname

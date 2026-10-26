@@ -9,6 +9,32 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [4.13.0] - Unreleased
+
+### Added
+
+- **`grafana.provisioning.dbPassword.mode`** (`generate` | `secret` |
+  `unmanaged`, default `generate`) — the same choice `hub.db.sqlapiPassword`
+  has had since 3.19.0, now for the `grafana_user` role behind the dashboards'
+  datasource. A shared Postgres cluster whose Hub DB role has no `CREATEROLE`
+  could not run the migration with Grafana enabled: the migrate Job sent the
+  password, `02_grafana` ran `ALTER ROLE … PASSWORD`, Postgres refused, and
+  because the Job is a pre-upgrade hook the upgrade aborted. With
+  `mode: unmanaged`, pre-create `grafana_user` with a password you choose and
+  point `secretName` at a Secret holding it: the Hub hands it to the
+  datasource, and the migrate Job no longer receives it, so the role's
+  password is never changed. Unlike `sqlapiPassword`'s `unmanaged`, this mode
+  requires `secretName`, because Lunar's own provisioning connects with it.
+  Use letters and digits only: the Hub puts the password in a `postgres://`
+  URL without percent-encoding. Existing values need no change: `secretName`
+  without a `mode` still reads that Secret, exactly as before (ENG-1639).
+
+- **Reserved `HUB_GRAFANA_DB_PASSWORD` in `hub.extraEnv`.** Set
+  `grafana.provisioning.dbPassword.secretName` and `passwordKey` instead,
+  pointing at the same Secret to preserve the existing password. This prevents
+  `extraEnv` from overriding the chart credential or sending it to the migrate
+  Job in `unmanaged` mode. The variable is rejected even with Grafana off.
+
 ## [4.12.1] - 2026-10-21
 
 ### Security
@@ -61,6 +87,7 @@ history see `git log -- charts/lunar/`.
   tool: the provisioning Job and the reconverge sidecar in the Grafana pod. The
   default renders nothing, so installs that don't set it keep an identical
   Grafana pod template and no restart on upgrade.
+
 - **Custom workload `labels`** (`hub.labels`, `grafana.labels`, and the new
   `operator.labels`; default `{}`) — merge onto each workload's Deployment
   `metadata.labels`, alongside the chart's standard `lunar.labels` (custom keys
