@@ -9,6 +9,17 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [4.14.0] - Unreleased
+
+### Added
+
+- **`hub.snippetDefaultCloneDepth`** (`full` | `shallow` | `base`, default
+  `full`) sets `HUB_SNIPPET_DEFAULT_CLONE_DEPTH` for snippet hooks without an
+  explicit `clone_depth`. Unsupported values fail at render time. Existing
+  `hub.extraEnv` entries for this variable take precedence, including
+  `valueFrom` references, without rendering a duplicate environment variable.
+  Upgrades retain full clones unless an override is configured.
+
 ## [4.13.0] - Unreleased
 
 ### Added

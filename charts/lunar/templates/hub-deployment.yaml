@@ -5,6 +5,19 @@
 {{- include "lunar.validateSQLAPIPassword" . }}
 {{- include "lunar.validateGrafanaDBPassword" . }}
 {{- include "lunar.validateGrafanaSSO" . }}
+{{- $cloneDepth := "full" -}}
+{{- if hasKey .Values.hub "snippetDefaultCloneDepth" -}}
+{{- $cloneDepth = .Values.hub.snippetDefaultCloneDepth -}}
+{{- end -}}
+{{- if not (has $cloneDepth (list "full" "shallow" "base")) -}}
+{{- fail "hub.snippetDefaultCloneDepth must be full, shallow, or base" -}}
+{{- end -}}
+{{- $cloneDepthOverridden := false -}}
+{{- range .Values.hub.extraEnv -}}
+{{- if eq .name "HUB_SNIPPET_DEFAULT_CLONE_DEPTH" -}}
+{{- $cloneDepthOverridden = true -}}
+{{- end -}}
+{{- end -}}
 {{- $webhookURL := include "lunar.webhookURL" . -}}
 {{- $grafanaURL := include "lunar.grafanaURL" . -}}
 apiVersion: apps/v1
@@ -294,6 +307,10 @@ spec:
               value: {{ .maxWorkers.cronCollect | quote }}
             - name: HUB_MAX_WORKERS_CATALOGER
               value: {{ .maxWorkers.cataloger | quote }}
+            {{- if not $cloneDepthOverridden }}
+            - name: HUB_SNIPPET_DEFAULT_CLONE_DEPTH
+              value: {{ $cloneDepth | quote }}
+            {{- end }}
             - name: HUB_GRPC_MAX_CONNECTION_AGE
               value: {{ .grpc.maxConnectionAge | quote }}
             - name: HUB_GRPC_MAX_CONNECTION_AGE_GRACE

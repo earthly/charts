@@ -655,6 +655,7 @@ The central gRPC/HTTP server. Stores metadata, evaluates policies, and serves th
 | `hub.maxWorkers.policy` | Max Hub workers for policy queue jobs; `0` means unlimited | `20` |
 | `hub.maxWorkers.cronCollect` | Max Hub workers for cron collector queue jobs; `0` means unlimited | `5` |
 | `hub.maxWorkers.cataloger` | Max Hub workers for cataloger queue jobs; `0` means unlimited | `1` |
+| `hub.snippetDefaultCloneDepth` | Checkout depth for snippet hooks without an explicit `clone_depth`: `full` (entire history), `shallow` (only the commit under test), or `base` (also fetch base/default branch tips and deepen to merge bases). Sets `HUB_SNIPPET_DEFAULT_CLONE_DEPTH`; an existing entry in `hub.extraEnv` takes precedence | `full` |
 | `hub.extraEnv` | Additional environment variables (`name`/`value` or `valueFrom` pairs) | `[]` |
 
 **Public URL**

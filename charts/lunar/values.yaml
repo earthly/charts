@@ -512,6 +512,12 @@ hub:
   # is served from S3 — so it is an emptyDir, not a PVC. sizeLimit caps it.
   stateDir:
     sizeLimit: 2Gi
+  # Default checkout depth for snippet hooks that do not declare clone_depth.
+  # full: entire repository history; shallow: only the commit under test;
+  # base: also fetch base/default branch tips and deepen to their merge bases.
+  # A hook's clone_depth always wins. Existing HUB_SNIPPET_DEFAULT_CLONE_DEPTH
+  # entries in extraEnv take precedence over this value.
+  snippetDefaultCloneDepth: full
   extraEnv: []
   image:
     repository: "ghcr.io/earthly/lunar-hub"
