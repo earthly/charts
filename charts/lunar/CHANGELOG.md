@@ -20,7 +20,7 @@ history see `git log -- charts/lunar/`.
   `valueFrom` references, without rendering a duplicate environment variable.
   Upgrades retain full clones unless an override is configured.
 
-## [4.13.0] - Unreleased
+## [4.13.0] - 2026-10-29
 
 ### Added
 
@@ -89,7 +89,7 @@ history see `git log -- charts/lunar/`.
 - Update the Hub, operator, init, and sidecar images to 4.12.0.
   Dashboard provisioning follows the Hub version.
 
-## [4.11.0] - Unreleased
+## [4.11.0] - 2026-10-13
 
 ### Added
 
@@ -112,7 +112,7 @@ history see `git log -- charts/lunar/`.
   `grafana.labels` already existed as values but were never wired into a
   template. Empty by default — no change for existing installs.
 
-## [4.10.0] - Unreleased
+## [4.10.0] - 2026-10-12
 
 ### Added
 
