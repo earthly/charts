@@ -148,14 +148,18 @@ hub:
       secretName: ""
       passwordKey: "password"
     # Per-replica Postgres connection budget. Total connections to Postgres ≈
-    # replicaCount × (maxOpenConns + maxPoolConns + operatorPoolSize).
+    # replicaCount × (maxOpenConns + maxPoolConns + operatorPoolSize + min(maxPoolConns, 8)).
     #
-    # Defaults (40/40/5 ≈ 85/replica) match the hub's built-in values. With the
-    # default replicaCount: 2 that is a ceiling of ~170 connections, so size your
-    # Postgres max_connections >= replicaCount × 85 plus headroom for the migrate
-    # Job, psql, and superuser-reserved slots (~200 for the N=2 default, ~270 for
+    # With ENG-2374 posting locks, defaults (40/40/5/8 = 93/replica) match the
+    # hub's built-in values. With the
+    # default replicaCount: 2 that is a ceiling of ~186 connections, so size your
+    # Postgres max_connections >= replicaCount × 93 plus headroom for the migrate
+    # Job, psql, and superuser-reserved slots (~200 for the N=2 default, ~300 for
     # N=3). Managed Postgres (RDS/Aurora/Cloud SQL) sizes well above this by
     # default; a bare Postgres at max_connections=100 must be raised for HA.
+    # The posting-lock pool opens up to min(maxPoolConns, 8) extra connections
+    # per replica on demand, with no idle minimum. Earlier Hub builds without
+    # that pool retain the 85-connection per-replica budget.
     #
     # Do NOT lower maxPoolConns below your peak concurrent River workers (the sum
     # of hub.maxWorkers.*, currently 36) — the pgxpool is shared by every queue
