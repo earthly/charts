@@ -930,6 +930,21 @@ Watches for script execution jobs and creates Kubernetes pods to run them.
 | `operator.metricsPort` | Operator Prometheus `/metrics` port (container port `metrics`) | `8080` |
 | `operator.extraEnv` | Additional environment variables | `[]` |
 
+**Image pull tracing**
+
+Image pull tracing follows normal tracing configuration and sampling; no separate
+option is required. The operator ServiceAccount has `list` on core Events in
+`operator.scriptNamespace` (the release namespace when unset). This allows reading
+all Events in that namespace; the operator filters queries by pod UID. No Event
+`get` or `watch`, node access, or script-pod permission is added.
+
+With a supporting operator image, successful pulls appear as `script.image.pull`
+children of `script.batch`; cache hits are `image.cached` events in the batch
+span's details. Pull spans include kubelet queueing; `image.pull.active_ms` and
+`image.pull.wait_ms` separate download time from waiting. Events are collected
+after batch completion, and timing is best effort. This does not configure a
+tracing exporter.
+
 **Script pod configuration**
 
 | Key | Description | Default |

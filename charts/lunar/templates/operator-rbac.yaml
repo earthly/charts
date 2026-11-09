@@ -12,7 +12,7 @@ rules:
     verbs: ["get", "list", "watch", "create", "delete"]
   - apiGroups: [""]
     resources: ["events"]
-    verbs: ["create", "patch"]
+    verbs: ["create", "patch", "list"]
   # Leader election for multi-replica operators (controller-runtime Manager LE).
   # The Lease lives in OPERATOR_NAMESPACE, which is this Role's namespace
   # (scriptNamespace); whichever replica holds it runs the pod-GC reconciler.

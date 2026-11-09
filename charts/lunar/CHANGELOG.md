@@ -9,6 +9,16 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [Unreleased]
+
+### Added
+
+- Grant the operator core Events `list` in the script-pod namespace for image
+  pull tracing. Image tracing follows normal tracing configuration and sampling,
+  with no separate option or environment flag. Existing Events `create` / `patch`
+  permissions remain in place. Requires an operator image with image pull tracing
+  support.
+
 ## [4.14.0] - 2026-11-03
 
 ### Added
