@@ -708,10 +708,6 @@ operator:
   # Prometheus /metrics: controller-runtime metrics plus lunar_snippet_pods,
   # the bounded snippet pod count by type and phase.
   metricsPort: 8080
-  # Experimental image pull timing for sampled batches; normal tracing must also
-  # be configured. Requires an operator image with image pull tracing support.
-  # When enabled, also grants list access to all Events in scriptNamespace.
-  traceImagePulls: false
   # Per-script-type base container spec. The operator overlays required
   # fields (name, image, command, workingDir, volume mounts) on top — you
   # control everything else: resources, env, envFrom, securityContext, etc.

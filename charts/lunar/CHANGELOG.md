@@ -13,13 +13,11 @@ history see `git log -- charts/lunar/`.
 
 ### Added
 
-- **`operator.traceImagePulls`** (default `false`) sets the operator's
-  experimental image pull tracing flag and conditionally grants core Events
-  `list` in the script-pod namespace. Existing Events `create` / `patch`
-  permissions remain in place. Requires an operator image with image pull
-  tracing support and normal tracing configuration. Configure the flag through
-  this value, rather than `operator.extraEnv`, so runtime enablement and RBAC
-  stay in sync.
+- Grant the operator core Events `list` in the script-pod namespace for image
+  pull tracing. Image tracing follows normal tracing configuration and sampling,
+  with no separate option or environment flag. Existing Events `create` / `patch`
+  permissions remain in place. Requires an operator image with image pull tracing
+  support.
 
 ## [4.14.0] - 2026-11-03
 
