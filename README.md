@@ -941,8 +941,7 @@ all Events in that namespace; the operator filters queries by pod UID. No Event
 With a supporting operator image, successful pulls appear as `script.image.pull`
 children of `script.batch`; cache hits are `image.cached` events in the batch
 span's details. Events are collected after batch completion, and timing is best
-effort. This does not configure a tracing exporter. After deploying this chart,
-remove any temporary Role and RoleBinding created for the Cronos experiment.
+effort. This does not configure a tracing exporter.
 
 **Script pod configuration**
 
