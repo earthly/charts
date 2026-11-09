@@ -9,6 +9,18 @@ History starts at 1.0.0 (the snippet→script rename and ghcr.io
 switchover); earlier 0.x versions had no production users. For 0.x
 history see `git log -- charts/lunar/`.
 
+## [Unreleased]
+
+### Added
+
+- **`operator.traceImagePulls`** (default `false`) sets the operator's
+  experimental image pull tracing flag and conditionally grants core Events
+  `list` in the script-pod namespace. Existing Events `create` / `patch`
+  permissions remain in place. Requires an operator image with image pull
+  tracing support and normal tracing configuration. Configure the flag through
+  this value, rather than `operator.extraEnv`, so runtime enablement and RBAC
+  stay in sync.
+
 ## [4.14.0] - 2026-11-03
 
 ### Added

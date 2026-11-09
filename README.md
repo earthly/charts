@@ -928,7 +928,28 @@ Watches for script execution jobs and creates Kubernetes pods to run them.
 | `operator.maxConcurrent` | Max concurrent script pods | `10` |
 | `operator.healthPort` | Operator health check port | `8081` |
 | `operator.metricsPort` | Operator Prometheus `/metrics` port (container port `metrics`) | `8080` |
+| `operator.traceImagePulls` | Experimental image pull tracing for sampled batches; also grants Events `list` in the script-pod namespace. Requires normal tracing configuration and a supporting operator image | `false` |
 | `operator.extraEnv` | Additional environment variables | `[]` |
+
+**Experimental image pull tracing**
+
+Set `operator.traceImagePulls: true` to set `OPERATOR_TRACE_IMAGE_PULLS=true`
+and grant the operator ServiceAccount `list` on core Events in
+`operator.scriptNamespace` (the release namespace when unset). The permission
+allows reading all Events in that namespace; the operator filters its queries
+by pod UID. No Event `get` or `watch`, node access, or script-pod permission is
+added. Turning the setting off removes the extra `list` grant and sets the flag
+to `false` on the operator's next rollout.
+
+This requires an operator image containing
+[image pull tracing support](https://github.com/earthly/lunar/pull/3709) and
+normal tracing configuration; it does not configure an exporter. Successful
+pulls appear as `script.image.pull` children of `script.batch`; cache hits are
+`image.cached` events in the batch span's details. Events are collected after
+batch completion, and timing is best effort. Use this setting instead of
+`OPERATOR_TRACE_IMAGE_PULLS` in `operator.extraEnv`; duplicate configuration is
+rejected. Once chart-managed enablement is deployed, remove any temporary Role
+and RoleBinding created for the Cronos experiment separately.
 
 **Script pod configuration**
 
