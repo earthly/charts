@@ -976,7 +976,7 @@ grafana:
   image:
     repository: "grafana/grafana"
     pullPolicy: IfNotPresent
-    tag: "13.1.6"
+    tag: "13.1.10"
   # lunar-dashboards provisioning tool: a run-to-completion image (entrypoint
   # deploy.sh) that installs plugins/datasources/dashboards over the Grafana API.
   # It resolves the target Grafana endpoint + a read-only DB connection from the
@@ -1081,7 +1081,7 @@ grafana:
       pullPolicy: IfNotPresent
       # Pinned tighter than a bare "1-alpine" so the exact build doesn't
       # drift per-node as upstream reslices that tag. Bump deliberately.
-      tag: "1.31.3-alpine"
+      tag: "1.31.8-alpine"
     resources: {}
     # securityContext for the kiosk sidecar. Separate from
     # grafana.securityContext since the nginx image runs as a different uid
