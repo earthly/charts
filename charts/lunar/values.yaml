@@ -1004,6 +1004,11 @@ grafana:
     # under a patch. Empty
     # renders nothing, so the Grafana pod template is unchanged.
     extraEnv: []
+    # Extra volumes mounted by the reconverge sidecar and provisioning Job.
+    # Useful for CA files and other provisioner inputs. Names must not collide
+    # with grafana.volumes or the chart's reserved volume names.
+    volumes: []
+    volumeMounts: []
     image:
       repository: "ghcr.io/earthly/lunar-dashboards"
       pullPolicy: IfNotPresent

@@ -135,8 +135,16 @@ spec:
             {{- with .Values.grafana.provisioning.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
+          {{- with .Values.grafana.provisioning.volumeMounts }}
+          volumeMounts:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           {{- with .Values.grafana.provisioning.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
+      {{- with .Values.grafana.provisioning.volumes }}
+      volumes:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
 {{- end }}

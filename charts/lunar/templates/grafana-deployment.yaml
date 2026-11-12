@@ -271,14 +271,20 @@ spec:
             {{- with .Values.grafana.provisioning.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
+          {{- with .Values.grafana.provisioning.volumeMounts }}
+          volumeMounts:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           {{- with .Values.grafana.provisioning.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-      {{- range .Values.grafana.volumes }}
-      {{- if or (eq .name "kiosk-config") (eq .name "kiosk-cache") (eq .name "kiosk-run") (eq .name "grafana-data") }}
-      {{- fail (printf "Values.grafana.volumes contains reserved name '%s'" .name) }}
+      {{- $volumeNames := list "kiosk-config" "kiosk-cache" "kiosk-run" "grafana-data" }}
+      {{- range concat (.Values.grafana.volumes | default list) (.Values.grafana.provisioning.volumes | default list) }}
+      {{- if has .name $volumeNames }}
+      {{- fail (printf "Grafana volume name '%s' is reserved or duplicated" .name) }}
       {{- end }}
+      {{- $volumeNames = append $volumeNames .name }}
       {{- end }}
       volumes:
         - name: kiosk-config
@@ -300,6 +306,9 @@ spec:
         {{- with .Values.grafana.volumes }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
+      {{- with .Values.grafana.provisioning.volumes }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       {{- with .Values.grafana.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

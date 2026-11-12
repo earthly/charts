@@ -13,6 +13,11 @@ history see `git log -- charts/lunar/`.
 
 ### Added
 
+- Optional `grafana.provisioning.volumes` and `volumeMounts` supply files
+  to both the provisioning Job and bundled reconverge sidecar. Defaults remain
+  empty; provisioning behavior is unchanged. Duplicate/reserved Grafana pod
+  volume names fail rendering.
+
 - Grant the operator core Events `list` in the script-pod namespace for image
   pull tracing. Image tracing follows normal tracing configuration and sampling,
   with no separate option or environment flag. Existing Events `create` / `patch`
