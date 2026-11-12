@@ -225,11 +225,15 @@ spec:
         # Reconverge sidecar — present in mode=chart (the only mode with a bundled
         # pod); chart mode always provisions, so it has no separate toggle.
         - name: provision-reconverge
+          {{- if eq .Values.grafana.provisioning.contentOwner "release" }}
+          # Plugins live in this pod; shared content belongs to the release Job.
+          {{- else }}
           # Re-applies plugins/datasources/dashboards on every pod start so the
           # Grafana pod is stateless/self-healing — a recreated pod (or lost
           # volume) converges back without waiting for the next Hub upgrade.
           # deploy.sh resolves the Grafana endpoint + read-only DB connection from
           # the Hub; GRAFANA_URL points at the Grafana container in this pod.
+          {{- end }}
           image: {{ include "lunar.provisioningImage" . | quote }}
           imagePullPolicy: {{ .Values.grafana.provisioning.image.pullPolicy }}
           {{- with .Values.grafana.provisioning.securityContext }}
@@ -246,8 +250,13 @@ spec:
               # deploy.sh's outcome.
               touch /tmp/reconverge-alive
               {{- include "lunar.waitForGrafana" . | nindent 14 }}
+              {{- if eq .Values.grafana.provisioning.contentOwner "release" }}
+              # Restart this container on failure so local plugins get retried.
+              /deploy.sh --plugins-only || exit $?
+              {{- else }}
               {{- include "lunar.waitForHub" . | nindent 14 }}
               /deploy.sh || echo "dashboards reconverge failed" >&2
+              {{- end }}
               # Idle so the Deployment treats this as a long-lived sidecar; it
               # re-applies on the next pod (re)start.
               tail -f /dev/null
@@ -264,10 +273,24 @@ spec:
           env:
             - name: GRAFANA_URL
               value: "http://localhost:3000"
+            {{- if eq .Values.grafana.provisioning.contentOwner "release" }}
+            - name: GRAFANA_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "lunar.grafanaAuthSecretName" . }}
+                  key: {{ .Values.grafana.auth.userKey }}
+            - name: GRAFANA_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "lunar.grafanaAuthSecretName" . }}
+                  key: {{ .Values.grafana.auth.passwordKey }}
+            {{- end }}
             {{- if .Values.grafana.provisioning.skipPlugins }}
             {{- include "lunar.grafanaProvisionSkipPlugins" . | nindent 12 }}
             {{- end }}
+            {{- if ne .Values.grafana.provisioning.contentOwner "release" }}
             {{- include "lunar.grafanaProvisionHubEnv" . | nindent 12 }}
+            {{- end }}
             {{- with .Values.grafana.provisioning.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}

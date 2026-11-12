@@ -991,6 +991,12 @@ grafana:
   # Hub). The read-only grafana_user DB password (dbPassword below) is
   # chart-generated — no operator config needed.
   provisioning:
+    # pod: full provisioning on pod start plus the release hook (SQLite-safe).
+    # release: pod-local plugins only; the release hook owns durable content
+    # and fails the release operation on error. Requires mode=chart, grafana.db.host,
+    # and a lunar-dashboards image supporting --plugins-only / --content-only.
+    # Serialize releases and recovery runs; this option adds no runtime lock.
+    contentOwner: pod
     # Skip the plugin-install step. Grafana fetches the panel plugins from
     # grafana.com, so set this if it has no egress there and you pre-installed
     # them yourself (GF_INSTALL_PLUGINS, a vendored .zip). Datasources and
@@ -999,7 +1005,7 @@ grafana:
     skipPlugins: false
     # Extra env for the containers that run the provisioning tool: the
     # provisioning Job and the reconverge sidecar in the Grafana pod. Don't
-    # repeat a name the chart already sets (GRAFANA_URL, SKIP_PLUGINS,
+    # repeat a name the chart already sets (GRAFANA_URL, GRAFANA_USER, GRAFANA_PASSWORD, SKIP_PLUGINS,
     # GRAFANA_RESOURCE_SUFFIX, LUNAR_HUB_*): a duplicated env name is ambiguous
     # under a patch. Empty
     # renders nothing, so the Grafana pod template is unchanged.

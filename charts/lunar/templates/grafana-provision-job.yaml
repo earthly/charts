@@ -7,7 +7,8 @@ external Grafana. When mode is chart, GRAFANA_URL points at the in-cluster Servi
 an external Grafana it is omitted and deploy.sh resolves the endpoint (URL + auth)
 from the Hub over gRPC. The read-only DB connection is always resolved from the Hub.
 
-Non-blocking: a failed provision is logged but exits 0 so it never fails/rolls back
+With contentOwner=release, this Job writes content only and propagates failures.
+Otherwise, a failed provision is logged but exits 0 so it never fails/rolls back
 the Hub upgrade — the Hub is the product, dashboards are a convenience, and the
 reconverge sidecar (chart pod) + next upgrade re-converge. hook-weight 5 runs it
 after the hub Deployment; an init container waits for the Hub's gRPC (and, for the
@@ -113,11 +114,15 @@ spec:
           command: ["/bin/sh", "-c"]
           args:
             - |
+              {{- if eq .Values.grafana.provisioning.contentOwner "release" }}
+              exec /deploy.sh --content-only
+              {{- else }}
               if /deploy.sh; then exit 0; fi
               # Non-blocking: log but exit 0 so a failed provision never fails/rolls
               # back the Hub upgrade; the sidecar + next upgrade re-converge.
               echo "grafana dashboard provisioning failed" >&2
               exit 0
+              {{- end }}
           env:
             {{- if eq .Values.grafana.mode "chart" }}
             # Chart's own pod (direct route): target the in-cluster Service (its
