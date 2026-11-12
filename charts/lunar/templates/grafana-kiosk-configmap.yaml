@@ -20,9 +20,18 @@ data:
         default "?kiosk";
     }
 
+    # Redirect to the path as the client sent it, still percent-encoded. $uri
+    # is decoded, so an encoded CR/LF in it would inject a response header.
+    # Leading slashes and backslashes (\x5c) collapse to one, so the target
+    # can't become //other-host.
+    map $request_uri $kiosk_path {
+        "~^[/\x5c]+(?<kiosk_path_rest>[^?]*)"  /$kiosk_path_rest;
+    }
+
     server {
         listen 8080;
         absolute_redirect off;
+        server_tokens off;
 
         location = / {
             if ($has_kiosk = 0) {
@@ -37,7 +46,7 @@ data:
 
         location ~ ^/(d|dashboard)/ {
             if ($has_kiosk = 0) {
-                return 302 $uri$is_args$args$kiosk_suffix;
+                return 302 $kiosk_path$is_args$args$kiosk_suffix;
             }
             proxy_pass http://localhost:3000;
             proxy_http_version 1.1;

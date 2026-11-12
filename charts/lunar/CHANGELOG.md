@@ -19,6 +19,15 @@ history see `git log -- charts/lunar/`.
   permissions remain in place. Requires an operator image with image pull tracing
   support.
 
+### Security
+
+- The Grafana kiosk sidecar no longer shows its nginx version in the `Server`
+  header or on error pages.
+- Fixed response header injection in the kiosk sidecar: an encoded line break
+  in a dashboard URL could add a header, such as `Set-Cookie`, to its redirect.
+- The bundled Grafana is upgraded from 13.1.6 to 13.1.10, and the kiosk
+  sidecar's nginx from 1.31.3 to 1.31.8, for their security fixes.
+
 ## [4.14.0] - 2026-11-03
 
 ### Added

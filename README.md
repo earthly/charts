@@ -993,7 +993,7 @@ Pre-built Grafana instance with dashboards for policy results, component health,
 | `grafana.mode` | How Grafana is provided: `chart` (bundled pod + dashboards), `external` (bring-your-own Grafana + dashboards), `external-manual` (same as `external`, but the chart renders no provisioning Job — you run the tool yourself; see [Provisioning dashboards from outside the cluster](#provisioning-dashboards-from-outside-the-cluster)), or `"off"` (neither — quote it, a bare `off` is a YAML boolean) | `chart` |
 | `grafana.url` | URL where Grafana is reachable (was `grafana.externalURL`). Drives `GF_SERVER_ROOT_URL` (Grafana's self-knowledge — used for OIDC `redirect_uri`, absolute link rendering, etc) and `HUB_GRAFANA_URL_BASE` (`[More Details]` links in PR comments). In `chart` mode defaults to `https://<grafana.ingress.hosts[0].host>` when chart-managed Grafana ingress is enabled (else required); in `external` mode it's required (the external target). Install fails fast if unset when required. | `""` (derived) |
 | `grafana.image.repository` | Grafana server image. Stock upstream Grafana — Lunar's plugins, datasources and dashboards are installed into it over the API by the provisioning tool below, not baked into a custom server image | `grafana/grafana` |
-| `grafana.image.tag` | Image tag | `13.1.6` |
+| `grafana.image.tag` | Image tag | `13.1.10` |
 | `grafana.auth.secretName` | Grafana credentials (was `grafana.admin`). `chart` mode: admin login — empty = chart auto-generates `<release>-grafana-admin` (kept across uninstall). `external` mode: **required** — the secret the Hub authenticates to your Grafana with | `""` |
 | `grafana.auth.userKey` | Key within the secret holding the username (basic auth) | `username` |
 | `grafana.auth.passwordKey` | Key within the secret holding the password (basic auth) | `password` |
@@ -1020,7 +1020,7 @@ Pre-built Grafana instance with dashboards for policy results, component health,
 | `grafana.dataVolume.type` / `.emptyDir` | Storage mounted at `/var/lib/grafana` (Grafana's SQLite database, installed plugins, sessions). `emptyDir` preserves it across container restarts within one pod; a replacement pod starts fresh and is re-provisioned by the sidecar. `none` mounts nothing, for installations that already mount the path through `grafana.volumeMounts`. `.emptyDir` accepts the Kubernetes `emptyDir` options, but do not set `medium: Memory`: its contents would count against pod memory and increase OOM risk. The generated volume is named `grafana-data` (reserved in `grafana.volumes`) | `emptyDir` / `{}` |
 | `grafana.resources` | CPU/memory requests and limits for the Grafana server container | `{}` |
 | `grafana.securityContext` | securityContext for the Grafana server container | `{}` |
-| `grafana.kiosk.image.repository` / `grafana.kiosk.image.tag` | Image for the kiosk sidecar (the nginx proxy that injects `?kiosk` into dashboard URLs) | `nginx` / `1.31.3-alpine` |
+| `grafana.kiosk.image.repository` / `grafana.kiosk.image.tag` | Image for the kiosk sidecar (the nginx proxy that injects `?kiosk` into dashboard URLs) | `nginx` / `1.31.8-alpine` |
 | `grafana.kiosk.resources` | CPU/memory requests and limits for the kiosk sidecar | `{}` |
 | `grafana.kiosk.securityContext` | securityContext for the kiosk sidecar — separate from `grafana.securityContext` since it runs as a different uid | `{}` |
 | `grafana.nodeSelector` | Node selector | `{}` |
