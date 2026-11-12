@@ -523,6 +523,48 @@ and route `/oauth` on `grafana.url`'s host to the Hub's HTTP port (`8001`).
 The browser legs must live on Grafana's own origin — the sign-in rides a
 cookie set there — so `/oauth` cannot be served from the Hub's API host.
 
+### Release-owned content with a durable Grafana backend
+
+For bundled Grafana backed by Postgres, set
+`grafana.provisioning.contentOwner: release` to separate pod-local plugins from
+shared content. This requires `grafana.mode: chart`, a configured `grafana.db`,
+and a `lunar-dashboards` image supporting `--plugins-only` and `--content-only`.
+Deploy the compatible tool image before enabling this option. Older tools ignore
+these arguments and would still write content from each pod.
+
+Each Grafana pod installs plugins against `localhost:3000`, using the configured
+Grafana admin Secret directly. It does not contact Hub or request a datasource
+connection. A failed plugin installation restarts the provisioning container to
+retry. `skipPlugins: true` still supports plugins installed out of band.
+
+The post-install/post-upgrade Job waits for Grafana and Hub, then applies Lunar's
+datasources, folder, dashboards and existing organization preferences through the
+Grafana API. It does not install plugins. Pod readiness does not wait for this
+content Job. Grafana itself continues to own its database schema migrations.
+
+Content failures fail the Helm operation; they do not undo API writes already
+made. Failed Jobs are retained for diagnosis. After fixing the cause, rerun the
+content Job with the installed release's image and configuration, or perform an
+actual Helm upgrade. A no-change Terraform apply may not invoke Helm and cannot
+be relied on to retry the hook. Reapplying content updates Lunar's known objects
+without pruning separate custom objects. Pod replacement does not repair shared
+content, so recovery requires an explicit content run.
+
+Serialize releases and recovery runs for each tenant. There is no runtime SQL
+lock or exactly-once guarantee. On the first switch, stop the old Grafana pods
+and wait for their full-provisioning containers to terminate before enabling
+release ownership. This manual cutover can interrupt Grafana; it prevents old
+writers from overlapping the new content Job. New installs need no such step.
+Avoid concurrent manual runs and old-version writers. Rollback restores the old
+ownership behavior; do not overlap it with a content sync. Database backup and
+Grafana image/schema compatibility remain operator responsibilities.
+
+The default, `contentOwner: pod`, retains full pod-start provisioning and the
+best-effort release Job. Keep it for ephemeral SQLite, which loses content with
+its pod. External and external-manual Grafana retain their existing behavior.
+This option does not provision a database, rotate an existing admin password, or
+provide a deployment/recovery workflow.
+
 ### Provisioning dashboards from outside the cluster
 
 Normally the chart installs Lunar's dashboards for you: a post-install/post-upgrade
@@ -1011,8 +1053,9 @@ Pre-built Grafana instance with dashboards for policy results, component health,
 | `grafana.extraEnv` | Additional environment variables | `[]` |
 | `grafana.replicaCount` | Number of Grafana replicas. Requires `grafana.db.host` (below) when > 1 — install fails fast otherwise, since the default per-pod SQLite backend can't be shared across replicas | `1` |
 | `grafana.db` | Grafana's own backend store (sessions, orgs, annotations — NOT the read-only dashboard datasource, see `grafana.provisioning.dbPassword`). Empty keeps the built-in SQLite (single-replica only); set `host`/`port`/`name`/`sslMode` plus `user`/`pass` secret refs (`{secretName, secretKey}` — see values.yaml for the full shape) to point it at Postgres and share state across replicas | `{}` |
+| `grafana.provisioning.contentOwner` | `pod` keeps full pod-start provisioning and a best-effort release hook. `release` installs plugins per pod and applies shared content only in the release hook, propagating failures. Requires bundled Postgres-backed Grafana, a compatible provisioning image and serialized release/recovery runs; see the lifecycle section above | `pod` |
 | `grafana.provisioning.skipPlugins` | Skip the plugin-install step. Installing a plugin makes **Grafana** fetch it from `grafana.com`; a Grafana without that egress must pre-install the three panel plugins out of band (`GF_INSTALL_PLUGINS`, a vendored `.zip`, or an internal catalog mirror) and set this. Also the escape hatch when the credential can't install plugins at all — an org-scoped service-account token cannot hold `plugins:install`. Datasources and dashboards still deploy. In `external-manual` mode the chart runs nothing to set it on, so it only adds `-e SKIP_PLUGINS=true` to the command `NOTES.txt` prints | `false` |
-| `grafana.provisioning.extraEnv` | Extra env (`[{name, value}]`, `valueFrom` allowed) for the containers that run the provisioning tool: the provisioning Job and the reconverge sidecar. Don't repeat a name the chart sets (`GRAFANA_URL`, `SKIP_PLUGINS`, `GRAFANA_RESOURCE_SUFFIX`, `LUNAR_HUB_*`). Not applied in `external-manual` mode, where you run the tool yourself | `[]` |
+| `grafana.provisioning.extraEnv` | Extra env (`[{name, value}]`, `valueFrom` allowed) for the containers that run the provisioning tool: the provisioning Job and the reconverge sidecar. Don't repeat a name the chart sets (`GRAFANA_URL`, `GRAFANA_USER`, `GRAFANA_PASSWORD`, `SKIP_PLUGINS`, `GRAFANA_RESOURCE_SUFFIX`, `LUNAR_HUB_*`). Not applied in `external-manual` mode, where you run the tool yourself | `[]` |
 | `grafana.provisioning.image.repository` / `.tag` | The provisioning tool image. Private — a manual run authenticates with `lunar licence registry-token ... | docker login ghcr.io -u earthly-bot --password-stdin`. Tag defaults to `hub.image.tag` so dashboards match the running Hub's schema | `ghcr.io/earthly/lunar-dashboards` / `""` (hub tag) |
 | `grafana.provisioning.dbPassword.mode` | How the password for the read-only `grafana_user` DB role backing the dashboard datasource is supplied — `generate` (the chart creates a random one and keeps it), `secret` (read from a Secret you manage), or `unmanaged` (you pre-created the role and own its password; the migration never changes it). Use `unmanaged` when the Hub's DB role has no `CREATEROLE`, as for `hub.db.sqlapiPassword` | `generate` |
 | `grafana.provisioning.dbPassword.secretName` / `.passwordKey` | Secret holding the password. Required for `secret` and `unmanaged` — in `unmanaged` the Hub still hands the password to the datasource, so it must match the role. With `generate`, a `secretName` is read instead of generating (the shape before `mode` existed). Setting `HUB_GRAFANA_DB_PASSWORD` in `hub.extraEnv` fails the render; point these values at the same Secret instead. A password you supply must be letters and digits only: the Hub puts it in a `postgres://` URL without percent-encoding | `""` / `password` |

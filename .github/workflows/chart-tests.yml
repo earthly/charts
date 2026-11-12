@@ -1,0 +1,20 @@
+name: Chart tests
+
+on:
+  pull_request:
+    paths:
+      - charts/lunar/**
+      - scripts/test-grafana-lifecycle.py
+      - .github/workflows/chart-tests.yml
+
+permissions:
+  contents: read
+
+jobs:
+  grafana-lifecycle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: azure/setup-helm@v4
+      - run: python3 -m pip install PyYAML==6.0.3
+      - run: python3 scripts/test-grafana-lifecycle.py

@@ -13,6 +13,13 @@ history see `git log -- charts/lunar/`.
 
 ### Added
 
+- Opt-in `grafana.provisioning.contentOwner: release` for bundled Postgres-backed
+  Grafana: pods install only local plugins and the post-release hook owns shared
+  content, reporting failures to Helm. The default `pod` retains existing SQLite
+  and external behavior. Requires a tool image supporting `--plugins-only` and
+  `--content-only`, and serialized release/recovery runs. No SQL lock or new
+  provisioner volume mounts. This additive value requires a chart minor release.
+
 - Grant the operator core Events `list` in the script-pod namespace for image
   pull tracing. Image tracing follows normal tracing configuration and sampling,
   with no separate option or environment flag. Existing Events `create` / `patch`
