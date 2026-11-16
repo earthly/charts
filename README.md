@@ -534,8 +534,11 @@ these arguments and would still write content from each pod.
 
 Each Grafana pod installs plugins against `localhost:3000`, using the configured
 Grafana admin Secret directly. It does not contact Hub or request a datasource
-connection. A failed plugin installation restarts the provisioning container to
-retry. `skipPlugins: true` still supports plugins installed out of band.
+connection. A failed plugin installation is logged and retried every 30 seconds
+inside the running sidecar, without restarting it or making the pod unready.
+Retries stop after installation succeeds. Grafana remains available while plugins
+are missing, but panels that need them may not work until installation succeeds.
+`skipPlugins: true` still supports plugins installed out of band.
 
 The post-install/post-upgrade Job waits for Grafana and Hub, then applies Lunar's
 datasources, folder, dashboards and existing organization preferences through the

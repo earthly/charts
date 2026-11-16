@@ -251,8 +251,12 @@ spec:
               touch /tmp/reconverge-alive
               {{- include "lunar.waitForGrafana" . | nindent 14 }}
               {{- if eq .Values.grafana.provisioning.contentOwner "release" }}
-              # Restart this container on failure so local plugins get retried.
-              /deploy.sh --plugins-only || exit $?
+              # Retry without exiting: restarting this container would make
+              # the whole pod NotReady while Grafana itself can still serve.
+              until /deploy.sh --plugins-only; do
+                echo "plugin install failed; retrying in 30s" >&2
+                sleep 30
+              done
               {{- else }}
               {{- include "lunar.waitForHub" . | nindent 14 }}
               /deploy.sh || echo "dashboards reconverge failed" >&2

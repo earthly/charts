@@ -6,6 +6,8 @@ Requires helm and PyYAML. Run: python3 scripts/test-grafana-lifecycle.py
 
 from pathlib import Path
 import os
+import select
+import signal
 import subprocess
 import tempfile
 import unittest
@@ -66,7 +68,7 @@ class GrafanaLifecycleTest(unittest.TestCase):
         self.assertIn("secretKeyRef", env["GRAFANA_USER"]["valueFrom"])
         self.assertIn("secretKeyRef", env["GRAFANA_PASSWORD"]["valueFrom"])
         self.assertFalse(any(k.startswith("LUNAR_HUB_") for k in env))
-        self.assertIn("/deploy.sh --plugins-only || exit $?", sidecar["args"][0])
+        self.assertIn("until /deploy.sh --plugins-only; do", sidecar["args"][0])
         self.assertNotIn("grpcurl", sidecar["args"][0])
         self.assertEqual(sidecar["readinessProbe"]["exec"]["command"], ["test", "-f", "/tmp/reconverge-alive"])
         spec = job["spec"]["template"]["spec"]
@@ -91,20 +93,68 @@ class GrafanaLifecycleTest(unittest.TestCase):
         env = {e["name"]: e for e in sidecar["env"]}
         self.assertEqual(env["SKIP_PLUGINS"]["value"], "true")
 
-    def test_plugin_sidecar_restarts_on_failure(self):
+    def test_plugin_sidecar_retries_until_success_then_idles(self):
         sidecar, _ = containers(self.docs(db=DB, provisioning={"contentOwner": "release"}))
         with tempfile.TemporaryDirectory() as tmp:
             work = Path(tmp)
-            for name, body in {"curl": "exit 0", "tail": "echo idle", "deploy.sh": "exit 37"}.items():
+            for name, body in {
+                "curl": "exit 0",
+                "tail": "echo idle",
+                "deploy.sh": '''[ "$1" = --plugins-only ] || exit 98
+echo "$PPID" >>"$TEST_WORK/attempts"
+[ "$(wc -l <"$TEST_WORK/attempts")" -ge 3 ]''',
+                # Check the readiness marker while installation is failing, and
+                # record the requested delay without slowing down the test.
+                "sleep": '''test -f "$TEST_WORK/alive" || exit 97
+echo "$1" >>"$TEST_WORK/delays"''',
+            }.items():
+                path = work / name
+                path.write_text("#!/bin/sh\n" + body + "\n")
+                path.chmod(0o755)
+            command = sidecar["args"][0].replace("/deploy.sh", str(work / "deploy.sh"))
+            command = command.replace("/tmp/reconverge-alive", str(work / "alive"))
+            env = {**os.environ, "PATH": f"{work}:{os.environ['PATH']}", "TEST_WORK": str(work)}
+            result = subprocess.run(["sh", "-c", command], env=env, capture_output=True, text=True, timeout=5)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout.count("idle"), 1)
+            self.assertEqual(result.stderr.count("plugin install failed; retrying in 30s"), 2)
+            attempts = (work / "attempts").read_text().splitlines()
+            self.assertEqual(len(attempts), 3)
+            self.assertEqual(len(set(attempts)), 1, "retries must run under the same shell")
+            self.assertEqual((work / "delays").read_text().splitlines(), ["30", "30"])
+
+    def test_persistent_plugin_failure_keeps_sidecar_alive_and_ready(self):
+        sidecar, _ = containers(self.docs(db=DB, provisioning={"contentOwner": "release"}))
+        with tempfile.TemporaryDirectory() as tmp:
+            work = Path(tmp)
+            for name, body in {"curl": "exit 0", "deploy.sh": "exit 37"}.items():
                 path = work / name
                 path.write_text("#!/bin/sh\n" + body + "\n")
                 path.chmod(0o755)
             command = sidecar["args"][0].replace("/deploy.sh", str(work / "deploy.sh"))
             command = command.replace("/tmp/reconverge-alive", str(work / "alive"))
             env = {**os.environ, "PATH": f"{work}:{os.environ['PATH']}"}
-            result = subprocess.run(["sh", "-c", command], env=env, capture_output=True, text=True, timeout=5)
-            self.assertEqual(result.returncode, 37)
-            self.assertNotIn("idle", result.stdout)
+            process = subprocess.Popen(["sh", "-c", command], env=env, stdout=subprocess.PIPE,
+                                       stderr=subprocess.PIPE, text=True, start_new_session=True)
+            try:
+                readable, _, _ = select.select([process.stderr], [], [], 5)
+                self.assertTrue(readable, "sidecar did not report its failed attempt")
+                self.assertIn("plugin install failed; retrying in 30s", process.stderr.readline())
+                # A permanently failing provisioner must leave its container
+                # running, rather than exit and make Kubernetes withdraw the pod.
+                with self.assertRaises(subprocess.TimeoutExpired):
+                    process.communicate(timeout=0.1)
+                self.assertIsNone(process.poll())
+                probe = [arg.replace("/tmp/reconverge-alive", str(work / "alive"))
+                         for arg in sidecar["readinessProbe"]["exec"]["command"]]
+                self.assertEqual(subprocess.run(probe).returncode, 0)
+            finally:
+                try:
+                    os.killpg(process.pid, signal.SIGTERM)
+                except ProcessLookupError:
+                    pass
+                stdout, _ = process.communicate(timeout=5)
+            self.assertNotIn("idle", stdout)
 
     def test_invalid_ownership_and_nondurable_modes_are_rejected(self):
         for grafana in (
