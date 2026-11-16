@@ -775,6 +775,13 @@ Validate the Grafana configuration:
 {{- fail "grafana.admin was renamed to grafana.auth in chart 3.0.0 (same secretName/userKey/passwordKey, plus an optional tokenKey for external Grafana). Rename grafana.admin -> grafana.auth." -}}
 {{- end -}}
 {{- $mode := .Values.grafana.mode -}}
+{{- $contentOwner := .Values.grafana.provisioning.contentOwner -}}
+{{- if not (has $contentOwner (list "pod" "release")) -}}
+{{- fail "grafana.provisioning.contentOwner must be pod | release" -}}
+{{- end -}}
+{{- if and (eq $contentOwner "release") (or (ne $mode "chart") (not .Values.grafana.db.host)) -}}
+{{- fail "grafana.provisioning.contentOwner=release requires grafana.mode=chart and grafana.db.host (a durable Postgres backend); keep pod ownership for SQLite and external Grafana" -}}
+{{- end -}}
 {{- if not (has $mode (list "chart" "external" "external-manual" "off")) -}}
 {{- fail (printf "grafana.mode must be one of chart | external | external-manual | off (got %q). external-manual is external with the dashboard provisioning left to you — see the chart README." $mode) -}}
 {{- end -}}
