@@ -28,6 +28,14 @@ history see `git log -- charts/lunar/`.
   permissions remain in place. Requires an operator image with image pull tracing
   support.
 
+### Changed
+
+- Hooks that omit `clone_depth` now check out only the commit under test by
+  default. Set `hub.snippetDefaultCloneDepth: full` to keep full history as the
+  installation default. Use `clone_depth: full` on individual hooks that read
+  older history. A matching `hub.extraEnv` entry continues to take precedence
+  over the Helm value.
+
 ### Security
 
 - The Grafana kiosk sidecar no longer shows its nginx version in the `Server`

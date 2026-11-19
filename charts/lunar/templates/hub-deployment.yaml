@@ -5,7 +5,7 @@
 {{- include "lunar.validateSQLAPIPassword" . }}
 {{- include "lunar.validateGrafanaDBPassword" . }}
 {{- include "lunar.validateGrafanaSSO" . }}
-{{- $cloneDepth := "full" -}}
+{{- $cloneDepth := "shallow" -}}
 {{- if hasKey .Values.hub "snippetDefaultCloneDepth" -}}
 {{- $cloneDepth = .Values.hub.snippetDefaultCloneDepth -}}
 {{- end -}}
