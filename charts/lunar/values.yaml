@@ -521,7 +521,7 @@ hub:
   # base: also fetch base/default branch tips and deepen to their merge bases.
   # A hook's clone_depth always wins. Existing HUB_SNIPPET_DEFAULT_CLONE_DEPTH
   # entries in extraEnv take precedence over this value.
-  snippetDefaultCloneDepth: full
+  snippetDefaultCloneDepth: shallow
   extraEnv: []
   image:
     repository: "ghcr.io/earthly/lunar-hub"
