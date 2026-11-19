@@ -37,6 +37,16 @@ history see `git log -- charts/lunar/`.
 - The bundled Grafana is upgraded from 13.1.6 to 13.1.10, and the kiosk
   sidecar's nginx from 1.31.3 to 1.31.8, for their security fixes.
 
+## [5.1.1] - 2026-11-19
+
+### Security
+
+- Upgrade the Grafana kiosk sidecar from nginx 1.31.8 to 1.31.9, fixing
+  CVE-2026-123007, CVE-2026-123633, CVE-2026-123634, CVE-2026-121810,
+  and CVE-2026-113425 (NGINX2Root). The bundled kiosk configuration does not
+  enable HTTP/2, HTTP/3, request-time DNS resolution, or mail proxying.
+  See the [nginx security advisories](https://nginx.org/en/security_advisories.html).
+
 ## [4.14.0] - 2026-11-03
 
 ### Added

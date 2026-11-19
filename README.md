@@ -1066,7 +1066,7 @@ Pre-built Grafana instance with dashboards for policy results, component health,
 | `grafana.dataVolume.type` / `.emptyDir` | Storage mounted at `/var/lib/grafana` (Grafana's SQLite database, installed plugins, sessions). `emptyDir` preserves it across container restarts within one pod; a replacement pod starts fresh and is re-provisioned by the sidecar. `none` mounts nothing, for installations that already mount the path through `grafana.volumeMounts`. `.emptyDir` accepts the Kubernetes `emptyDir` options, but do not set `medium: Memory`: its contents would count against pod memory and increase OOM risk. The generated volume is named `grafana-data` (reserved in `grafana.volumes`) | `emptyDir` / `{}` |
 | `grafana.resources` | CPU/memory requests and limits for the Grafana server container | `{}` |
 | `grafana.securityContext` | securityContext for the Grafana server container | `{}` |
-| `grafana.kiosk.image.repository` / `grafana.kiosk.image.tag` | Image for the kiosk sidecar (the nginx proxy that injects `?kiosk` into dashboard URLs) | `nginx` / `1.31.8-alpine` |
+| `grafana.kiosk.image.repository` / `grafana.kiosk.image.tag` | Image for the kiosk sidecar (the nginx proxy that injects `?kiosk` into dashboard URLs) | `nginx` / `1.31.9-alpine` |
 | `grafana.kiosk.resources` | CPU/memory requests and limits for the kiosk sidecar | `{}` |
 | `grafana.kiosk.securityContext` | securityContext for the kiosk sidecar — separate from `grafana.securityContext` since it runs as a different uid | `{}` |
 | `grafana.nodeSelector` | Node selector | `{}` |
