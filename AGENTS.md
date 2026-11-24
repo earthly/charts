@@ -41,8 +41,11 @@ README.md             # repo-level README
 2. The `bump-and-pr.yml` workflow here is triggered (`workflow_dispatch`) with
    `version=X.Y.Z`.
 3. `bump-and-pr.yml` bumps `charts/lunar/Chart.yaml` `version` plus all the
-   `*.image.tag` fields in `values.yaml`, pushes a `release/X.Y.Z` branch,
-   opens a PR, and enables auto-merge (squash).
+   `*.image.tag` fields in `values.yaml`, runs
+   `scripts/test-grafana-lifecycle.py` against the bumped chart, pushes a
+   `release/X.Y.Z` branch, opens a PR, and enables auto-merge (squash). The
+   test runs in the bump job because the PR is opened with `GITHUB_TOKEN`, so
+   the PR's own `Chart tests` run waits for a maintainer's "Approve and run".
 4. On merge to `main`, `release.yml` (the `Release Charts` workflow) runs
    `chart-releaser-action`, which packages the chart and publishes the tag
    (`lunar-X.Y.Z`) + GitHub Release.
