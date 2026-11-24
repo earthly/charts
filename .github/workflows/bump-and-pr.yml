@@ -35,6 +35,15 @@ jobs:
           # lunar-tagged image. Dashboards/datasources/plugins are installed by the
           # lunar-dashboards provisioning tool, whose tag follows hub.image.tag.
 
+      # The release PR is opened with GITHUB_TOKEN, so its own "Chart tests" run
+      # waits for a maintainer's approval and can be merged past. Test the
+      # bumped chart here, before any branch or PR exists.
+      - uses: azure/setup-helm@v4
+      - name: Test the bumped chart
+        run: |
+          python3 -m pip install PyYAML==6.0.3
+          python3 scripts/test-grafana-lifecycle.py
+
       - name: Push release branch and open PR
         env:
           VERSION: ${{ inputs.version }}
