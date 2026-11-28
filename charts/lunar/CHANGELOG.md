@@ -13,6 +13,14 @@ history see `git log -- charts/lunar/`.
 
 ### Added
 
+- `grafana.sso.extraRedirectURIs`: more URIs the Hub may send a signed-in
+  browser back to, appended after Grafana's own callback in
+  `HUB_UI_OAUTH_REDIRECT_URIS`. It lets another UI sign people in through the
+  Hub as the `lunar-grafana` client, such as the Lunar web UI at
+  `https://<host>/auth/callback`. Each entry must be an absolute http(s) URL
+  without commas or spaces, or the render fails. The default `[]` leaves the
+  rendered Hub environment unchanged.
+
 - Opt-in `grafana.provisioning.contentOwner: release` for bundled Postgres-backed
   Grafana: pods install only local plugins and the post-release hook owns shared
   content, reporting failures to Helm. Local plugin failures retry every 30 seconds

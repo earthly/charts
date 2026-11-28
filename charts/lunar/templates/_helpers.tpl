@@ -438,8 +438,14 @@ would only be one more thing to keep equal on both sides.
   value: "lunar-grafana"
 - name: HUB_UI_OAUTH_CLIENT_SECRET_PATH
   value: {{ printf "/secrets/grafana-sso/%s" $sso.clientSecret.secretKey | quote }}
+{{- $redirects := prepend ($sso.extraRedirectURIs | default list) (printf "%s/login/generic_oauth" $grafanaURL) }}
+{{- range $sso.extraRedirectURIs | default list }}
+{{- if not (regexMatch "^https?://[^,[:space:]]+$" .) }}
+{{- fail (printf "grafana.sso.extraRedirectURIs: %q must be an absolute http(s) URL without commas or spaces" .) }}
+{{- end }}
+{{- end }}
 - name: HUB_UI_OAUTH_REDIRECT_URIS
-  value: {{ printf "%s/login/generic_oauth" $grafanaURL | quote }}
+  value: {{ join "," $redirects | quote }}
 {{- with $sso.provider }}
 - name: HUB_UI_OAUTH_PROVIDER
   value: {{ . | quote }}
