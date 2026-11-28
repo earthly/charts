@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render Grafana ownership modes and exercise the rendered failure behavior.
+"""Render Grafana ownership modes and sign-in settings, and exercise the rendered failure behavior.
 
 Requires helm and PyYAML. Run: python3 scripts/test-grafana-lifecycle.py
 """
@@ -26,8 +26,10 @@ DB = {
 }
 
 
-def render(**grafana):
+def render(hub=None, **grafana):
     values = {**BASE, "grafana": {**BASE["grafana"], **grafana}}
+    if hub:
+        values["hub"] = {**BASE["hub"], **hub}
     with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml") as file:
         yaml.safe_dump(values, file)
         file.flush()
@@ -179,6 +181,45 @@ echo "$1" >>"$TEST_WORK/delays"''',
                 if jobs:
                     command = jobs[0]["spec"]["template"]["spec"]["containers"][0]["args"][0]
                     self.assertIn("if /deploy.sh; then exit 0; fi", command)
+
+
+# grafana.sso needs these from the Hub's configuration before it renders.
+SSO_HUB = {"extraEnv": [
+    {"name": "HUB_AUTH_SESSION_KEY_PATH", "value": "/secrets/session/key"},
+    {"name": "HUB_AUTH_OAUTH_APPS", "value": '[{"forge":"github","client_id":"x"}]'},
+]}
+
+
+def hub_env(docs, name):
+    pod = resource(docs, "Deployment", "lunar-hub")["spec"]["template"]["spec"]
+    hub = next(c for c in pod["containers"] if c["name"] == "lunar")
+    return next(e["value"] for e in hub["env"] if e["name"] == name)
+
+
+class GrafanaSSORedirectTest(unittest.TestCase):
+    def render(self, **sso):
+        return render(hub=SSO_HUB, sso={"enabled": True, **sso})
+
+    def redirects(self, **sso):
+        result = self.render(**sso)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return hub_env(list(yaml.safe_load_all(result.stdout)), "HUB_UI_OAUTH_REDIRECT_URIS")
+
+    def test_grafana_callback_alone_by_default(self):
+        self.assertEqual(self.redirects(), "http://grafana.example.com/login/generic_oauth")
+
+    def test_extra_uris_follow_grafana_callback(self):
+        self.assertEqual(
+            self.redirects(extraRedirectURIs=["https://grafana.example.com/auth/callback", "http://localhost:8091/auth/callback"]),
+            "http://grafana.example.com/login/generic_oauth,"
+            "https://grafana.example.com/auth/callback,http://localhost:8091/auth/callback")
+
+    def test_unusable_extra_uris_are_rejected(self):
+        for uri in ("grafana.example.com/auth/callback", "https://a.example.com/x,https://b", "https://a b"):
+            with self.subTest(uri=uri):
+                result = self.render(extraRedirectURIs=[uri])
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("grafana.sso.extraRedirectURIs", result.stderr)
 
 
 if __name__ == "__main__":

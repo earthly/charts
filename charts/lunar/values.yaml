@@ -968,6 +968,11 @@ grafana:
     # for an operator reaching Grafana by port-forward, where the sign-in
     # cannot complete because it ends on grafana.url, not on localhost.
     loginForm: false
+    # More URIs the Hub may send a signed-in browser back to, besides Grafana's
+    # own callback (<grafana.url>/login/generic_oauth): another UI that signs
+    # people in through the Hub as the lunar-grafana client, such as the Lunar
+    # web UI's https://<host>/auth/callback. Exact, absolute http(s) URLs.
+    extraRedirectURIs: []
   extraEnv: []
   # Stock upstream Grafana — no Lunar-built/derived image (avoids the AGPL
   # implications and maintenance of shipping a modified Grafana). Plugins,

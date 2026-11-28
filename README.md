@@ -1049,6 +1049,7 @@ Pre-built Grafana instance with dashboards for policy results, component health,
 | `grafana.sso.forgeApp.clientId` | A confidential OAuth application of the UI's own, instead of sharing the `lunar login` app (what spares GitLab users the authorization page on every sign-in). Redirect URI `<grafana.url>/oauth/callback`, scope `read_user` | `""` |
 | `grafana.sso.forgeApp.secretName` / `secretKey` | Secret holding that application's secret. Required with `clientId` | `""` / `client-secret` |
 | `grafana.sso.loginForm` | Keep Grafana's password form under the SSO button, for whoever holds the admin secret: the way in by `kubectl port-forward`, where the sign-in cannot complete. Shows only on `/login?disableAutoLogin` | `false` |
+| `grafana.sso.extraRedirectURIs` | More URIs the Hub may send a signed-in browser back to, after Grafana's own `<grafana.url>/login/generic_oauth`: another UI that signs people in through the Hub as the `lunar-grafana` client, such as the Lunar web UI's `https://<host>/auth/callback`. Exact, absolute http(s) URLs | `[]` |
 | `grafana.sso.clientSecret.secretName` / `secretKey` | The secret Grafana presents to the Hub (client id is always `lunar-grafana`). Empty = chart-generated `<release>-grafana-sso`, kept across uninstall; in external modes read it back to configure your Grafana | `""` / `client-secret` |
 | `grafana.service.type` | Service type | `ClusterIP` |
 | `grafana.service.port` | Service port | `80` |
